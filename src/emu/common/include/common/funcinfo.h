@@ -15,10 +15,10 @@ namespace eka2l1::common {
     struct function_info : public function_info<decltype(&func::operator())> {};
 
     /**
-    * Partial specialization for function types.
-    *
-    * This is used as the supporting base for all other specializations.
-    */
+     * Partial specialization for function types.
+     *
+     * This is used as the supporting base for all other specializations.
+     */
     template <typename R, typename... Args>
     struct function_info<R(Args...)> {
         static constexpr size_t args_count = sizeof...(Args);

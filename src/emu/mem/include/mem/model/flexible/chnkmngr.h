@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -45,10 +45,12 @@ namespace eka2l1::mem::flexible {
          */
         flexible_mem_model_chunk *new_chunk(control_base *control, const asid id);
 
+        bool contains(const flexible_mem_model_chunk *chunk) const;
+
         /**
          * @brief       Destroy an allocated chunk.
          * @param       chunk       Pointer to the chunk to destroy.
-         * 
+         *
          * @returns     True on success.
          */
         bool destroy(flexible_mem_model_chunk *chunk);

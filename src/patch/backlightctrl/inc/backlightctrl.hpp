@@ -21,45 +21,44 @@
 
 class MBackLightControlObserver;
 
-class CBackLightControl: public CBase
-{
-  public:
-    enum TBackLightType
-    {
-      EBackLightTypeScreen=0,
-      EBackLightTypeKeys,
-      EBackLightTypeBoth
+class CBackLightControl : public CBase {
+public:
+    enum TBackLightType {
+        EBackLightTypeScreen = 0,
+        EBackLightTypeKeys,
+        EBackLightTypeBoth
     };
-    enum TBackLightState
-    {
-      EBackLightStateOn=0,
-      EBackLightStateOff,
-      EBackLightStateBlink,
-      EBackLightStateUnknown
+    enum TBackLightState {
+        EBackLightStateOn = 0,
+        EBackLightStateOff,
+        EBackLightStateBlink,
+        EBackLightStateUnknown
     };
-  public:
-    virtual TInt BackLightOn(TInt aType,TUint16 aDuration)=0;
-    virtual TInt BackLightBlink(TInt aType,TUint16 aDuration,TUint16 aOnTime,TUint16 aOffTime)=0;
-    virtual TInt BackLightOff(TInt aType,TUint16 aDuration)=0;
-    virtual TInt BackLightChange(TInt aType,TUint16 aDuration)=0;
-    virtual TInt BackLightState(TInt aType)=0;
-    virtual TInt SetScreenBrightness(TInt aState,TUint16 aDuration)=0;
-    virtual TInt ScreenBrightness(void)=0;
-  public:
-    EXPORT_C static CBackLightControl* NewL(void);
-    EXPORT_C static CBackLightControl* NewL(MBackLightControlObserver* aCallback);
-    EXPORT_C static CBackLightControl* NewLC(MBackLightControlObserver* aCallback);
+
+public:
+    virtual TInt BackLightOn(TInt aType, TUint16 aDuration) = 0;
+    virtual TInt BackLightBlink(TInt aType, TUint16 aDuration, TUint16 aOnTime, TUint16 aOffTime) = 0;
+    virtual TInt BackLightOff(TInt aType, TUint16 aDuration) = 0;
+    virtual TInt BackLightChange(TInt aType, TUint16 aDuration) = 0;
+    virtual TInt BackLightState(TInt aType) = 0;
+    virtual TInt SetScreenBrightness(TInt aState, TUint16 aDuration) = 0;
+    virtual TInt ScreenBrightness(void) = 0;
+
+public:
+    EXPORT_C static CBackLightControl *NewL(void);
+    EXPORT_C static CBackLightControl *NewL(MBackLightControlObserver *aCallback);
+    EXPORT_C static CBackLightControl *NewLC(MBackLightControlObserver *aCallback);
     ~CBackLightControl();
-  protected:
+
+protected:
     CBackLightControl();
 };
 
-class MBackLightControlObserver
-{
-  public:
-    virtual void ScreenNotify(TInt aState)=0;
-    virtual void KeysNotify(TInt aState)=0;
-    virtual void BrightnessNotify(TInt aState)=0;
+class MBackLightControlObserver {
+public:
+    virtual void ScreenNotify(TInt aState) = 0;
+    virtual void KeysNotify(TInt aState) = 0;
+    virtual void BrightnessNotify(TInt aState) = 0;
 };
 
 #endif

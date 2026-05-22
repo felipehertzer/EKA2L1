@@ -1,6 +1,10 @@
-add_library(gdbstub
-        include/gdbstub/gdbstub.h
-        src/gdbstub.cpp)
+if (VITA)
+        add_library(gdbstub INTERFACE)
+else()
+        add_library(gdbstub
+                include/gdbstub/gdbstub.h
+                src/gdbstub.cpp)
+endif()
 
 set(LIBRARIES
         cpu
@@ -12,5 +16,9 @@ if (WIN32)
     set(LIBRARIES ${LIBRARIES} wsock32)
 endif ()
 
-target_include_directories(gdbstub PUBLIC include)
-target_link_libraries(gdbstub PRIVATE ${LIBRARIES})
+if (VITA)
+        target_include_directories(gdbstub INTERFACE include)
+else()
+        target_include_directories(gdbstub PUBLIC include)
+        target_link_libraries(gdbstub PRIVATE ${LIBRARIES})
+endif()

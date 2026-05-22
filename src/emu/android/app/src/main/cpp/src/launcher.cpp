@@ -24,23 +24,22 @@
 #include <package/manager.h>
 #include <system/devices.h>
 
-#include <common/fileutils.h>
 #include <common/android/jniutils.h>
+#include <common/fileutils.h>
 #include <common/language.h>
 #include <common/path.h>
 #include <common/pystr.h>
-#include <common/fileutils.h>
 #include <loader/mif.h>
-#include <loader/svgb.h>
 #include <loader/nvg.h>
+#include <loader/svgb.h>
 #include <services/fbs/fbs.h>
 #include <system/installation/firmware.h>
 #include <system/installation/rpkg.h>
 #include <utils/locale.h>
 #include <utils/system.h>
 
-#include <lunasvg.h>
 #include <jni.h>
+#include <lunasvg.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
@@ -67,11 +66,11 @@ namespace eka2l1::android {
     void launcher::retrieve_servers() {
         if (kern) {
             alserv = reinterpret_cast<eka2l1::applist_server *>(kern->get_by_name<service::server>(get_app_list_server_name_by_epocver(
-                    kern->get_epoc_version())));
+                kern->get_epoc_version())));
             winserv = reinterpret_cast<eka2l1::window_server *>(kern->get_by_name<service::server>(get_winserv_name_by_epocver(
-                    kern->get_epoc_version())));
+                kern->get_epoc_version())));
             fbsserv = reinterpret_cast<eka2l1::fbs_server *>(kern->get_by_name<service::server>(epoc::get_fbs_server_name_by_epocver(
-                    kern->get_epoc_version())));
+                kern->get_epoc_version())));
             rightsserv = reinterpret_cast<eka2l1::rights_server *>(kern->get_by_name<service::server>(eka2l1::RIGHTS_SERVER_NAME));
         }
     }
@@ -146,7 +145,7 @@ namespace eka2l1::android {
                         document = lunasvg::Document::loadFromFile(cached_path.c_str());
                     }
                 }
-                
+
                 eka2l1::ro_file_stream file_route_stream(file_route.get());
                 eka2l1::loader::mif_file file_mif_parser(reinterpret_cast<eka2l1::common::ro_stream *>(&file_route_stream));
 
@@ -159,8 +158,7 @@ namespace eka2l1::android {
                             file_mif_parser.read_mif_entry(0, data.data(), dest_size);
 
                             eka2l1::common::ro_buf_stream inside_stream(data.data(), data.size());
-                            std::unique_ptr<eka2l1::common::wo_std_file_stream> outfile_stream =
-                                    std::make_unique<eka2l1::common::wo_std_file_stream>(cached_path, true);
+                            std::unique_ptr<eka2l1::common::wo_std_file_stream> outfile_stream = std::make_unique<eka2l1::common::wo_std_file_stream>(cached_path, true);
 
                             eka2l1::loader::mif_icon_header header;
                             inside_stream.read(&header, sizeof(eka2l1::loader::mif_icon_header));
@@ -179,12 +177,12 @@ namespace eka2l1::android {
                                 document = lunasvg::Document::loadFromFile(cached_path.c_str());
                             } else {
                                 inside_stream = eka2l1::common::ro_buf_stream(data.data() + sizeof(eka2l1::loader::mif_icon_header),
-                                                                              data.size() - sizeof(eka2l1::loader::mif_icon_header));
+                                    data.size() - sizeof(eka2l1::loader::mif_icon_header));
 
                                 if (eka2l1::loader::convert_nvg_to_svg(inside_stream, *outfile_stream, errors_nvg)) {
                                     outfile_stream.reset();
                                     document = lunasvg::Document::loadFromFile(cached_path.c_str());
-                                } else  {
+                                } else {
                                     LOG_ERROR(eka2l1::FRONTEND_UI, "Icon for app {} can't be decoded!", header.type, app_name);
                                     outfile_stream.reset();
 
@@ -194,7 +192,7 @@ namespace eka2l1::android {
                         }
                     }
                 }
-                
+
                 if (document) {
                     std::uint32_t width = document->width();
                     std::uint32_t height = document->height();
@@ -208,7 +206,7 @@ namespace eka2l1::android {
                     }
 
                     auto bitmap = lunasvg::Bitmap(reinterpret_cast<std::uint8_t *>(data_to_write),
-                                                  width, height, width * 4);
+                        width, height, width * 4);
                     lunasvg::Matrix matrix{ 1, 0, 0, 1, 0, 0 };
                     document->render(bitmap, matrix);
                     bitmap.convertToRGBA();
@@ -398,7 +396,6 @@ namespace eka2l1::android {
                 }
             }
         }
-
     }
 
     void launcher::set_device_name(std::uint32_t id, const char *name) {
@@ -517,7 +514,7 @@ namespace eka2l1::android {
     }
 
     void launcher::draw(drivers::graphics_command_builder &builder, epoc::screen *scr,
-                        std::uint32_t window_width, std::uint32_t window_height) {
+        std::uint32_t window_width, std::uint32_t window_height) {
         eka2l1::rect viewport;
         eka2l1::rect src;
         eka2l1::rect dest;
@@ -554,8 +551,8 @@ namespace eka2l1::android {
                 stbi_uc *data = stbi_load_from_file(f, &background_width, &background_height, &comp, STBI_rgb_alpha);
 
                 background_img_ = eka2l1::drivers::create_texture(sys->get_graphics_driver(), 2, 0,
-                                                                  eka2l1::drivers::texture_format::rgba, eka2l1::drivers::texture_format::rgba,
-                                                                  eka2l1::drivers::texture_data_type::ubyte, data, x * y * 4, eka2l1::vec3(x, y, 0));
+                    eka2l1::drivers::texture_format::rgba, eka2l1::drivers::texture_format::rgba,
+                    eka2l1::drivers::texture_data_type::ubyte, data, x * y * 4, eka2l1::vec3(x, y, 0));
 
                 if (!background_img_) {
                     LOG_ERROR(eka2l1::FRONTEND_UI, "Unable to create background texture!");
@@ -594,8 +591,8 @@ namespace eka2l1::android {
 
             builder.set_feature(eka2l1::drivers::graphics_feature::blend, true);
             builder.blend_formula(eka2l1::drivers::blend_equation::add, eka2l1::drivers::blend_equation::add,
-                                  eka2l1::drivers::blend_factor::frag_out_alpha, eka2l1::drivers::blend_factor::one_minus_frag_out_alpha,
-                                  eka2l1::drivers::blend_factor::one, eka2l1::drivers::blend_factor::one_minus_frag_out_alpha);
+                eka2l1::drivers::blend_factor::frag_out_alpha, eka2l1::drivers::blend_factor::one_minus_frag_out_alpha,
+                eka2l1::drivers::blend_factor::one, eka2l1::drivers::blend_factor::one_minus_frag_out_alpha);
             builder.set_brush_color_detail(eka2l1::vec4(255, 255, 255, eka2l1::common::clamp<int>(0, 255, background_img_opacity_ * 255)));
             builder.draw_bitmap(background_img_, 0, draw_image_rect, eka2l1::rect(), eka2l1::vec2(0, 0), 0.0f, eka2l1::drivers::bitmap_draw_flag_use_brush);
             builder.set_feature(eka2l1::drivers::graphics_feature::blend, false);
@@ -613,55 +610,55 @@ namespace eka2l1::android {
             std::uint32_t y = 0;
 
             switch (scale_type_) {
-                case 0:
-                    // without scaling
-                    width = size.x;
-                    height = size.y;
-                    break;
-                case 1:
-                    // try to fit in width
-                    width = swapchain_size.x;
-                    height = size.y * swapchain_size.x / size.x;
+            case 0:
+                // without scaling
+                width = size.x;
+                height = size.y;
+                break;
+            case 1:
+                // try to fit in width
+                width = swapchain_size.x;
+                height = size.y * swapchain_size.x / size.x;
 
-                    if (height > swapchain_size.y) {
-                        // if height is too big, then fit in height
-                        height = swapchain_size.y;
-                        width = size.x * swapchain_size.y / size.y;
-                    }
-                    break;
-                case 2:
-                    // scaling without preserving the aspect ratio:
-                    // just stretch the picture to full screen
-                    // Upscale factor is the min factor of scale width and height
-                    width = swapchain_size.x;
+                if (height > swapchain_size.y) {
+                    // if height is too big, then fit in height
                     height = swapchain_size.y;
-                    break;
+                    width = size.x * swapchain_size.y / size.y;
+                }
+                break;
+            case 2:
+                // scaling without preserving the aspect ratio:
+                // just stretch the picture to full screen
+                // Upscale factor is the min factor of scale width and height
+                width = swapchain_size.x;
+                height = swapchain_size.y;
+                break;
             }
 
             width = width * scale_ratio_ / 100;
             height = height * scale_ratio_ / 100;
 
             switch (gravity_) {
-                case 0: // left
-                    x = 0;
-                    y = (swapchain_size.y - height) / 2;
-                    break;
-                case 1: // top
-                    x = (swapchain_size.x - width) / 2;
-                    y = 0;
-                    break;
-                case 2: // center
-                    x = (swapchain_size.x - width) / 2;
-                    y = (swapchain_size.y - height) / 2;
-                    break;
-                case 3: // right
-                    x = swapchain_size.x - width;
-                    y = (swapchain_size.y - height) / 2;
-                    break;
-                case 4: // bottom
-                    x = (swapchain_size.x - width) / 2;
-                    y = swapchain_size.y - height;
-                    break;
+            case 0: // left
+                x = 0;
+                y = (swapchain_size.y - height) / 2;
+                break;
+            case 1: // top
+                x = (swapchain_size.x - width) / 2;
+                y = 0;
+                break;
+            case 2: // center
+                x = (swapchain_size.x - width) / 2;
+                y = (swapchain_size.y - height) / 2;
+                break;
+            case 3: // right
+                x = swapchain_size.x - width;
+                y = (swapchain_size.y - height) / 2;
+                break;
+            case 4: // bottom
+                x = (swapchain_size.x - width) / 2;
+                y = swapchain_size.y - height;
+                break;
             }
 
             const float scale_x = width / static_cast<float>(size.x);
@@ -692,7 +689,7 @@ namespace eka2l1::android {
             builder.set_texture_filter(scr->screen_texture, true, filter);
             builder.set_texture_filter(scr->screen_texture, false, filter);
             builder.draw_bitmap(scr->screen_texture, 0, dest, src, eka2l1::vec2(0, 0),
-                                 static_cast<float>(scr->ui_rotation), flags);
+                static_cast<float>(scr->ui_rotation), flags);
         }
 
         builder.load_backup_state();
@@ -728,9 +725,9 @@ namespace eka2l1::android {
     }
 
     void launcher::set_screen_params(std::uint32_t background_color, std::uint32_t scale_ratio,
-                                     std::uint32_t scale_type, std::uint32_t gravity,
-                                     const std::string &bg_img_path,
-                                     float bg_img_opacity, bool bg_keep_aspect_ratio) {
+        std::uint32_t scale_type, std::uint32_t gravity,
+        const std::string &bg_img_path,
+        float bg_img_opacity, bool bg_keep_aspect_ratio) {
         background_color_[0] = (background_color >> 16) & 0xFF;
         background_color_[1] = (background_color >> 8) & 0xFF;
         background_color_[2] = background_color & 0xFF;
@@ -743,7 +740,7 @@ namespace eka2l1::android {
     }
 
     bool launcher::open_input_view(const std::u16string &initial_text, const int max_len,
-                                   drivers::ui::input_dialog_complete_callback complete_callback) {
+        drivers::ui::input_dialog_complete_callback complete_callback) {
         if (input_complete_callback_) {
             return false;
         }
@@ -767,8 +764,8 @@ namespace eka2l1::android {
     }
 
     bool launcher::open_question_dialog(const std::u16string &text, const std::u16string &button1_text,
-                              const std::u16string &button2_text,
-                              drivers::ui::yes_no_dialog_complete_callback complete_callback) {
+        const std::u16string &button2_text,
+        drivers::ui::yes_no_dialog_complete_callback complete_callback) {
         if (yes_no_complete_callback_) {
             return false;
         }
@@ -806,7 +803,7 @@ namespace eka2l1::android {
 
     int launcher::install_ngage_game(const std::string &path) {
         return static_cast<int>(sys->install_ngage_game_card(path,
-                                                             nullptr, nullptr));
+            nullptr, nullptr));
     }
 
     bool launcher::install_ng2_game_licenses(const std::string &content) {
@@ -844,7 +841,7 @@ namespace eka2l1::android {
         }
 
         if (!drivers::read_bitmap(sys->get_graphics_driver(), winserv->get_current_focus_screen()->screen_texture,
-                             eka2l1::point(0, 0), scr_size_scaled, 32, screenshot_buffer_.data())) {
+                eka2l1::point(0, 0), scr_size_scaled, 32, screenshot_buffer_.data())) {
             return false;
         }
 
@@ -854,7 +851,7 @@ namespace eka2l1::android {
 
             explicit write_png_context(const std::string &path)
                 : path_(path) {
-                 dest_file_ = common::open_c_file(path, "wb");
+                dest_file_ = common::open_c_file(path, "wb");
             }
 
             ~write_png_context() {
@@ -878,8 +875,9 @@ namespace eka2l1::android {
         };
 
         write_png_context png_write_context(path);
-        if (stbi_write_png_to_func([](void * context, void *data, int size) { (reinterpret_cast<write_png_context*>(context))->write(data, size); },
-                                   &png_write_context, scr_size_scaled.x, scr_size_scaled.y, 4, screenshot_buffer_.data(), scr_size_scaled.x * 4) == 0) {
+        if (stbi_write_png_to_func([](void *context, void *data, int size) { (reinterpret_cast<write_png_context *>(context))->write(data, size); },
+                &png_write_context, scr_size_scaled.x, scr_size_scaled.y, 4, screenshot_buffer_.data(), scr_size_scaled.x * 4)
+            == 0) {
             return false;
         }
 

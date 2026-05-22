@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,8 +20,8 @@
 #include <services/socket/server.h>
 #include <services/socket/socket.h>
 
-#include <utils/err.h>
 #include <system/epoc.h>
+#include <utils/err.h>
 
 namespace eka2l1::epoc::socket {
     std::size_t socket::get_option(const std::uint32_t option_id, const std::uint32_t option_family,
@@ -80,12 +80,12 @@ namespace eka2l1::epoc::socket {
         LOG_ERROR(SERVICE_ESOCK, "Get socket's local name unimplemented!");
         return epoc::error_not_supported;
     }
-    
+
     std::int32_t socket::remote_name(saddress &result, std::uint32_t &result_len) {
         LOG_ERROR(SERVICE_ESOCK, "Get socket's remote name unimplemented!");
         return epoc::error_not_supported;
     }
-    
+
     std::int32_t socket::listen(const std::uint32_t backlog) {
         LOG_ERROR(SERVICE_ESOCK, "Socket listening unimplemented!");
         return epoc::error_not_supported;
@@ -243,7 +243,7 @@ namespace eka2l1::epoc::socket {
         epoc::notify_info info(ctx->msg->request_sts, ctx->msg->own_thr);
         sock_->bind(sockaddr.value(), info);
     }
-    
+
     void socket_socket::connect(service::ipc_context *ctx) {
         std::optional<saddress> sockaddr = ctx->get_argument_data_from_descriptor<saddress>(0);
 
@@ -277,10 +277,10 @@ namespace eka2l1::epoc::socket {
             ctx->complete(epoc::error_argument);
             return;
         }
-        
+
         kernel::process *requester = ctx->msg->own_thr->owning_process();
         epoc::des8 *packet_des = eka2l1::ptr<epoc::des8>(ctx->msg->args.args[2]).get(requester);
-        
+
         epoc::notify_info info(ctx->msg->request_sts, ctx->msg->own_thr);
         sock_->receive(packet_buffer, static_cast<std::uint32_t>(packet_size), nullptr, nullptr, 0, info,
             [packet_des, requester](const std::int64_t length) {
@@ -301,10 +301,10 @@ namespace eka2l1::epoc::socket {
             ctx->complete(epoc::error_argument);
             return;
         }
-        
+
         std::uint32_t *size_return = nullptr;
         if (has_return_length) {
-            size_return = reinterpret_cast<std::uint32_t*>(ctx->get_descriptor_argument_ptr(0));
+            size_return = reinterpret_cast<std::uint32_t *>(ctx->get_descriptor_argument_ptr(0));
             if (!size_return) {
                 ctx->complete(epoc::error_argument);
                 return;
@@ -345,10 +345,10 @@ namespace eka2l1::epoc::socket {
 
         kernel::process *requester = ctx->msg->own_thr->owning_process();
         epoc::des8 *packet_des = eka2l1::ptr<epoc::des8>(ctx->msg->args.args[2]).get(requester);
-        
+
         std::uint32_t *size_return = nullptr;
         if (has_return_length && (!one_or_more || has_addr)) {
-            size_return = reinterpret_cast<std::uint32_t*>(ctx->get_descriptor_argument_ptr(0));
+            size_return = reinterpret_cast<std::uint32_t *>(ctx->get_descriptor_argument_ptr(0));
             if (!size_return) {
                 ctx->complete(epoc::error_argument);
                 return;
@@ -363,7 +363,7 @@ namespace eka2l1::epoc::socket {
             // On S^3 and probably older version the layout is still the same like this.
             // First is flags, second is length pointer and third is buffer
             if (one_or_more && has_return_length) {
-                size_return = reinterpret_cast<std::uint32_t*>(ctx->get_descriptor_argument_ptr(1));
+                size_return = reinterpret_cast<std::uint32_t *>(ctx->get_descriptor_argument_ptr(1));
             }
         }
 
@@ -374,7 +374,7 @@ namespace eka2l1::epoc::socket {
 
         saddress *address_ptr = nullptr;
         if (has_addr) {
-            address_ptr = reinterpret_cast<saddress*>(ctx->get_descriptor_argument_ptr(1));
+            address_ptr = reinterpret_cast<saddress *>(ctx->get_descriptor_argument_ptr(1));
             if (!address_ptr) {
                 ctx->complete(epoc::error_argument);
                 return;
@@ -395,7 +395,7 @@ namespace eka2l1::epoc::socket {
                 }
             });
     }
-    
+
     void socket_socket::send_old(service::ipc_context *ctx, const bool has_addr) {
         std::uint8_t *packet_buffer = ctx->get_descriptor_argument_ptr(2);
         std::size_t packet_size = ctx->get_argument_data_size(2);
@@ -404,7 +404,7 @@ namespace eka2l1::epoc::socket {
             ctx->complete(epoc::error_argument);
             return;
         }
-        
+
         std::optional<socket_old_rw_req_info> req_info = ctx->get_argument_data_from_descriptor<socket_old_rw_req_info>(0);
         if (!req_info.has_value()) {
             ctx->complete(epoc::error_argument);
@@ -417,7 +417,7 @@ namespace eka2l1::epoc::socket {
 
         epoc::notify_info info(ctx->msg->request_sts, ctx->msg->own_thr);
         sock_->send(packet_buffer, static_cast<std::uint32_t>(packet_size),
-            size_return_des ? reinterpret_cast<std::uint32_t*>(size_return_des->get_pointer_raw(requester)) : nullptr,
+            size_return_des ? reinterpret_cast<std::uint32_t *>(size_return_des->get_pointer_raw(requester)) : nullptr,
             optional_addr, req_info->flags_, info);
     }
 
@@ -448,7 +448,7 @@ namespace eka2l1::epoc::socket {
 
         epoc::notify_info info(ctx->msg->request_sts, ctx->msg->own_thr);
         sock_->receive(packet_buffer, static_cast<std::uint32_t>(packet_size),
-            size_return_des ? reinterpret_cast<std::uint32_t*>(size_return_des->get_pointer_raw(requester)) : nullptr,
+            size_return_des ? reinterpret_cast<std::uint32_t *>(size_return_des->get_pointer_raw(requester)) : nullptr,
             optional_addr, req_info->flags_, info,
             [packet_des, requester](const std::int64_t length) {
                 if (length < 0) {
@@ -458,7 +458,7 @@ namespace eka2l1::epoc::socket {
                 }
             });
     }
-    
+
     void socket_socket::ioctl(service::ipc_context *ctx) {
         std::optional<std::uint32_t> command = ctx->get_argument_value<std::uint32_t>(0);
         std::optional<std::uint32_t> level = ctx->get_argument_value<std::uint32_t>(2);
@@ -489,7 +489,7 @@ namespace eka2l1::epoc::socket {
         ctx->set_descriptor_argument_length(0, addr_real_size);
         ctx->complete(epoc::error_none);
     }
-    
+
     void socket_socket::remote_name(service::ipc_context *ctx) {
         epoc::socket::saddress addr;
         std::uint32_t addr_real_size = 0;
@@ -518,11 +518,11 @@ namespace eka2l1::epoc::socket {
     void socket_socket::accept(service::ipc_context *ctx) {
         std::optional<std::uint32_t> subsess_id = ctx->get_argument_value<std::uint32_t>(1);
 
-        if (subsess_id .has_value() && (subsess_id.value() > 0)) {
+        if (subsess_id.has_value() && (subsess_id.value() > 0)) {
             socket_subsession_instance *inst = parent_->subsessions_.get(subsess_id.value());
 
             if (inst) {
-                socket_socket *empty_socket = reinterpret_cast<socket_socket*>(inst->get());
+                socket_socket *empty_socket = reinterpret_cast<socket_socket *>(inst->get());
                 if (empty_socket->type() != socket_subsession_type_socket) {
                     LOG_ERROR(SERVICE_ESOCK, "Accepting provide non-socket handle!");
 

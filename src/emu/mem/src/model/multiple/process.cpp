@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -26,6 +26,8 @@
 #include <mem/mmu.h>
 
 #include <cpu/arm_interface.h>
+
+#include <cstdint>
 
 namespace eka2l1::mem {
     multiple_mem_model_process::multiple_mem_model_process(control_base *ctrl)
@@ -64,6 +66,63 @@ namespace eka2l1::mem {
 
     void *multiple_mem_model_process::get_pointer(const vm_address addr) {
         return control_->get_host_pointer(addr_space_id_, addr);
+    }
+
+    static bool ensure_multiple_chunk_top(multiple_mem_model_chunk *chunk, control_base *control, vm_address top) {
+        if (!chunk) {
+            return false;
+        }
+
+        if (top > chunk->max()) {
+            top = static_cast<vm_address>(chunk->max());
+        }
+
+        if (top == 0) {
+            return false;
+        }
+
+        if (top > chunk->top()) {
+            return chunk->adjust(0xFFFFFFFF, top);
+        }
+
+        const std::uint32_t page_size = static_cast<std::uint32_t>(control->page_size());
+        const vm_address page_aligned_top = common::align(top, page_size);
+        return chunk->commit(0, page_aligned_top) != 0;
+    }
+
+    bool multiple_mem_model_process::adjust_chunk(const vm_address base, const vm_address top) {
+        for (auto &chunk : chunks_) {
+            if (!chunk || (chunk->base(this) != base)) {
+                continue;
+            }
+
+            return ensure_multiple_chunk_top(chunk.get(), control_, top);
+        }
+
+        return false;
+    }
+
+    bool multiple_mem_model_process::adjust_chunk_to_include(const vm_address addr) {
+        for (auto &chunk : chunks_) {
+            if (!chunk) {
+                continue;
+            }
+
+            const vm_address base = chunk->base(this);
+            if (addr < base) {
+                continue;
+            }
+
+            const vm_address offset = addr - base;
+            if (offset >= chunk->max()) {
+                continue;
+            }
+
+            const std::uint32_t page_size = static_cast<std::uint32_t>(control_->page_size());
+            return ensure_multiple_chunk_top(chunk.get(), control_, common::align(offset + 1, page_size));
+        }
+
+        return false;
     }
 
     int multiple_mem_model_process::create_chunk(mem_model_chunk *&chunk, const mem_model_chunk_creation_info &create_info) {

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -33,6 +33,8 @@
 #include <utils/err.h>
 
 #include <services/fs/sec.h>
+
+#include <cstdlib>
 
 namespace eka2l1 {
     bool file_attrib::claim_exclusive(const kernel::uid pr_uid) {
@@ -76,7 +78,7 @@ namespace eka2l1 {
         if (temporary) {
             io_system *io = serv->get_system()->get_io_system();
 
-            if (vfs_node->type == io_component_type::file) { 
+            if (vfs_node->type == io_component_type::file) {
                 file *vfs_file = reinterpret_cast<file *>(vfs_node.get());
                 serv->temporary_file_cleanset_.emplace(common::lowercase_ucs2_string(vfs_file->file_name()));
             }
@@ -84,7 +86,7 @@ namespace eka2l1 {
     }
 
     void fs_node::deref() {
-        if (vfs_node->type == io_component_type::file) {        
+        if (vfs_node->type == io_component_type::file) {
             file *vfs_file = reinterpret_cast<file *>(vfs_node.get());
             const std::u16string filename = vfs_file->file_name();
 
@@ -260,6 +262,7 @@ namespace eka2l1 {
             f->seek(size, file_seek_mode::beg);
         }
 
+        check_disk_space_notifications();
         ctx->complete(epoc::error_none);
     }
 
@@ -502,8 +505,9 @@ namespace eka2l1 {
         vfs_file->seek(write_pos, file_seek_mode::beg);
         size_t wrote_size = vfs_file->write_file(write_data.value().data(), 1, write_len);
 
-        //LOG_TRACE(SERVICE_EFSRV, "File {} wroted with size: {}, at {}", common::ucs2_to_utf8(vfs_file->file_name()), wrote_size, write_pos);
+        // LOG_TRACE(SERVICE_EFSRV, "File {} wroted with size: {}, at {}", common::ucs2_to_utf8(vfs_file->file_name()), wrote_size, write_pos);
 
+        check_disk_space_notifications();
         ctx->complete(epoc::error_none);
     }
 
@@ -524,12 +528,22 @@ namespace eka2l1 {
 
         file *vfs_file = reinterpret_cast<file *>(node->vfs_node.get());
 
-        int read_len = *ctx->get_argument_value<std::int32_t>(1);
+        std::optional<std::int32_t> read_len_opt = ctx->get_argument_value<std::int32_t>(1);
+        if (!read_len_opt || *read_len_opt < 0) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        int read_len = *read_len_opt;
         std::uint64_t read_pos = 0;
         std::uint64_t last_pos = vfs_file->tell();
+        if (last_pos == 0xFFFFFFFFFFFFFFFFULL) {
+            ctx->complete(epoc::error_bad_handle);
+            return;
+        }
 
         read_pos = last_pos;
-        
+
         if (ctx->msg->function & epoc::fs::ipc_arg_slot2_des) {
             std::optional<std::uint64_t> temp = ctx->get_argument_data_from_descriptor<std::uint64_t>(2);
             if (!temp.has_value()) {
@@ -547,11 +561,16 @@ namespace eka2l1 {
             }
         }
 
-        vfs_file->seek(read_pos, file_seek_mode::beg);
+        if (vfs_file->seek(read_pos, file_seek_mode::beg) == 0xFFFFFFFFFFFFFFFFULL) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
 
         uint64_t size = vfs_file->size();
 
-        if (size - read_pos < read_len) {
+        if (read_pos >= size) {
+            read_len = 0;
+        } else if (size - read_pos < static_cast<std::uint64_t>(read_len)) {
             read_len = static_cast<int>(size - read_pos);
         }
 
@@ -559,9 +578,21 @@ namespace eka2l1 {
         read_data.resize(read_len);
 
         size_t read_finish_len = vfs_file->read_file(read_data.data(), 1, read_len);
-        ctx->write_data_to_descriptor_argument(0, reinterpret_cast<uint8_t *>(read_data.data()), static_cast<std::uint32_t>(read_finish_len));
 
-        //LOG_TRACE(SERVICE_EFSRV, "Readed {} from {} to address 0x{:x}", read_finish_len, read_pos, ctx->msg->args.args[0]);
+        static const bool trace_file_reads = std::getenv("EKA2L1_FS_DEBUG") != nullptr;
+        if (trace_file_reads) {
+            LOG_INFO(SERVICE_EFSRV,
+                "Read file: path={}, handle={}, requested={}, pos={}, last_pos={}, actual={}, size={}, function=0x{:X}",
+                common::ucs2_to_utf8(vfs_file->file_name()), *handle_res, *read_len_opt, read_pos, last_pos, read_finish_len,
+                size, ctx->msg->function);
+        }
+
+        if (!ctx->write_data_to_descriptor_argument(0, reinterpret_cast<uint8_t *>(read_data.data()), static_cast<std::uint32_t>(read_finish_len))) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        // LOG_TRACE(SERVICE_EFSRV, "Readed {} from {} to address 0x{:x}", read_finish_len, read_pos, ctx->msg->args.args[0]);
         ctx->complete(epoc::error_none);
     }
 
@@ -632,7 +663,11 @@ namespace eka2l1 {
 
         LOG_TRACE(SERVICE_EFSRV, "Handle opened: {}", handle);
 
-        ctx->write_data_to_descriptor_argument<int>(3, handle);
+        if (!ctx->write_handle_argument(3, handle)) {
+            obj_table_.remove(handle);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
 
         // Arg2 take the temp path
         ctx->write_arg(2, full_path);
@@ -659,14 +694,23 @@ namespace eka2l1 {
         auto &node_attrib = server<fs_server>()->attribs[f->file_name()];
         node_attrib.increment_use(node->process);
 
-        ctx->write_data_to_descriptor_argument<epoc::handle>(3, dup_handle);
+        if (!ctx->write_handle_argument(3, dup_handle)) {
+            obj_table_.remove(dup_handle);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
     void fs_server_client::file_adopt(service::ipc_context *ctx) {
         LOG_TRACE(SERVICE_EFSRV, "Fs::FileAdopt stubbed");
 
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, ctx->get_argument_value<std::uint32_t>(0).value());
+        if (!ctx->write_handle_argument(3, ctx->get_argument_value<std::uint32_t>(0).value())) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -746,7 +790,7 @@ namespace eka2l1 {
         } else {
             if (old_read_model) {
                 position = ctx->get_argument_value<std::uint32_t>(1).value();
-            } else {    
+            } else {
                 position = ctx->get_argument_value<std::uint32_t>(2).value();
             }
         }
@@ -840,7 +884,7 @@ namespace eka2l1 {
         }
 
         if (!is_it_avail && (existence == exist_mode_neccessary)) {
-            LOG_ERROR(SERVICE_EFSRV, "Trying to open a non-existent file: {} while the open mode requires its availbility!",
+            LOG_TRACE(SERVICE_EFSRV, "Guest tried to open a non-existent file: {} while the open mode requires its availability",
                 name_utf8);
 
             ctx->complete(epoc::error_not_found);
@@ -852,13 +896,21 @@ namespace eka2l1 {
             *open_mode_res, overwrite, temporary);
 
         if (handle <= 0) {
+            LOG_TRACE(SERVICE_EFSRV, "Open file failed: path={}, raw mode={}, existence={}, overwrite={}, temporary={}, error={}",
+                name_utf8, open_mode_res.value(), static_cast<int>(existence), overwrite, temporary, handle);
             ctx->complete(handle);
             return;
         }
 
         LOG_TRACE(SERVICE_EFSRV, "Handle opened: {}", handle);
 
-        ctx->write_data_to_descriptor_argument<int>(3, handle);
+        if (!ctx->write_handle_argument(3, handle)) {
+            obj_table_.remove(handle);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        check_disk_space_notifications();
         ctx->complete(epoc::error_none);
     }
 

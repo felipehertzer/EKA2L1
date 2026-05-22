@@ -1,10 +1,10 @@
-#include <qt/symbian_input_dialog.h>
 #include "ui_symbian_input_dialog.h"
+#include <qt/symbian_input_dialog.h>
 
-symbian_input_dialog::symbian_input_dialog(QWidget *parent) :
-    QDialog(parent),
-    max_length_(0x7FFFFFFF),
-    ui(new Ui::SymbianInputDialog) {
+symbian_input_dialog::symbian_input_dialog(QWidget *parent)
+    : QDialog(parent)
+    , max_length_(0x7FFFFFFF)
+    , ui(new Ui::SymbianInputDialog) {
     setAttribute(Qt::WA_DeleteOnClose);
     ui->setupUi(this);
 
@@ -38,7 +38,7 @@ void symbian_input_dialog::event_content_changed() {
     // Code grabbed from forum! (Mar4eli)
     // https://forum.qt.io/topic/23725/solved-limit-number-of-characters-in-qtextedit/3
     if (ui->plainTextEdit->toPlainText().length() > max_length_) {
-        int diff = ui->plainTextEdit->toPlainText().length() - max_length_; //m_maxTextEditLength - just an integer
+        int diff = ui->plainTextEdit->toPlainText().length() - max_length_; // m_maxTextEditLength - just an integer
         QString newStr = ui->plainTextEdit->toPlainText();
         newStr.chop(diff);
         ui->plainTextEdit->setPlainText(newStr);

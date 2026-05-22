@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,6 +22,7 @@
 #include <common/time.h>
 
 #include <drivers/audio/backend/ffmpeg/player_ffmpeg.h>
+#include <drivers/ffmpeg_compat.h>
 
 extern "C" {
 #include <libswresample/swresample.h>
@@ -90,7 +91,7 @@ namespace eka2l1::drivers {
             return false;
         }
 
-        channels_ = codec_->channels;
+        channels_ = ffmpeg_compat::channel_count(codec_);
         freq_ = codec_->sample_rate;
 
         const double time_base = av_q2d(stream->time_base);
@@ -149,6 +150,7 @@ namespace eka2l1::drivers {
             if (err < 0) {
                 LOG_ERROR(DRIVER_AUD, "Error while decoding a frame err={}!", err);
                 av_frame_free(&frame);
+                av_packet_unref(&packet_);
                 return;
             }
 
@@ -161,25 +163,27 @@ namespace eka2l1::drivers {
 
             data_.resize(base_ptr + channels_ * frame->nb_samples * sizeof(std::int16_t));
 
-            if ((frame->format != AV_SAMPLE_FMT_S16) || (frame->channels != channels_)
+            if ((frame->format != AV_SAMPLE_FMT_S16) || (ffmpeg_compat::channel_count(frame) != channels_)
                 || (frame->sample_rate != freq_)) {
-                // Resample it
-                const int dest_channel_type = (channels_ == 2) ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+                SwrContext *swr = nullptr;
+                if (ffmpeg_compat::configure_swr_from_frame(&swr, channels_, AV_SAMPLE_FMT_S16, freq_, frame) < 0) {
+                    LOG_ERROR(DRIVER_AUD, "Error allocating SWR context");
+                    av_frame_free(&frame);
+                    av_packet_unref(&packet_);
 
-                SwrContext *swr = swr_alloc_set_opts(nullptr,
-                    dest_channel_type, AV_SAMPLE_FMT_S16, freq_,
-                    frame->channel_layout, static_cast<AVSampleFormat>(frame->format), frame->sample_rate,
-                    0, nullptr);
+                    return;
+                }
 
                 if (swr_init(swr) < 0) {
                     LOG_ERROR(DRIVER_AUD, "Error initializing SWR context");
                     av_frame_free(&frame);
+                    av_packet_unref(&packet_);
 
                     return;
                 }
 
                 std::uint8_t *output = data_.data() + base_ptr;
-                const std::uint8_t **source = const_cast<const std::uint8_t**>(frame->extended_data);
+                const std::uint8_t **source = const_cast<const std::uint8_t **>(frame->extended_data);
 
                 const int result = swr_convert(swr, &output, frame->nb_samples, source, frame->nb_samples);
                 swr_free(&swr);
@@ -187,16 +191,18 @@ namespace eka2l1::drivers {
                 if (result < 0) {
                     LOG_ERROR(DRIVER_AUD, "Error resample audio data!");
                     flags_ |= 1;
+                    av_packet_unref(&packet_);
                     return;
                 }
             } else {
                 // Just gonna copy smh
-                std::memcpy(&data_[base_ptr], frame->data[0], data_.size());
+                std::memcpy(&data_[base_ptr], frame->data[0], data_.size() - base_ptr);
             }
 
             av_frame_free(&frame);
         }
 
+        av_packet_unref(&packet_);
         data_pointer_ = 0;
     }
 
@@ -207,7 +213,13 @@ namespace eka2l1::drivers {
         return ((size <= 0) ? AVERROR_EOF : static_cast<int>(size));
     }
 
-    static int ffmpeg_custom_rw_io_write(void *opaque, std::uint8_t *buf, int buf_size) {
+    static int ffmpeg_custom_rw_io_write(void *opaque,
+#if LIBAVFORMAT_VERSION_MAJOR >= 62
+        const std::uint8_t *buf,
+#else
+        std::uint8_t *buf,
+#endif
+        int buf_size) {
         common::rw_stream *stream = reinterpret_cast<common::rw_stream *>(opaque);
         const std::uint64_t size = stream->write(buf, buf_size);
 
@@ -311,6 +323,8 @@ namespace eka2l1::drivers {
                 freq_ = static_cast<std::int32_t>(freq);
                 return true;
             }
+
+            sample_rate_support_array++;
         }
 
         return false;
@@ -322,14 +336,14 @@ namespace eka2l1::drivers {
             return false;
         }
 
-        const std::uint64_t *layout_support_layout = output_encoder_->channel_layouts;
-        while (*layout_support_layout) {
-            if (av_get_channel_layout_nb_channels(*layout_support_layout) == static_cast<std::int32_t>(cn)) {
+        const auto *layout_support_layout = ffmpeg_compat::first_supported_channel_layout(output_encoder_);
+        while (ffmpeg_compat::channel_layout_is_valid(layout_support_layout)) {
+            if (ffmpeg_compat::channel_count(layout_support_layout) == static_cast<std::int32_t>(cn)) {
                 channels_ = cn;
-                channel_layout_dest_ = *layout_support_layout;
-
                 return true;
             }
+
+            layout_support_layout = ffmpeg_compat::next_channel_layout(layout_support_layout);
         }
 
         return false;
@@ -369,13 +383,14 @@ namespace eka2l1::drivers {
             return false;
         }
 
-        if (!(new_codec->supported_samplerates) || !(new_codec->channel_layouts)) {
+        const auto *channel_layouts = ffmpeg_compat::first_supported_channel_layout(new_codec);
+        if (!(new_codec->supported_samplerates) || !ffmpeg_compat::channel_layout_is_valid(channel_layouts)) {
             // One of those arrays is empty. Return
             LOG_ERROR(DRIVER_AUD, "Supported sample rates or supported channel layouts array is empty!");
             return false;
         }
 
-        channels_ = av_get_channel_layout_nb_channels(*new_codec->channel_layouts);
+        channels_ = ffmpeg_compat::channel_count(channel_layouts);
         freq_ = *new_codec->supported_samplerates;
         encoding_ = enc;
         output_encoder_ = new_codec;
@@ -423,7 +438,7 @@ namespace eka2l1::drivers {
         if (!open_ffmpeg_stream()) {
             format_context_ = nullptr;
             do_free_custom();
-    
+
             return false;
         }
 
@@ -435,11 +450,10 @@ namespace eka2l1::drivers {
         , codec_(nullptr)
         , format_context_(nullptr)
         , output_encoder_(nullptr)
-        , channel_layout_dest_(0)
         , custom_io_(nullptr)
         , custom_io_buffer_(nullptr)
         , duration_us_(0) {
-        av_init_packet(&packet_);
+        packet_ = {};
     }
 
     player_ffmpeg::~player_ffmpeg() {

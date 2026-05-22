@@ -22,7 +22,7 @@
     <string name="screenshot">Screenshot</string>
     <string name="take_screenshot_success">Screenshot saved to %s!</string>
     <string name="take_screenshot_fail">Failed to take screenshot!</string>
-    <string name="opengl_required">此应用需要OpenGL ES 3.0及更高版本。</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">警告</string>
     <string name="scoped_storage_warning">您的用户数据存储路径在卸载应用时<b>将被删除</b>\n</string>
     <string name="install_ng_game">安装 N-Gage 游戏</string>

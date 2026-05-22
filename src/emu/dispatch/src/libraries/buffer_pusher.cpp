@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,7 +24,7 @@ namespace eka2l1::dispatch {
         current_buffer_ = 0;
         size_per_buffer_ = 0;
     }
-    
+
     void graphics_buffer_pusher::add_buffer() {
         if (!size_per_buffer_) {
             return;
@@ -71,7 +71,7 @@ namespace eka2l1::dispatch {
             }
 
             builder.update_buffer_data_no_copy(buffers_[i].buffer_, 0, buffer_data_casted, buffer_size);
-    
+
             buffers_[i].data_ = nullptr;
             buffers_[i].used_size_ = 0;
         }
@@ -79,7 +79,7 @@ namespace eka2l1::dispatch {
         // Move on, these others might still be used
         if (size_per_buffer_ != 0) {
             current_buffer_++;
-            
+
             if (current_buffer_ >= buffers_.size()) {
                 add_buffer();
             }
@@ -90,7 +90,7 @@ namespace eka2l1::dispatch {
         if (buffers_[current_buffer_].used_size_ + total_buffer_size > size_per_buffer_) {
             current_buffer_++;
         }
-        
+
         if (current_buffer_ == buffers_.size()) {
             add_buffer();
         }

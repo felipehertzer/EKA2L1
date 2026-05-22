@@ -17,8 +17,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drivers/hwrm/backend/vibration_sdl2.h>
 #include <SDL.h>
+#include <drivers/hwrm/backend/vibration_sdl2.h>
 
 #include "../../sdl2_scoping.h"
 

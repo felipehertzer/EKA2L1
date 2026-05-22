@@ -20,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId "com.github.eka2l1"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 34
         versionCode 12
         versionName "0.1.0"
@@ -34,7 +34,7 @@ android {
         externalNativeBuild {
             cmake {
                 arguments "-DEKA2L1_BUILD_TOOLS=OFF", "-DEKA2L1_BUILD_TESTS=OFF",
-                        "-DEKA2L1_BUILD_VULKAN_BACKEND=OFF", ciArg
+                        "-DEKA2L1_BUILD_VULKAN_BACKEND=ON", ciArg
                 cppFlags "-std=c++20"
             }
         }

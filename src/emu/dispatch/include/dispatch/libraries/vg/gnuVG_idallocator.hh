@@ -19,67 +19,70 @@
 
 #pragma once
 
-#include <set>
 #include <exception>
+#include <set>
 
 #include <dispatch/libraries/vg/gnuVG_error.hh>
 
 namespace gnuVG {
-	template <typename T>
-	class IDAllocator {
-	private:
-		std::set<T> available_ids;
+    template <typename T>
+    class IDAllocator {
+    private:
+        std::set<T> available_ids;
 
-		T total_amount;
-	public:
-		class NoIDAvailable : public std::runtime_error {
-		public:
-			NoIDAvailable() : runtime_error("Not enough IDs available.")
-				{}
-			virtual ~NoIDAvailable() {}
-		};
+        T total_amount;
 
-		class IDFreedTwice : public std::runtime_error {
-		public:
-			IDFreedTwice() : runtime_error("Tried to free an ID twice.")
-				{}
-			virtual ~IDFreedTwice() {}
-		};
+    public:
+        class NoIDAvailable : public std::runtime_error {
+        public:
+            NoIDAvailable()
+                : runtime_error("Not enough IDs available.") {}
+            virtual ~NoIDAvailable() {}
+        };
 
-		class IDNotAllocated : public std::runtime_error {
-		public:
-			IDNotAllocated() : runtime_error("Tried to free a non-allocated ID.")
-				{}
-			virtual ~IDNotAllocated() {}
-		};
+        class IDFreedTwice : public std::runtime_error {
+        public:
+            IDFreedTwice()
+                : runtime_error("Tried to free an ID twice.") {}
+            virtual ~IDFreedTwice() {}
+        };
 
-		IDAllocator(T reserve_values = 0, T initial_size = 32) : total_amount(initial_size) {
-			for(T x = reserve_values; x < initial_size; x++) {
-				available_ids.insert(x);
-			}
-		}
+        class IDNotAllocated : public std::runtime_error {
+        public:
+            IDNotAllocated()
+                : runtime_error("Tried to free a non-allocated ID.") {}
+            virtual ~IDNotAllocated() {}
+        };
 
-		T get_id() {
-			T retval = total_amount;
+        IDAllocator(T reserve_values = 0, T initial_size = 32)
+            : total_amount(initial_size) {
+            for (T x = reserve_values; x < initial_size; x++) {
+                available_ids.insert(x);
+            }
+        }
 
-			if(available_ids.size() > 0) {
-				auto iter = available_ids.begin();
-				retval = *iter;
-				available_ids.erase(iter);
-			} else if(total_amount == (T)~0)
-				throw NoIDAvailable();
-			else ++total_amount;
+        T get_id() {
+            T retval = total_amount;
 
-			return retval;
-		}
+            if (available_ids.size() > 0) {
+                auto iter = available_ids.begin();
+                retval = *iter;
+                available_ids.erase(iter);
+            } else if (total_amount == (T)~0)
+                throw NoIDAvailable();
+            else
+                ++total_amount;
 
-		void free_id(T id) {
-			if(id >= total_amount)
-				throw IDNotAllocated();
-			if(available_ids.find(id) != available_ids.end())
-				throw IDFreedTwice();
+            return retval;
+        }
 
-			available_ids.insert(id);
-		}
-	};
+        void free_id(T id) {
+            if (id >= total_amount)
+                throw IDNotAllocated();
+            if (available_ids.find(id) != available_ids.end())
+                throw IDFreedTwice();
+
+            available_ids.insert(id);
+        }
+    };
 };

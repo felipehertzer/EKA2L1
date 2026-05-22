@@ -185,7 +185,7 @@ namespace eka2l1::loader {
 
         return found;
     }
-    
+
     static bool does_epoc_version_need_series60_check(const epocver ver) {
         return (ver == epocver::epoc93fp2);
     }
@@ -328,7 +328,7 @@ namespace eka2l1::loader {
 
             if (!determine_rpkg_product_info_from_various_txts(extracted_path, manufacturer, firmcode, model)) {
                 LOG_ERROR(SYSTEM, "Second method of determining product info failed! Start the third one");
-                if (!determine_rpkg_product_info_from_sis(extracted_path, manufacturer, firmcode, model)) {  
+                if (!determine_rpkg_product_info_from_sis(extracted_path, manufacturer, firmcode, model)) {
                     LOG_ERROR(SYSTEM, "Third method of determining product info failed! End product info scanning");
                     return false;
                 }

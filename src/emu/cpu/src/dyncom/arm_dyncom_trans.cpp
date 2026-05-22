@@ -61,7 +61,7 @@ static ARM_INST_PTR INTERPRETER_TRANSLATE(add)(ARMul_State *state, unsigned int 
 
     return inst_base;
 }
-static ARM_INST_PTR INTERPRETER_TRANSLATE(and)(ARMul_State *state, unsigned int inst, int index) {
+static ARM_INST_PTR INTERPRETER_TRANSLATE (and)(ARMul_State *state, unsigned int inst, int index) {
     arm_inst *inst_base = (arm_inst *)AllocBuffer(state, sizeof(arm_inst) + sizeof(and_inst));
     and_inst *inst_cream = (and_inst *)inst_base->component;
 

@@ -1,23 +1,28 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
- * 
+ *
+ * This file is part of EKA2L1 project
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drivers/graphics/backend/ogl/fb_ogl.h>
+#if EKA2L1_BUILD_NATIVE_BACKEND
+#include <drivers/graphics/backend/native/graphics_native.h>
+#endif
+#if EKA2L1_BUILD_VULKAN_BACKEND
+#include <drivers/graphics/backend/vulkan/fb_vulkan.h>
+#endif
 #include <drivers/graphics/fb.h>
 #include <drivers/graphics/graphics.h>
 
@@ -37,15 +42,17 @@ namespace eka2l1::drivers {
     framebuffer_ptr make_framebuffer(graphics_driver *driver, const std::vector<drawable *> &color_buffer_list,
         const std::vector<int> &face_indicies, drawable *depth_buffer, const int depth_face_index,
         drawable *stencil_buffer, const int stencil_face_index) {
-        switch (driver->get_current_api()) {
-        case graphic_api::opengl: {
-            return std::make_unique<ogl_framebuffer>(color_buffer_list, face_indicies, depth_buffer, stencil_buffer, depth_face_index, stencil_face_index);
-            break;
+#if EKA2L1_BUILD_VULKAN_BACKEND
+        if (driver && (driver->get_current_api() == graphic_api::vulkan)) {
+            return std::make_unique<vulkan_framebuffer>(color_buffer_list, face_indicies, depth_buffer, stencil_buffer, depth_face_index, stencil_face_index);
         }
+#endif
 
-        default:
-            break;
+#if EKA2L1_BUILD_NATIVE_BACKEND
+        if (driver && (driver->get_current_api() == graphic_api::native)) {
+            return std::make_unique<native_framebuffer>(color_buffer_list, depth_buffer, stencil_buffer);
         }
+#endif
 
         return nullptr;
     }

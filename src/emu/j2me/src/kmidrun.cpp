@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,13 +21,13 @@
 #include <j2me/common.h>
 #include <j2me/kmidrun.h>
 
-#include <system/epoc.h>
 #include <common/fileutils.h>
 #include <common/log.h>
 #include <common/path.h>
 #include <config/config.h>
-#include <vfs/vfs.h>
 #include <kernel/kernel.h>
+#include <system/epoc.h>
+#include <vfs/vfs.h>
 
 #include <fmt/format.h>
 
@@ -73,7 +73,7 @@ namespace eka2l1::j2me {
         return build_path_to_jar_dir(entry) + fmt::format("{}.jar", reduce_special_character_in_name(entry.name_));
     }
 
-    void launch_through_kmidrun(system *sys, const app_entry &entry, std::function<void(kernel::process*)> exit_cb) {
+    void launch_through_kmidrun(system *sys, const app_entry &entry, std::function<void(kernel::process *)> exit_cb) {
         std::u16string jar_path = common::utf8_to_ucs2(build_path_to_jar(entry));
         io_system *io = sys->get_io_system();
 
@@ -84,7 +84,7 @@ namespace eka2l1::j2me {
 
         std::u16string jad_path = jar_path;
         jad_path.back() = 'd';
-        
+
         if (!io->exist(jad_path)) {
             auto f_jad = io->open_file(jad_path, WRITE_MODE | BIN_MODE);
             if (!f_jad) {
@@ -101,7 +101,7 @@ namespace eka2l1::j2me {
                 LOG_ERROR(J2ME, "Can't create JAD file for launch. Error code {}", static_cast<int>(err));
                 return;
             }
-            
+
             f_jad->write_file(jad_content.c_str(), 1, static_cast<std::uint32_t>(jad_content.size()));
             f_jad->close();
         }
@@ -147,7 +147,7 @@ namespace eka2l1::j2me {
         if (extract_icon_to_store(jar_file_handle, *sys->get_config(), entry, real_icon_path) == INSTALL_ERROR_JAR_SUCCESS) {
             entry.icon_path_ = real_icon_path;
         }
-        
+
         fclose(jar_file_handle);
 
         std::uint32_t add_res = applist->add_entry(entry, true);
@@ -178,7 +178,7 @@ namespace eka2l1::j2me {
 
         return INSTALL_ERROR_JAR_SUCCESS;
     }
-    
+
     void uninstall_for_kmidrun(system *sys, app_list *applist, const app_entry &entry) {
         applist->remove_entry(entry.id_);
 

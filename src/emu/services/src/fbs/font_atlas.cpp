@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,6 +22,18 @@
 #include <common/time.h>
 
 namespace eka2l1::epoc {
+    static void set_atlas_channel_swizzle(drivers::graphics_command_builder &builder, const drivers::handle atlas_handle,
+        const std::uint8_t atlas_bpp) {
+        if (!atlas_handle) {
+            return;
+        }
+
+        if (atlas_bpp == 8) {
+            builder.set_swizzle(atlas_handle, drivers::channel_swizzle::red, drivers::channel_swizzle::red,
+                drivers::channel_swizzle::red, drivers::channel_swizzle::red);
+        }
+    }
+
     font_atlas::font_atlas()
         : atlas_handle_(0)
         , atlas_data_(nullptr)
@@ -82,7 +94,8 @@ namespace eka2l1::epoc {
         drivers::graphics_command_builder upload_builder;
 
         if (!atlas_data_) {
-            atlas_data_ = std::make_unique<std::uint8_t[]>(width * width * adapter_->get_atlas_bitmap_bits_per_pixel() / 8);
+            const std::uint8_t atlas_bpp = adapter_->get_atlas_bitmap_bits_per_pixel();
+            atlas_data_ = std::make_unique<std::uint8_t[]>(width * width * atlas_bpp / 8);
             auto cinfos = std::make_unique<adapter::character_info[]>(initial_range_.second);
 
             pack_handle_ = adapter_->begin_get_atlas(atlas_data_.get(), { width, width });
@@ -103,11 +116,12 @@ namespace eka2l1::epoc {
             }
 
             // Submit the bitmap through another queue, in case the command list above never got submitted
-            atlas_handle_ = drivers::create_bitmap(driver, { width, width },  adapter_->get_atlas_bitmap_bits_per_pixel());
+            atlas_handle_ = drivers::create_bitmap(driver, { width, width }, atlas_bpp);
 
             upload_builder.update_bitmap(atlas_handle_, reinterpret_cast<const char *>(atlas_data_.get()),
-                width * width * adapter_->get_atlas_bitmap_bits_per_pixel() / 8, { 0, 0 }, { width, width });
+                width * width * atlas_bpp / 8, { 0, 0 }, { width, width });
             upload_builder.set_texture_filter(atlas_handle_, false, drivers::filter_option::nearest);
+            set_atlas_channel_swizzle(upload_builder, atlas_handle_, atlas_bpp);
         }
 
         std::vector<int> to_rast;
@@ -158,10 +172,11 @@ namespace eka2l1::epoc {
                 for (char16_t i = 0; i < static_cast<char16_t>(to_rast.size()); i++) {
                     characters_.emplace(to_rast[i], cinfos[i]);
                 }
-
-                upload_builder.update_bitmap(atlas_handle_, reinterpret_cast<const char *>(atlas_data_.get()),
-                    width * width * adapter_->get_atlas_bitmap_bits_per_pixel() / 8, { 0, 0 }, { width, width });
             }
+
+            upload_builder.update_bitmap(atlas_handle_, reinterpret_cast<const char *>(atlas_data_.get()),
+                width * width * adapter_->get_atlas_bitmap_bits_per_pixel() / 8, { 0, 0 }, { width, width });
+            set_atlas_channel_swizzle(upload_builder, atlas_handle_, adapter_->get_atlas_bitmap_bits_per_pixel());
         }
 
         eka2l1::vec2 cur_pos = text_box.top;

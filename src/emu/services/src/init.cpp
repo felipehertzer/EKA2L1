@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,6 +21,7 @@
 #include <common/platform.h>
 
 #include <services/accessory/accessory.h>
+#include <services/agenda/agenda.h>
 #include <services/alarm/alarm.h>
 #include <services/applist/applist.h>
 #include <services/audio/alf/alf.h>
@@ -32,6 +33,7 @@
 #include <services/bluetooth/btman.h>
 #include <services/centralrepo/centralrepo.h>
 #include <services/comm/comm.h>
+#include <services/contacts/contacts.h>
 #include <services/drm/helper.h>
 #include <services/drm/notifier/notifier.h>
 #include <services/drm/rights/rights.h>
@@ -40,6 +42,7 @@
 #include <services/featmgr/featmgr.h>
 #include <services/fs/fs.h>
 #include <services/goommonitor/goommonitor.h>
+#include <services/host_launch.h>
 #include <services/hwrm/hwrm.h>
 #include <services/internet/connmonitor.h>
 #include <services/internet/nifman.h>
@@ -51,10 +54,11 @@
 #include <services/sensor/sensor.h>
 #include <services/shutdown/shutdown.h>
 #include <services/sisregistry/sisregistry.h>
-#include <services/sms/settings.h>
 #include <services/sms/sa/sa.h>
 #include <services/sms/sendas/sendas.h>
+#include <services/sms/settings.h>
 #include <services/socket/server.h>
+#include <services/starter/starter.h>
 #include <services/sysagt/sysagt.h>
 #include <services/ui/cap/oom_app.h>
 #include <services/ui/eikappui.h>
@@ -64,8 +68,8 @@
 #include <services/uiss/uiss.h>
 #include <services/unipertar/unipertar.h>
 #include <services/window/window.h>
-#include <services/host_launch.h>
 
+#include <kernel/kernel.h>
 #include <services/init.h>
 #include <system/epoc.h>
 #include <utils/locale.h>
@@ -105,18 +109,24 @@
     prop->first = category;                                                    \
     prop->second = key;                                                        \
     prop->define(service::property_type::bin_data, size);                      \
-    prop->set(data);
+    set_property_bin(prop, data, size);
 
 #define DEFINE_BIN_PROP(sys, category, key, size, data)           \
     prop = sys->get_kernel_system()->create<service::property>(); \
     prop->first = category;                                       \
     prop->second = key;                                           \
     prop->define(service::property_type::bin_data, size);         \
-    prop->set(data);
+    set_property_bin(prop, data, size);
 
 namespace eka2l1::epoc {
+    template <typename T>
+    static void set_property_bin(property_ptr prop, const T &data, const std::uint32_t size) {
+        auto *data_ptr = const_cast<std::uint8_t *>(reinterpret_cast<const std::uint8_t *>(&data));
+        prop->set(data_ptr, size);
+    }
+
     epoc::locale get_locale_info() {
-        epoc::locale locale;
+        epoc::locale locale{};
 
         // TODO: Move to common
 #if EKA2L1_PLATFORM(WIN32)
@@ -129,7 +139,6 @@ namespace eka2l1::epoc {
         locale.start_of_week_ = epoc::monday;
         locale.date_format_ = epoc::date_format_america;
         locale.time_format_ = epoc::time_format_twenty_four_hours;
-        locale.universal_time_offset_ = -14400;
         locale.device_time_state_ = epoc::device_user_time;
         locale.decimal_separator_ = '.';
         locale.thousands_separator_ = ',';
@@ -153,6 +162,7 @@ namespace eka2l1::epoc {
         auto locale = epoc::get_locale_info();
         auto &dvcs = sys->get_device_manager()->get_devices();
         kernel_system *kern = sys->get_kernel_system();
+        locale.universal_time_offset_ = kern->utc_offset();
 
         if (dvcs.size() > cfg->device) {
             auto &dvc = dvcs[cfg->device];
@@ -171,10 +181,16 @@ namespace eka2l1::epoc {
 
         lang.am_pm_table = eka2l1::ptr<char>(kern->put_static_array(am_pm_names_addr, 2));
 
-        epoc::locale_locale_settings locale_settings;
+        epoc::locale_locale_settings locale_settings{};
         locale_settings.locale_extra_settings_dll_ptr = 0;
         locale_settings.currency_symbols[0] = '$';
         locale_settings.currency_symbols[1] = '\0';
+        const epoc::locale_time_date_format locale_time_date_format{
+            u"%F%*D/%*M/%Y",
+            u"%F%*D%X %N %Y",
+            u"%F%*I:%T:%S %*A",
+            0
+        };
 
         // Unknown key, testing show that this prop return 65535 most of times
         // The prop belongs to HAL server, but the key usuage is unknown. (TODO)
@@ -189,6 +205,16 @@ namespace eka2l1::epoc {
         DEFINE_BIN_PROP(sys, epoc::SYS_CATEGORY, epoc::LOCALE_LANG_KEY, sizeof(epoc::locale_language), lang);
         DEFINE_BIN_PROP(sys, epoc::SYS_CATEGORY, epoc::LOCALE_DATA_KEY, sizeof(epoc::locale), locale);
         DEFINE_BIN_PROP(sys, epoc::SYS_CATEGORY, epoc::LOCALE_LOCALE_SETTINGS_KEY, sizeof(epoc::locale_locale_settings), locale_settings);
+        DEFINE_BIN_PROP(sys, epoc::SYS_CATEGORY, epoc::LOCALE_TIME_DATE_FORMAT_KEY, sizeof(epoc::locale_time_date_format), locale_time_date_format);
+    }
+
+    static void initialize_media_system_globals(eka2l1::system *sys) {
+        kernel_system *kern = sys->get_kernel_system();
+
+        if (!kern->get_by_name_and_type<kernel::mutex>("MPX_MUTEX", kernel::object_type::mutex)) {
+            kern->create_and_add<kernel::mutex>(kernel::owner_type::kernel, kern->get_ntimer(), nullptr,
+                "MPX_MUTEX", false, kernel::access_type::global_access);
+        }
     }
 }
 
@@ -199,12 +225,15 @@ namespace eka2l1 {
             CREATE_SERVER_D(sys, fs_server);
             CREATE_SERVER(sys, loader_server);
             CREATE_SERVER(sys, shutdown_server);
+            CREATE_SERVER(sys, starter_server);
 
             config::state *cfg = sys->get_config();
 
             CREATE_SERVER(sys, fbs_server);
             CREATE_SERVER(sys, window_server);
             CREATE_SERVER(sys, central_repo_server);
+            CREATE_SERVER(sys, agenda_server);
+            CREATE_SERVER(sys, contacts_server);
             CREATE_SERVER(sys, featmgr_server);
 
             if (cfg->enable_srv_rights)
@@ -243,15 +272,15 @@ namespace eka2l1 {
             CREATE_SERVER(sys, keysound_server);
 
             CREATE_SERVER(sys, eikappui_server);
-            //CREATE_SERVER(sys, akn_icon_server);
+            // CREATE_SERVER(sys, akn_icon_server);
             CREATE_SERVER(sys, akn_skin_server);
 
             CREATE_SERVER(sys, system_agent_server);
             CREATE_SERVER(sys, unipertar_server);
+            CREATE_SERVER(sys, backup_old_server);
 
             if (sys->get_symbian_version_use() <= epocver::eka2) {
                 CREATE_SERVER(sys, redir_server);
-                CREATE_SERVER(sys, backup_old_server);
             } else {
                 CREATE_SERVER(sys, goom_monitor_server);
                 CREATE_SERVER(sys, alf_streamer_server);
@@ -271,9 +300,10 @@ namespace eka2l1 {
             epoc::initialize_system_properties(sys, cfg);
             init_symbian_app_launch_to_host_launch(sys);
         }
-        
+
         void init_services_post_bootup(system *sys) {
             epoc::sms::supply_sim_settings(sys);
+            epoc::initialize_media_system_globals(sys);
         }
     }
 }

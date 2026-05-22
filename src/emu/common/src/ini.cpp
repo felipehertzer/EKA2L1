@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -59,7 +59,7 @@ namespace eka2l1::common {
     bool ini_section::node_exists(const char *name) {
         const std::size_t len = strlen(name);
 
-        for (auto node : nodes) {
+        for (const auto &node : nodes) {
             if (strncmp(name, node->name(), len) == 0) {
                 return true;
             }
@@ -241,6 +241,7 @@ namespace eka2l1::common {
         int counter;
 
         bool ignore_spaces{ true };
+        bool last_token_present{ false };
 
         std::deque<std::string> waits;
 
@@ -253,10 +254,13 @@ namespace eka2l1::common {
         }
 
         std::string next_string() {
+            last_token_present = false;
+
             if (!waits.empty()) {
                 std::string tok = std::move(waits.front());
                 waits.pop_front();
 
+                last_token_present = true;
                 return tok;
             }
 
@@ -266,13 +270,19 @@ namespace eka2l1::common {
                 }
             }
 
-            if (line[counter] == ',') {
-                counter++;
-                return ",";
-            }
-
             if (counter >= line.length()) {
                 return "";
+            }
+
+            if (line[counter] == '#') {
+                counter = static_cast<int>(line.length());
+                return "";
+            }
+
+            if (line[counter] == ',') {
+                counter++;
+                last_token_present = true;
+                return ",";
             }
 
             char cto_stop = ' ';
@@ -299,6 +309,11 @@ namespace eka2l1::common {
 
             // Stage 1 of tokenizing
             std::string trim1 = line.substr(begin, len);
+
+            if ((cto_stop == '"' || cto_stop == ']') && counter < line.length() && line[counter] == cto_stop) {
+                counter++;
+            }
+
             std::size_t equal_pos = trim1.find('=');
 
             if ((trim1 != "=") && (equal_pos != std::string::npos)) {
@@ -311,9 +326,11 @@ namespace eka2l1::common {
                     waits.push_back(trim1.substr(equal_pos + 1, trim1.length() - equal_pos));
                 }
 
+                last_token_present = true;
                 return equal_pos != 0 ? trim1.substr(0, equal_pos) : "=";
             }
 
+            last_token_present = true;
             return trim1;
         }
 
@@ -324,7 +341,7 @@ namespace eka2l1::common {
 
             std::string ns = next_string();
 
-            if (ns.empty()) {
+            if (!last_token_present) {
                 return std::nullopt;
             }
 
@@ -334,7 +351,19 @@ namespace eka2l1::common {
         }
 
         bool eof() {
-            return (counter >= line.length()) && (waits.empty());
+            if (!waits.empty()) {
+                return false;
+            }
+
+            int lookahead = counter;
+
+            if (ignore_spaces) {
+                while (lookahead < line.length() && (line[lookahead] == ' ' || line[lookahead] == '\t')) {
+                    lookahead++;
+                }
+            }
+
+            return (lookahead >= line.length()) || (line[lookahead] == '#');
         }
     };
 

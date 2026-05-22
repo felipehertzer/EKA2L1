@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -207,6 +207,31 @@ namespace eka2l1 {
         ctx->complete(epoc::error_none);
     }
 
+    void etel_phone_subsession::get_current_network_name(eka2l1::service::ipc_context *ctx) {
+        LOG_TRACE(SERVICE_ETEL, "Get current network name hardcoded");
+
+        epoc::etel_phone_network_name_v3 network_name{};
+        network_name.extension_id_ = epoc::etel_ext_multimode_v3;
+        network_name.long_name_.assign(nullptr, u"EKA2L1");
+        network_name.short_name_.assign(nullptr, u"EKA2L1");
+
+        epoc::etel_phone_operator_plmn_v3 loc_info{};
+        loc_info.extension_id_ = epoc::etel_ext_multimode_v3;
+        loc_info.country_code_.assign(nullptr, u"001");
+        loc_info.network_id_.assign(nullptr, u"01");
+        loc_info.pnn_id_ = 1;
+        loc_info.first_location_area_code_ = 0;
+        loc_info.last_location_area_code_ = 0xFFFF;
+
+        ctx->write_data_to_descriptor_argument<epoc::etel_phone_network_name_v3>(0, network_name, nullptr, true);
+
+        if (ctx->get_descriptor_argument_ptr(2)) {
+            ctx->write_data_to_descriptor_argument<epoc::etel_phone_operator_plmn_v3>(2, loc_info, nullptr, true);
+        }
+
+        ctx->complete(epoc::error_none);
+    }
+
     void etel_phone_subsession::get_current_network_info_old(eka2l1::service::ipc_context *ctx) {
         LOG_TRACE(SERVICE_ETEL, "Get current network hardcoded");
         std::optional<epoc::etel_old_phone_network_info> network_info = ctx->get_argument_data_from_descriptor<epoc::etel_old_phone_network_info>(0);
@@ -275,7 +300,7 @@ namespace eka2l1 {
     void etel_phone_subsession::notify_battery_info(eka2l1::service::ipc_context *ctx) {
         battery_info_change_nof_ = epoc::notify_info(ctx->msg->request_sts, ctx->msg->own_thr);
     }
-    
+
     void etel_phone_subsession::notify_battery_info_cancel(eka2l1::service::ipc_context *ctx) {
         battery_info_change_nof_.complete(epoc::error_cancel);
         ctx->complete(epoc::error_none);
@@ -310,6 +335,7 @@ namespace eka2l1 {
 
             default:
                 LOG_ERROR(SERVICE_ETEL, "Unimplemented etel phone opcode {}", ctx->msg->function);
+                ctx->complete(epoc::error_not_supported);
                 break;
             }
         } else if (legacy_level_ == ETEL_LEGACY_LEVEL_TRANSITION) {
@@ -344,6 +370,7 @@ namespace eka2l1 {
 
             default:
                 LOG_ERROR(SERVICE_ETEL, "Unimplemented etel phone opcode {}", ctx->msg->function);
+                ctx->complete(epoc::error_not_supported);
                 break;
             }
         } else {
@@ -404,6 +431,10 @@ namespace eka2l1 {
                 get_home_network(ctx);
                 break;
 
+            case epoc::etel_mobile_phone_get_network_name:
+                get_current_network_name(ctx);
+                break;
+
             case epoc::etel_mobile_phone_get_subscriber_id:
                 get_subscriber_id(ctx);
                 break;
@@ -446,6 +477,7 @@ namespace eka2l1 {
 
             default:
                 LOG_ERROR(SERVICE_ETEL, "Unimplemented etel phone opcode {}", ctx->msg->function);
+                ctx->complete(epoc::error_not_supported);
                 break;
             }
         }

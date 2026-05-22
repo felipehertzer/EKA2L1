@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018- EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -64,37 +64,37 @@ namespace eka2l1::common {
     int resize(const std::string &path, const std::uint64_t size);
 
     /* !\brief Remove a file.
-    */
+     */
     bool remove(const std::string &path);
 
     bool move_file(const std::string &path, const std::string &new_path);
 
     /**
      * \brief Copy a file to target destination.
-     * 
+     *
      * \param target_file               The file to be copied.
      * \param dest                      The destination.
      * \param overwrite_if_dest_exists  If this is true and the destination already exists, than the destination will be
      *                                  overwritten. Else, this function returns false.
-     * 
+     *
      * \returns True on success.
      */
     bool copy_file(const std::string &target_file, const std::string &dest, const bool overwrite_if_dest_exists);
 
     /**
      * @brief   Copy target folder contents to another specified folder.
-     * 
+     *
      * You can also use this function for folder transformation, by specifying the same path for target and dest.
-     * 
+     *
      * @param   target_folder             Folder that needs to be copied. If this folder does not exist, false is returned.
      * @param   dest_folder_to_reside     Folder that will contain the copied folder. Automatically created if not exist.
      * @param   flags                     Extra flag specifying extra operations when doing the copy.
      * @param   progress                  Optional variable tracking progress of the copy.
-     * 
+     *
      * @returns True on success.
      */
     bool copy_folder(const std::string &target_folder, const std::string &dest_folder_to_reside, const std::uint32_t flags, progress_changed_callback progress_callback = nullptr,
-                     cancel_requested_callback cancel_cb = nullptr);
+        cancel_requested_callback cancel_cb = nullptr);
 
     bool delete_folder(const std::string &target_folder);
 
@@ -117,10 +117,10 @@ namespace eka2l1::common {
 
     /**
      * @brief Open a C API file, handling through platform-specific API.
-     * 
+     *
      * @param target_file       The path to the file for opening, in UTF-8.
      * @param mode              Open mode in string. This is the same as the one to be passed in fopen.
-     * 
+     *
      * @returns Handle to the C file on success, else null.
      */
     FILE *open_c_file(const std::string &target_file, const char *mode);
@@ -173,11 +173,11 @@ namespace eka2l1::common {
 
     /**
      * @brief Given a filename, find the file/folder that matches this name by case-insensitive comparasion.
-     * 
+     *
      * @param folder_path       The path of the folder to search for the insensitive filename/folder name.
      * @param insensitive_name  The insensitve file name to search
      * @param type              The type of entry to match (file or folder?)
-     * 
+     *
      * @return std::string      Sensitive filename/folder name. Empty on not found.
      */
     std::string find_case_sensitive_file_name(const std::string &folder_path, const std::string &insensitive_name,

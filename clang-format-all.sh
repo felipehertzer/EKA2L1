@@ -1,84 +1,78 @@
-#!/bin/bash
-#
-# clang-format-all: a tool to run clang-format on an entire project
-# Copyright (C) 2016 Evan Klitzke <evan@eklitzke.org>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#!/usr/bin/env bash
 
-function usage {
-    echo "Usage: $0 DIR..."
-    exit 1
+set -euo pipefail
+
+usage() {
+    echo "Usage: $0 [--check] [PATH ...]"
+    echo
+    echo "Formats EKA2L1 source files with clang-format."
+    echo "When PATH is omitted, tracked and untracked non-ignored project source files are used."
+    echo "Vendored source under src/external is skipped."
 }
 
-if [ $# -eq 0 ]; then
+MODE="format"
+if [[ "${1:-}" == "--check" ]]; then
+    MODE="check"
+    shift
+elif [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
+    exit 0
 fi
 
-# Variable that will hold the name of the clang-format command
-FMT=""
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-# Some distros just call it clang-format. Others (e.g. Ubuntu) are insistent
-# that the version number be part of the command. We prefer clang-format if
-# that's present, otherwise we work backwards from highest version to lowest
-# version.
-for clangfmt in clang-format{,-{4,3}.{9,8,7,6,5,4,3,2,1,0}}; do
-    if which "$clangfmt" &>/dev/null; then
-        FMT="$clangfmt"
+FMT=""
+for CANDIDATE in "${CLANG_FORMAT:-}" clang-format clang-format-22 clang-format-21 clang-format-20 clang-format-19 clang-format-18 clang-format-17; do
+    if [[ -n "${CANDIDATE}" ]] && command -v "${CANDIDATE}" >/dev/null 2>&1; then
+        FMT="$(command -v "${CANDIDATE}")"
         break
     fi
 done
 
-# Check if we found a working clang-format
-if [ -z "$FMT" ]; then
-    echo "failed to find clang-format"
+if [[ -z "${FMT}" ]]; then
+    echo "failed to find clang-format" >&2
     exit 1
 fi
 
-# Check all of the arguments first to make sure they're all directories
-for dir in "$@"; do
-    if [ ! -d "${dir}" ]; then
-        echo "${dir} is not a directory"
-        usage
+FILES=()
+while IFS= read -r FILE; do
+    [[ -n "${FILE}" ]] || continue
+
+    case "${FILE}" in
+        src/external/*)
+            continue
+            ;;
+    esac
+
+    [[ -f "${ROOT}/${FILE}" ]] || continue
+
+    case "${FILE}" in
+        *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp|*.hxx|*.m|*.mm)
+            FILES+=("${ROOT}/${FILE}")
+            ;;
+    esac
+done < <(git -C "${ROOT}" ls-files --cached --others --exclude-standard -- "$@")
+
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    echo "No tracked source files matched."
+    exit 0
+fi
+
+ARGS=(-i)
+if [[ "${MODE}" == "check" ]]; then
+    ARGS=(--dry-run --Werror)
+fi
+
+FAILED=0
+for FILE in "${FILES[@]}"; do
+    if ! "${FMT}" "${ARGS[@]}" "${FILE}"; then
+        FAILED=1
     fi
 done
 
-# Find a dominating file, starting from a given directory and going up.
-find-dominating-file() {
-    if [ -r "$1"/"$2" ]; then
-        return 0
-    fi
-    if [ "$1" = "/" ]; then
-        return 1
-    fi
-    find-dominating-file "$(realpath "$1"/..)" "$2"
-    return $?
-}
+if [[ ${FAILED} -ne 0 ]]; then
+    echo "clang-format ${MODE} failed. Run '$0' to apply formatting." >&2
+    exit 1
+fi
 
-# Run clang-format -i on all of the things
-for dir in "$@"; do
-    pushd "${dir}" &>/dev/null
-    if ! find-dominating-file . .clang-format; then
-        echo "Failed to find dominating .clang-format starting at $PWD"
-        continue
-    fi
-    find . \
-         \( -name '*.c' \
-         -o -name '*.cc' \
-         -o -name '*.cpp' \
-         -o -name '*.h' \
-         -o -name '*.hh' \
-         -o -name '*.hpp' \) \
-         -exec "${FMT}" -i '{}' \;
-    popd &>/dev/null
-done
+echo "clang-format ${MODE} completed for ${#FILES[@]} source file(s)."

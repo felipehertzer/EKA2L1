@@ -17,24 +17,24 @@
  *
  */
 
-#include <dispatch/libraries/vg/gnuVG_shaderman.hh>
 #include <dispatch/libraries/vg/gnuVG_shader.hh>
+#include <dispatch/libraries/vg/gnuVG_shaderman.hh>
 
 namespace gnuVG {
-	ShaderMan::~ShaderMan() {
-		for (auto &[handle, shader]: shader_library) {
-			delete shader;
-		}
-	}
+    ShaderMan::~ShaderMan() {
+        for (auto &[handle, shader] : shader_library) {
+            delete shader;
+        }
+    }
 
-    Shader* ShaderMan::get_shader(eka2l1::drivers::graphics_driver *drv, int caps) {
-		auto found = shader_library.find(caps);
-		if(found != shader_library.end()) {
-			return found->second;
-		}
+    Shader *ShaderMan::get_shader(eka2l1::drivers::graphics_driver *drv, int caps) {
+        auto found = shader_library.find(caps);
+        if (found != shader_library.end()) {
+            return found->second;
+        }
 
-		auto new_shader = new Shader(drv, caps);
-		shader_library[caps] = new_shader;
-		return new_shader;
+        auto new_shader = new Shader(drv, caps);
+        shader_library[caps] = new_shader;
+        return new_shader;
     }
 }

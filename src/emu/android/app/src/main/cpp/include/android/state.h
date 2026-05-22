@@ -38,8 +38,8 @@
 #include <android/launcher.h>
 #include <drivers/graphics/emu_window.h>
 #include <drivers/input/emu_controller.h>
-#include <services/window/window.h>
 #include <drivers/sensor/sensor.h>
+#include <services/window/window.h>
 
 namespace eka2l1 {
     namespace drivers {

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -71,19 +71,19 @@ namespace eka2l1::epoc::adapter {
 
         /**
          * @brief   Initialize getting glyph atlas.
-         * 
+         *
          * Each pixel is 8 bits.
-         * 
+         *
          * @param   atlas_ptr Pointer to destination data which glyph bitmap will be written to.
          * @param   atlas_size Size of the atlas.
-         * 
+         *
          * @returns Handle to the atlas get context. -1 on failure.
          */
         virtual std::int32_t begin_get_atlas(std::uint8_t *atlas_ptr, const eka2l1::vec2 atlas_size) = 0;
 
         /**
          * \brief Get an atlas contains glyphs bitmap.
-         * 
+         *
          * \param handle        Handle to the atlas get context returned in begin_get_atlas.
          * \param idx           Index of the typeface we want to get glyph bitmaps from.
          * \param start_code    First unicode point in a range to get glyph bitmap. 0 to use unicode array.
@@ -91,8 +91,8 @@ namespace eka2l1::epoc::adapter {
          * \param num_code      Number of unicode point to rasterize.
          * \param font_size     Size of the font to render.
          * \param info          Pointer to array which will contains character info in the atlas. Can be NULL to ignore.
-         * 
-         * \returns True on success. 
+         *
+         * \returns True on success.
          */
         virtual bool get_glyph_atlas(const std::int32_t handle, const std::size_t idx, const char16_t start_code, int *unicode_point,
             const char16_t num_code, const std::uint32_t metric_identifier, character_info *info)
@@ -124,7 +124,7 @@ namespace eka2l1::epoc::adapter {
 
         /**
          * @brief Fill shaping struct describing the layout of the text using this font with a specific language code.
-         * 
+         *
          * @param params            The parameter struct, giving clues for laying out the text.
          * @param text              The target text that will be laid out.
          * @param shaping_header    On return, filled shaping info.
@@ -134,14 +134,14 @@ namespace eka2l1::epoc::adapter {
 
         /**
          * @brief Retrieve font table's content.
-         * 
+         *
          * This is only available in supported font types like TrueType.
-         * 
+         *
          * @param face_index    The index of the face we want to retrieve the font table from.
          * @param tag4          The tag of the table.
          * @param dest          Dest buffer to write's table content. Use NULL to retrieve the table size in dest_size.
          * @param dest_size     The size of the destination buffer if it's not null. On return contains the written size.
-         * 
+         *
          * @return True on success.
          */
         virtual bool get_table_content(const std::size_t face_index, const std::uint32_t tag4, std::uint8_t *dest,
@@ -151,7 +151,7 @@ namespace eka2l1::epoc::adapter {
 
         /**
          * @brief Get the nearest supported font metrics in accordance to the ideal size.
-         * 
+         *
          * @param face_index                The index of the face we want to get the nearest font size from.
          * @param targeted_font_size        The ideal font size.
          * @return std::uint16_t            The nearest font metric that this font supported.
@@ -176,10 +176,10 @@ namespace eka2l1::epoc::adapter {
 
     /**
      * \brief Create a new font file adapter.
-     * 
+     *
      * \param kind Kind of backend adapter we want to use.
      * \param dat  Font file data.
-     * 
+     *
      * \returns An instance of the adapter. Null in case of unrecognised kind or failure.
      */
     font_file_adapter_instance make_font_file_adapter(const font_file_adapter_kind kind, std::vector<std::uint8_t> &dat);

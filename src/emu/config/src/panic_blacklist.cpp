@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,8 +20,8 @@
 #include <config/panic_blacklist.h>
 #include <yaml-cpp/yaml.h>
 
-#include <common/log.h>
 #include <common/buffer.h>
+#include <common/log.h>
 
 namespace eka2l1::config {
     panic_blacklist::panic_blacklist() {
@@ -39,9 +39,9 @@ namespace eka2l1::config {
                 the_node = YAML::Load(whole_config);
             }
 
-            for (auto iterator_val: the_node) {
+            for (auto iterator_val : the_node) {
                 const std::string process_name = iterator_val.first.as<std::string>();
-                for (auto smaller_iterator: iterator_val.second) {
+                for (auto smaller_iterator : iterator_val.second) {
                     panic_block_info info;
 
                     info.process_name_ = process_name;
@@ -57,7 +57,7 @@ namespace eka2l1::config {
             return;
         }
     }
-    
+
     bool panic_blacklist::should_be_blocked(const std::string &process_name, const std::string &thread_name,
         const std::string &category, const std::int32_t code) {
         auto range = blacklist_.equal_range(process_name);

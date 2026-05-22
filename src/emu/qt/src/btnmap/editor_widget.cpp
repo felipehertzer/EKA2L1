@@ -1,34 +1,34 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "ui_editor_widget.h"
-#include <qt/btnmap/executor.h>
 #include <qt/btnmap/editor_widget.h>
-#include <qt/btnmap/singletouch.h>
+#include <qt/btnmap/executor.h>
 #include <qt/btnmap/joystick.h>
+#include <qt/btnmap/singletouch.h>
 #include <qt/utils.h>
 
-#include <common/cvt.h>
 #include <QDir>
-#include <QLabel>
 #include <QGridLayout>
 #include <QInputDialog>
+#include <QLabel>
+#include <common/cvt.h>
 
 editor_widget::editor_widget(QWidget *parent, eka2l1::qt::btnmap::executor *exec)
     : QDockWidget(parent)
@@ -37,7 +37,7 @@ editor_widget::editor_widget(QWidget *parent, eka2l1::qt::btnmap::executor *exec
     , last_scale_factor_({ 1.0f, 1.0f })
     , system_(nullptr)
     , map_exec_(exec)
-    , previous_profile_combo_index_(-1){
+    , previous_profile_combo_index_(-1) {
     ui_->setupUi(this);
     ui_->edit_mode_btn->setChecked(true);
     ui_->map_comps_list->setCurrentRow(0);
@@ -56,6 +56,8 @@ editor_widget::editor_widget(QWidget *parent, eka2l1::qt::btnmap::executor *exec
 
     connect(ui_->edit_mode_btn, &QPushButton::clicked, this, &editor_widget::on_edit_btn_clicked);
     connect(ui_->delete_mode_btn, &QPushButton::clicked, this, &editor_widget::on_delete_btn_clicked);
+    connect(ui_->profile_add_btn, &QPushButton::clicked, this, &editor_widget::on_profile_add_btn_clicked);
+    connect(ui_->save_toggle_profile_btn, &QPushButton::clicked, this, &editor_widget::on_save_toggle_profile_btn_clicked);
     connect(ui_->profile_combo_box, QOverload<int>::of(&QComboBox::activated), this, &editor_widget::on_profile_combo_box_activated);
     connect(this, &editor_widget::potential_current_app_changed, this, &editor_widget::on_potential_current_app_changed);
 }
@@ -86,11 +88,10 @@ void editor_widget::on_potential_current_app_changed() {
         current_app_uid_ = fmt::format("{:X}", current_app_info->app_uid_);
         current_app_name_ = eka2l1::common::ucs2_to_utf8(current_app_info->app_name_);
 
-        ui_->current_app_profile_label->setText(tr("For app: %1 (0x%2)").arg(QString::fromStdString(current_app_name_),
-                                                                             QString::fromStdString(current_app_uid_)));
+        ui_->current_app_profile_label->setText(tr("For app: %1 (0x%2)").arg(QString::fromStdString(current_app_name_), QString::fromStdString(current_app_uid_)));
 
         profile_folder_path_ = QString(BINDING_TOUCH_FOLDER_FORMAT).arg(QString::fromStdString(current_app_uid_));
-        
+
         ui_->profile_combo_box->clear();
 
         QDir dir(profile_folder_path_);
@@ -122,11 +123,12 @@ void editor_widget::on_potential_current_app_changed() {
 
         QFile file(profile_use_config_file_);
         if (!file.exists()) {
-            file.open(QIODevice::WriteOnly | QIODevice::NewOnly);
-            file.write(reinterpret_cast<const char*>(&current_index), sizeof(current_index));
+            if (file.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+                file.write(reinterpret_cast<const char *>(&current_index), sizeof(current_index));
+            }
         } else {
             if (file.open(QIODevice::ReadOnly)) {
-                file.read(reinterpret_cast<char*>(&current_index), sizeof(current_index));
+                file.read(reinterpret_cast<char *>(&current_index), sizeof(current_index));
             }
         }
 
@@ -203,7 +205,7 @@ void editor_widget::draw(eka2l1::drivers::graphics_driver *driver, eka2l1::drive
     }
 }
 
-bool editor_widget::handle_key_press(const std::uint32_t code)  {
+bool editor_widget::handle_key_press(const std::uint32_t code) {
     if (map_editor_hidden_) {
         return false;
     }
@@ -302,8 +304,9 @@ void editor_widget::on_profile_combo_box_activated(int index) {
     map_editor_.import_from(map_exec_);
 
     QFile file(profile_use_config_file_);
-    file.open(QIODevice::WriteOnly);
-    file.write(reinterpret_cast<const char*>(&index), sizeof(index));
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(reinterpret_cast<const char *>(&index), sizeof(index));
+    }
 
     previous_profile_combo_index_ = index;
 }

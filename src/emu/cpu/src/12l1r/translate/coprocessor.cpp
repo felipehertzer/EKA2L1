@@ -17,16 +17,16 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <common/log.h>
 #include <cpu/12l1r/arm_visitor.h>
 #include <cpu/12l1r/block_gen.h>
 #include <cpu/12l1r/core_state.h>
 #include <cpu/12l1r/thumb_visitor.h>
 #include <cpu/12l1r/visit_session.h>
-#include <common/log.h>
 
 namespace eka2l1::arm::r12l1 {
     bool arm_translate_visitor::arm_MCR(common::cc_flags cond, std::size_t opc1, int cr_n, reg_index t, std::size_t coproc_no,
-                 std::size_t opc2, int cr_m) {
+        std::size_t opc2, int cr_m) {
         if (!condition_passed(cond)) {
             return false;
         }
@@ -48,7 +48,7 @@ namespace eka2l1::arm::r12l1 {
     }
 
     bool arm_translate_visitor::arm_MRC(common::cc_flags cond, std::size_t opc1, int cr_n, reg_index t, std::size_t coproc_no,
-                 size_t opc2, int cr_m) {
+        size_t opc2, int cr_m) {
         if (!condition_passed(cond)) {
             return false;
         }

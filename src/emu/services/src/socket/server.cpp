@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -53,7 +53,7 @@ namespace eka2l1 {
     }
 
     epoc::socket::protocol *socket_server::find_protocol(const std::uint32_t addr_family, const std::uint32_t protocol_id) {
-        for (auto &pr: protocols_) {
+        for (auto &pr : protocols_) {
             std::vector<std::uint32_t> ids = pr->family_ids();
             if (std::find(ids.begin(), ids.end(), addr_family) != ids.end()) {
                 ids = pr->supported_ids();
@@ -259,8 +259,17 @@ namespace eka2l1 {
     }
 
     void socket_client_session::cn_get_long_des_setting(eka2l1::service::ipc_context *ctx) {
-        LOG_TRACE(SERVICE_ESOCK, "CnGetLongDesSetting stubbed");
-        ctx->complete(epoc::error_none);
+        std::optional<std::uint32_t> subsess_id = ctx->get_argument_value<std::uint32_t>(3);
+        if (subsess_id && (subsess_id.value() > 0)) {
+            socket_subsession_instance *inst = subsessions_.get(subsess_id.value());
+            if (inst && ((*inst)->type() == epoc::socket::socket_subsession_type_connection)) {
+                (*inst)->dispatch(ctx);
+                return;
+            }
+        }
+
+        LOG_ERROR(SERVICE_ESOCK, "CnGetLongDesSetting requested without a valid connection subsession");
+        ctx->complete(epoc::error_argument);
     }
 
     static void fill_protocol_description(epoc::socket::protocol *pr, protocol_description &des) {
@@ -270,7 +279,7 @@ namespace eka2l1 {
         des.protocol_ = pr->supported_ids()[0];
         des.ver_ = pr->ver();
         des.bord_ = pr->get_byte_order();
-        //des.sock_type_ = pr->sock_type();
+        // des.sock_type_ = pr->sock_type();
         des.message_size_ = pr->message_size();
 
         des.name_.assign(nullptr, pr->name());
@@ -352,7 +361,12 @@ namespace eka2l1 {
         subsessions_.get(id)->get()->set_id(id);
 
         // Write the subsession handle
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, id);
+        if (!ctx->write_handle_argument(3, id)) {
+            subsessions_.remove(id);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -391,7 +405,12 @@ namespace eka2l1 {
         subsessions_.get(id)->get()->set_id(id);
 
         // Write the subsession handle
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, id);
+        if (!ctx->write_handle_argument(3, id)) {
+            subsessions_.remove(id);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -430,7 +449,12 @@ namespace eka2l1 {
         subsessions_.get(id)->get()->set_id(id);
 
         // Write the subsession handle
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, id);
+        if (!ctx->write_handle_argument(3, id)) {
+            subsessions_.remove(id);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -467,7 +491,12 @@ namespace eka2l1 {
         subsessions_.get(id)->get()->set_id(id);
 
         // Write the subsession handle
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, id);
+        if (!ctx->write_handle_argument(3, id)) {
+            subsessions_.remove(id);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -481,7 +510,12 @@ namespace eka2l1 {
         subsessions_.get(id)->get()->set_id(id);
 
         // Write the subsession handle
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, id);
+        if (!ctx->write_handle_argument(3, id)) {
+            subsessions_.remove(id);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -493,7 +527,12 @@ namespace eka2l1 {
         subsessions_.get(id)->get()->set_id(id);
 
         // Write the subsession handle
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, id);
+        if (!ctx->write_handle_argument(3, id)) {
+            subsessions_.remove(id);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 

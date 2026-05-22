@@ -1,23 +1,24 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <drivers/audio/backend/ffmpeg/dsp_ffmpeg.h>
+#include <drivers/ffmpeg_compat.h>
 #include <map>
 
 #include <common/algorithm.h>
@@ -37,7 +38,7 @@ namespace eka2l1::drivers {
         { PCM8_FOUR_CC_CODE, AV_CODEC_ID_PCM_S8 }
     };
 
-    static std::map<four_cc, const char*> FOUR_CC_TO_FILENAME_QUICK_REG_MAP = {
+    static std::map<four_cc, const char *> FOUR_CC_TO_FILENAME_QUICK_REG_MAP = {
         { AMR_FOUR_CC_CODE, "sample.amr" },
         { MP3_FOUR_CC_CODE, "sample.mp3" },
     };
@@ -55,7 +56,6 @@ namespace eka2l1::drivers {
 
     dsp_output_stream_ffmpeg::~dsp_output_stream_ffmpeg() {
         if (codec_) {
-            avcodec_close(codec_);
             avcodec_free_context(&codec_);
         }
 
@@ -96,7 +96,6 @@ namespace eka2l1::drivers {
     bool dsp_output_stream_ffmpeg::format(const four_cc fmt) {
         if ((fmt == PCM16_FOUR_CC_CODE) || (fmt == PCM8_FOUR_CC_CODE)) {
             if (codec_) {
-                avcodec_close(codec_);
                 avcodec_free_context(&codec_);
 
                 codec_ = nullptr;
@@ -135,8 +134,7 @@ namespace eka2l1::drivers {
 
         io_ = avio_alloc_context(custom_io_buffer_, CUSTOM_IO_BUFFER_SIZE, 0, this, [](void *data, std::uint8_t *buf, int buf_size) {
             dsp_output_stream_ffmpeg *me = reinterpret_cast<dsp_output_stream_ffmpeg*>(data);
-            return me->read_queued_data(buf, buf_size);
-        }, nullptr, nullptr);
+            return me->read_queued_data(buf, buf_size); }, nullptr, nullptr);
 
         if (!io_) {
             LOG_ERROR(DRIVER_AUD, "Can't initialize DSP custom IO!");
@@ -150,7 +148,6 @@ namespace eka2l1::drivers {
         }
 
         if (codec_) {
-            avcodec_close(codec_);
             avcodec_free_context(&codec_);
 
             codec_ = nullptr;
@@ -163,7 +160,7 @@ namespace eka2l1::drivers {
             return false;
         }
 
-        codec_->channels = channels_;
+        ffmpeg_compat::set_default_channel_layout(codec_, channels_);
 
         if (avcodec_open2(codec_, decoder, nullptr) < 0) {
             LOG_ERROR(DRIVER_AUD, "Can't open new context with codec");
@@ -181,10 +178,10 @@ namespace eka2l1::drivers {
     void dsp_output_stream_ffmpeg::queue_data_decode(const std::uint8_t *original, const std::size_t original_size) {
         const std::lock_guard<std::mutex> guard(decode_lock_);
 
-        const bool all_zero = std::all_of(original, original + original_size, [](std::uint8_t i) { return i==0; });
+        const bool all_zero = std::all_of(original, original + original_size, [](std::uint8_t i) { return i == 0; });
         if (all_zero) {
             // Queue buffer
-            buffer_.push(reinterpret_cast<const std::uint16_t*>(original), (original_size + 1) / 2);
+            buffer_.push(reinterpret_cast<const std::uint16_t *>(original), (original_size + 1) / 2);
             return;
         }
 
@@ -260,7 +257,7 @@ namespace eka2l1::drivers {
             av_packet_free(&packet);
             return false;
         }
-        
+
         int err = avcodec_send_packet(codec_, packet);
         av_packet_free(&packet);
 
@@ -275,11 +272,14 @@ namespace eka2l1::drivers {
             dest.resize(channels_ * frame->nb_samples * sizeof(std::uint16_t));
             timestamp_in_base_ = frame->best_effort_timestamp;
 
-            if ((channels_ != codec_->channels) || (frame->format != AV_SAMPLE_FMT_S16)) {
-                SwrContext *swr = swr_alloc_set_opts(nullptr,
-                    (channels_ == 1) ? AV_CH_LAYOUT_MONO : AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16, freq_,
-                    frame->channel_layout, static_cast<AVSampleFormat>(frame->format), frame->sample_rate,
-                    0, nullptr);
+            if ((channels_ != ffmpeg_compat::channel_count(frame)) || (frame->format != AV_SAMPLE_FMT_S16)) {
+                SwrContext *swr = nullptr;
+                if (ffmpeg_compat::configure_swr_from_frame(&swr, channels_, AV_SAMPLE_FMT_S16, freq_, frame) < 0) {
+                    LOG_ERROR(DRIVER_AUD, "Error allocating SWR context");
+                    av_frame_free(&frame);
+
+                    return false;
+                }
 
                 if (swr_init(swr) < 0) {
                     LOG_ERROR(DRIVER_AUD, "Error initializing SWR context");
@@ -289,7 +289,7 @@ namespace eka2l1::drivers {
                 }
 
                 std::uint8_t *output = &dest[0];
-                const std::uint8_t **input = const_cast<const std::uint8_t**>(frame->extended_data);
+                const std::uint8_t **input = const_cast<const std::uint8_t **>(frame->extended_data);
 
                 const int result = swr_convert(swr, &output, frame->nb_samples, input, frame->nb_samples);
                 swr_free(&swr);
@@ -309,7 +309,6 @@ namespace eka2l1::drivers {
     }
 
     bool dsp_output_stream_ffmpeg::internal_decode_running_out() {
-        return ((format_ != drivers::PCM16_FOUR_CC_CODE) && (queued_data_.size() <= CUSTOM_IO_BUFFER_SIZE * 2)) ||
-            dsp_output_stream_shared::internal_decode_running_out();
+        return ((format_ != drivers::PCM16_FOUR_CC_CODE) && (queued_data_.size() <= CUSTOM_IO_BUFFER_SIZE * 2)) || dsp_output_stream_shared::internal_decode_running_out();
     }
 }

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,7 +24,9 @@
 #include <cpu/arm_dynarmic.h>
 #include <cpu/arm_utils.h>
 
-#include <dynarmic/interface/A32/coprocessor.h>
+#include <dynarmic/A32/coprocessor.h>
+
+#include <algorithm>
 
 namespace eka2l1::arm {
     class dynarmic_core_cp15 : public Dynarmic::A32::Coprocessor {
@@ -107,6 +109,7 @@ namespace eka2l1::arm {
 
         dynarmic_core &parent;
         std::uint64_t interpreted;
+        bool fatal_access_pending;
 
         core::thread_context temp_context;
 
@@ -114,22 +117,37 @@ namespace eka2l1::arm {
         explicit dynarmic_core_callback(dynarmic_core &parent, std::shared_ptr<dynarmic_core_cp15> cp15)
             : cp15(cp15)
             , parent(parent)
-            , interpreted(0) {}
+            , interpreted(0)
+            , fatal_access_pending(false) {}
 
         dynarmic_core_cp15 *get_cp15() {
             return cp15.get();
         }
 
+        void begin_run() {
+            fatal_access_pending = false;
+        }
+
         /**
          * @brief Raise access violation and get feedback on whether we should reaccess the address again.
-         * 
+         *
          * @param addr          Address where the violation happens.
          * @param is_read       True if the raised exception is from an invalid read. Otherwise, it's from an invalid write.
-         * 
+         *
          * @returns True if the handler fixed the violation and a re-read/re-write should be reissued.
          */
         bool raise_invalid_access_and_get_feedback(const Dynarmic::A32::VAddr addr, const bool is_read) {
-            return parent.exception_handler(is_read ? exception_type_access_violation_read : exception_type_access_violation_write, addr);
+            if (fatal_access_pending) {
+                return false;
+            }
+
+            if (parent.exception_handler(is_read ? exception_type_access_violation_read : exception_type_access_violation_write, addr)) {
+                return true;
+            }
+
+            fatal_access_pending = true;
+            parent.stop();
+            return false;
         }
 
         bool handle_read_status(const bool status, const Dynarmic::A32::VAddr addr) {
@@ -148,15 +166,22 @@ namespace eka2l1::arm {
             return false;
         }
 
-        std::optional<std::uint32_t> MemoryReadCode(Dynarmic::A32::VAddr addr) override {
+        std::uint32_t MemoryReadCode(Dynarmic::A32::VAddr addr) override {
             std::uint32_t code_result = 0;
 
             bool status = parent.read_code(addr, &code_result);
+            if (!status && addr < 0x100 && parent.get_lr() >= 0x1000) {
+                // Some legacy EKA1 titles branch through optional null callbacks.
+                // Treat low-page code fetches as a tiny return thunk instead of
+                // escalating to a fatal guest access violation.
+                return (parent.get_cpsr() & 0x20) ? 0x47704770 : 0xE12FFF1E;
+            }
+
             if (handle_read_status(status, addr)) {
                 status = parent.read_code(addr, &code_result);
             }
 
-            return status ? std::make_optional<std::uint32_t>(code_result) : std::nullopt;
+            return status ? code_result : 0;
         }
 
         uint8_t MemoryRead8(Dynarmic::A32::VAddr addr) override {
@@ -305,30 +330,29 @@ namespace eka2l1::arm {
         }
     };
 
-    std::unique_ptr<Dynarmic::A32::Jit> make_jit(std::unique_ptr<dynarmic_core_callback> &callback, Dynarmic::TLB<9> &tlb_obj,
+    std::unique_ptr<Dynarmic::A32::Jit> make_jit(std::unique_ptr<dynarmic_core_callback> &callback,
+        std::array<std::uint8_t *, Dynarmic::A32::UserConfig::NUM_PAGE_TABLE_ENTRIES> &page_table,
         std::shared_ptr<dynarmic_core_cp15> cp15, Dynarmic::ExclusiveMonitor *monitor) {
         Dynarmic::A32::UserConfig config;
         config.callbacks = callback.get();
         config.coprocessors[15] = cp15;
-        config.tlb_entries = tlb_obj.entries.data();
-        config.tlb_index_mask_bits = 9;
+        config.page_table = &page_table;
+        config.detect_misaligned_access_via_page_table = 8 | 16 | 32 | 64;
         config.global_monitor = monitor;
         config.define_unpredictable_behaviour = true;
-        config.arch_version = Dynarmic::A32::ArchVersion::v6T2;
 
         return std::make_unique<Dynarmic::A32::Jit>(config);
     }
 
     dynarmic_core::dynarmic_core(arm::exclusive_monitor *monitor)
-        : tlb_obj(12)
-        , interpreter(monitor, 12)
+        : interpreter(monitor, 12)
         , interpreter_callback_inited(false) {
         std::shared_ptr<dynarmic_core_cp15> cp15 = std::make_shared<dynarmic_core_cp15>();
         cb = std::make_unique<dynarmic_core_callback>(*this, cp15);
 
         auto monitor_bb = reinterpret_cast<dynarmic_exclusive_monitor *>(monitor);
 
-        jit = make_jit(cb, tlb_obj, cp15, &monitor_bb->monitor_);
+        jit = make_jit(cb, page_table, cp15, &monitor_bb->monitor_);
     }
 
     dynarmic_core::~dynarmic_core() {
@@ -337,6 +361,7 @@ namespace eka2l1::arm {
     void dynarmic_core::run(const std::uint32_t instruction_count) {
         ticks_executed = 0;
         ticks_target = instruction_count;
+        cb->begin_run();
 
         jit->Run();
     }
@@ -440,37 +465,26 @@ namespace eka2l1::arm {
     }
 
     void dynarmic_core::set_tlb_page(address vaddr, std::uint8_t *ptr, prot protection) {
-        Dynarmic::MemoryPermission prot_flags = Dynarmic::MemoryPermission::Read;
-        switch (protection) {
-        case prot_read:
-            prot_flags |= Dynarmic::MemoryPermission::Read;
-            break;
-
-        case prot_read_write:
-            prot_flags |= Dynarmic::MemoryPermission::ReadWrite;
-            break;
-
-        case prot_read_exec:
-            prot_flags |= (Dynarmic::MemoryPermission::Read | Dynarmic::MemoryPermission::Execute);
-            break;
-
-        case prot_read_write_exec:
-            prot_flags |= (Dynarmic::MemoryPermission::Read | Dynarmic::MemoryPermission::Write | Dynarmic::MemoryPermission::Execute);
-            break;
-
-        default:
-            break;
+        const std::size_t page_index = vaddr >> Dynarmic::A32::UserConfig::PAGE_BITS;
+        if (page_index >= page_table.size()) {
+            return;
         }
 
-        tlb_obj.Add(vaddr, ptr, prot_flags);
+        page_table[page_index] = (protection & prot_write) ? ptr : nullptr;
     }
 
     void dynarmic_core::dirty_tlb_page(address addr) {
-        tlb_obj.MakeDirty(addr);
+        const std::size_t page_index = addr >> Dynarmic::A32::UserConfig::PAGE_BITS;
+        if (page_index < page_table.size()) {
+            page_table[page_index] = nullptr;
+        }
+
+        jit->InvalidateCacheRange(addr & ~0xFFF, 0x1000);
     }
 
     void dynarmic_core::flush_tlb() {
-        tlb_obj.Flush();
+        std::fill(page_table.begin(), page_table.end(), nullptr);
+        jit->ClearCache();
     }
 
     void dynarmic_core::clear_instruction_cache() {

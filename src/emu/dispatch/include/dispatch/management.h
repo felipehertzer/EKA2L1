@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -38,9 +38,9 @@ namespace eka2l1::dispatch {
 
         /**
          * \brief   Add object to object list.
-         * 
+         *
          * \param   obj  Unique pointer to move into the list.
-         * 
+         *
          * \returns Handle to the object.
          */
         handle add_object(std::unique_ptr<T> &obj) {
@@ -59,9 +59,9 @@ namespace eka2l1::dispatch {
 
         /**
          * \brief       Remove the object correspond with given handle from object list.
-         * 
+         *
          * \param       h Handle of the object.
-         * 
+         *
          * \returns     False if handle is invalid or object can not be removed.
          */
         bool remove_object(const handle h) {
@@ -78,7 +78,7 @@ namespace eka2l1::dispatch {
         /**
          * \brief       Get an object, given a handle.
          * \param       h Handle of the object.
-         * 
+         *
          * \returns     Pointer to the object if handle is valid, else nullptr.
          */
         T *get_object(const handle h) {

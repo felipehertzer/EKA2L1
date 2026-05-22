@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team / Citra Team
- * 
+ *
  * This file is part of EKA2L1 project / Citra Emulator Project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -64,11 +64,11 @@ namespace eka2l1 {
             // Simulate some timeslice delay, and not finish immediately
             // Some games just set the microseconds to signal to 1, and then when it's report superfast, it acts weird!
             // For example: DDragon, which signals an object that has not yet been set to active in time! (cancel was called but ineffective cause finish got to it first)
-            timing->schedule_event(common::max<std::uint64_t>(MINIMUM_US_AFTER, us_signal), 
+            timing->schedule_event(common::max<std::uint64_t>(MINIMUM_US_AFTER, us_signal),
                 callback_type, reinterpret_cast<std::uint64_t>(&info));
             return true;
         }
-        
+
         bool timer::after_ticks(kernel::thread *requester, eka2l1::ptr<epoc::request_status> sts,
             std::uint64_t tick_count) {
             const std::uint64_t us_per_ticks = (common::microsecs_per_sec / epoc::TICK_TIMER_HZ);

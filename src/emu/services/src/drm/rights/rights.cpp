@@ -1,32 +1,33 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <services/drm/rights/rights.h>
-#include <services/drm/rights/import.h>
-#include <services/fs/fs.h>
-#include <system/epoc.h>
-#include <vfs/vfs.h>
-#include <utils/err.h>
-#include <yaml-cpp/yaml.h>
+#include <common/chunkyseri.h>
 #include <common/crypt.h>
 #include <common/pystr.h>
+#include <services/drm/rights/import.h>
+#include <services/drm/rights/rights.h>
+#include <services/fs/fs.h>
+#include <system/epoc.h>
+#include <utils/err.h>
+#include <vfs/vfs.h>
+#include <yaml-cpp/yaml.h>
 
 namespace eka2l1 {
     static constexpr const char16_t *RIGHTS_FOLDER_PATH = u"C:\\Private\\101f51f2\\";
@@ -34,13 +35,41 @@ namespace eka2l1 {
     static constexpr const char16_t *IMPORT_DR_PATH = u":\\Private\\101f51f2\\import\\*.dr";
     static constexpr const char16_t *TEMP_FILE_PATH = u"C:\\system\\temp\\";
     static constexpr const std::uint32_t APP_INSTALLER_UID = 0x101F875A;
+    static constexpr std::uint32_t DRM_REJECTION_NONE = 0;
+
+    static bool intent_needs_rights_object(const epoc::drm::rights_intent intent) {
+        return (intent == epoc::drm::rights_intent_play)
+            || (intent == epoc::drm::rights_intent_view)
+            || (intent == epoc::drm::rights_intent_execute)
+            || (intent == epoc::drm::rights_intent_print)
+            || (intent == epoc::drm::rights_intent_unknown);
+    }
+
+    static bool permission_matches_intent(epoc::drm::rights_permission &permission,
+        const epoc::drm::rights_intent intent) {
+        if (intent == epoc::drm::rights_intent_unknown) {
+            return permission.available_rights_ != epoc::drm::rights_type_none;
+        }
+
+        return permission.get_constraint_from_intent(intent) != nullptr;
+    }
+
+    static void serialize_permission(epoc::drm::rights_permission permission,
+        const std::uint32_t version, std::vector<std::uint8_t> &result) {
+        common::chunkyseri seri(nullptr, 0, common::SERI_MODE_MEASURE);
+        permission.absorb(seri, version);
+
+        result.resize(seri.size());
+        seri = common::chunkyseri(result.data(), result.size(), common::SERI_MODE_WRITE);
+        permission.absorb(seri, version);
+    }
 
     rights_server::rights_server(eka2l1::system *sys)
         : service::typical_server(sys, RIGHTS_SERVER_NAME) {
     }
 
     std::uint32_t rights_server::get_suitable_seri_version() const {
-        const epocver ver = sys->get_symbian_version_use();        
+        const epocver ver = sys->get_symbian_version_use();
         if (ver <= epocver::epoc93fp1) {
             return 0;
         }
@@ -67,7 +96,7 @@ namespace eka2l1 {
     }
 
     bool rights_server::import_ng2l(const std::string &content, std::vector<std::string> &success_game_name,
-                                    std::vector<std::string> &failed_game_name) {
+        std::vector<std::string> &failed_game_name) {
         if (!database_) {
             initialize();
         }
@@ -83,7 +112,7 @@ namespace eka2l1 {
             }
 
             auto games = root["games"];
-            for (auto game_pair: games) {
+            for (auto game_pair : games) {
                 std::string game_name = game_pair.first.as<std::string>();
                 YAML::Node game = game_pair.second;
 
@@ -132,7 +161,7 @@ namespace eka2l1 {
 
                 std::vector<epoc::drm::rights_object> key_parsed;
 
-                for (auto game_key: game_keys) {
+                for (auto game_key : game_keys) {
                     epoc::drm::rights_object final_result;
                     final_result.common_data_.content_hash_.resize(20, 0);
                     final_result.permissions_.push_back(permission_template);
@@ -149,9 +178,8 @@ namespace eka2l1 {
                             std::string key_base64_str = key_base64_node.as<std::string>();
 
                             final_result.encrypt_key_.resize(16);
-                            crypt::base64_decode(reinterpret_cast<const std::uint8_t*>(key_base64_str.c_str()), 24, final_result.encrypt_key_.data(), 16);
-                        } catch (std::exception &ex)
-                        {
+                            crypt::base64_decode(reinterpret_cast<const std::uint8_t *>(key_base64_str.c_str()), 24, final_result.encrypt_key_.data(), 16);
+                        } catch (std::exception &ex) {
                             key_failed = true;
                             break;
                         }
@@ -226,6 +254,10 @@ namespace eka2l1 {
             initialize();
         }
 
+        LOG_TRACE(SERVICE_DRMSYS, "RightsServer connect from process={}",
+            context.msg && context.msg->own_thr && context.msg->own_thr->owning_process()
+                ? context.msg->own_thr->owning_process()->name()
+                : "<none>");
         create_session<rights_client_session>(&context);
         context.complete(epoc::error_none);
     }
@@ -238,12 +270,13 @@ namespace eka2l1 {
 
     void rights_client_session::get_entry_list(service::ipc_context *ctx) {
         std::optional<std::string> cid = ctx->get_argument_value<std::string>(1);
+        LOG_TRACE(SERVICE_DRMSYS, "RightsServer GetEntryList cid={}", cid.value_or("<invalid>"));
 
         if (!cid.has_value()) {
             ctx->complete(epoc::error_argument);
             return;
         }
-        
+
         kernel_system *kern = ctx->sys->get_kernel_system();
         fs_server *fss = kern->get_by_name<fs_server>(epoc::fs::get_server_name_through_epocver(kern->get_epoc_version()));
 
@@ -294,8 +327,26 @@ namespace eka2l1 {
         ctx->complete(epoc::error_none);
     }
 
+    void rights_client_session::get_prepared_data(service::ipc_context *ctx) {
+        if (prepared_data_.empty()) {
+            ctx->complete(epoc::error_not_ready);
+            return;
+        }
+
+        int err = 0;
+        if (!ctx->write_data_to_descriptor_argument(0, prepared_data_.data(),
+                static_cast<std::uint32_t>(prepared_data_.size()), &err)) {
+            ctx->complete((err == -2) ? epoc::error_argument : epoc::error_general);
+            return;
+        }
+
+        prepared_data_.clear();
+        ctx->complete(epoc::error_none);
+    }
+
     void rights_client_session::init_key(service::ipc_context *ctx) {
         std::optional<std::string> cid = ctx->get_argument_value<std::string>(0);
+        LOG_TRACE(SERVICE_DRMSYS, "RightsServer InitializeKey cid={}", cid.value_or("<invalid>"));
 
         if (!cid.has_value()) {
             ctx->complete(epoc::error_argument);
@@ -319,7 +370,7 @@ namespace eka2l1 {
 
         bool has_software_constraint = false;
 
-        for (const epoc::drm::rights_permission &perm: perms) {
+        for (const epoc::drm::rights_permission &perm : perms) {
             if (perm.software_constrained()) {
                 has_software_constraint = true;
             }
@@ -365,6 +416,7 @@ namespace eka2l1 {
     void rights_client_session::consume(service::ipc_context *ctx) {
         epoc::drm::rights_intent intent = static_cast<epoc::drm::rights_intent>(ctx->msg->args.args[0]);
         std::optional<std::string> cid = ctx->get_argument_value<std::string>(1);
+        LOG_TRACE(SERVICE_DRMSYS, "RightsServer Consume intent={}, cid={}", static_cast<int>(intent), cid.value_or("<invalid>"));
 
         if (!cid.has_value()) {
             ctx->complete(epoc::error_argument);
@@ -380,7 +432,7 @@ namespace eka2l1 {
             if (current_key_.empty()) {
                 ctx->complete(ERROR_CA_NO_RIGHTS);
             } else {
-                ctx->write_data_to_descriptor_argument(2, reinterpret_cast<std::uint8_t*>(current_key_.data()), static_cast<std::uint32_t>(current_key_.size()));
+                ctx->write_data_to_descriptor_argument(2, reinterpret_cast<std::uint8_t *>(current_key_.data()), static_cast<std::uint32_t>(current_key_.size()));
                 ctx->complete(epoc::error_none);
             }
         } else {
@@ -388,8 +440,73 @@ namespace eka2l1 {
         }
     }
 
+    void rights_client_session::check_rights(service::ipc_context *ctx) {
+        epoc::drm::rights_intent intent = static_cast<epoc::drm::rights_intent>(ctx->msg->args.args[0]);
+        std::optional<std::string> cid = ctx->get_argument_value<std::string>(1);
+        LOG_TRACE(SERVICE_DRMSYS, "RightsServer CheckRights intent={}, cid={}", static_cast<int>(intent), cid.value_or("<invalid>"));
+
+        prepared_data_.clear();
+
+        if (!cid.has_value()) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        std::uint32_t rejection = DRM_REJECTION_NONE;
+
+        if (intent_needs_rights_object(intent)) {
+            std::vector<epoc::drm::rights_permission> perms;
+            rights_server *rserv = server<rights_server>();
+
+            if (!rserv->database().get_permission_list(cid.value(), perms)) {
+                ctx->write_data_to_descriptor_argument(3, rejection);
+                ctx->complete(ERROR_CA_NO_RIGHTS);
+                return;
+            }
+
+            for (epoc::drm::rights_permission &perm : perms) {
+                if (permission_matches_intent(perm, intent)) {
+                    serialize_permission(perm, rserv->get_suitable_seri_version(), prepared_data_);
+                    const std::int32_t size = static_cast<std::int32_t>(prepared_data_.size());
+                    ctx->write_data_to_descriptor_argument(2, size);
+                    ctx->complete(epoc::error_none);
+                    return;
+                }
+            }
+
+            ctx->write_data_to_descriptor_argument(3, rejection);
+            ctx->complete(ERROR_CA_NO_RIGHTS);
+            return;
+        }
+
+        if ((intent == epoc::drm::rights_intent_install) || (intent == epoc::drm::rights_intent_peek)) {
+            rights_server *rserv = server<rights_server>();
+            std::string encryption_key;
+
+            if (!rserv->database().get_encryption_key(cid.value(), encryption_key)) {
+                ctx->write_data_to_descriptor_argument(3, rejection);
+                ctx->complete(ERROR_CA_NO_RIGHTS);
+                return;
+            }
+
+            epoc::drm::rights_permission all_rights;
+            all_rights.available_rights_ = epoc::drm::rights_type_play | epoc::drm::rights_type_display
+                | epoc::drm::rights_type_execute | epoc::drm::rights_type_print;
+            serialize_permission(all_rights, rserv->get_suitable_seri_version(), prepared_data_);
+
+            const std::int32_t size = static_cast<std::int32_t>(prepared_data_.size());
+            ctx->write_data_to_descriptor_argument(2, size);
+            ctx->complete(epoc::error_none);
+            return;
+        }
+
+        ctx->complete(epoc::error_argument);
+    }
+
     void rights_client_session::check_consume(service::ipc_context *ctx) {
         std::optional<std::string> cid = ctx->get_argument_value<std::string>(1);
+        LOG_TRACE(SERVICE_DRMSYS, "RightsServer CheckConsume intent={}, cid={}",
+            static_cast<int>(ctx->msg->args.args[0]), cid.value_or("<invalid>"));
         if (!cid.has_value()) {
             ctx->complete(epoc::error_argument);
             return;
@@ -407,14 +524,33 @@ namespace eka2l1 {
         ctx->complete(epoc::error_none);
     }
 
+    void rights_client_session::count(service::ipc_context *ctx) {
+        const std::int32_t count = server<rights_server>()->database().count_records();
+        ctx->write_data_to_descriptor_argument(0, count);
+        ctx->complete(epoc::error_none);
+    }
+
     void rights_client_session::fetch(service::ipc_context *ctx) {
+        LOG_TRACE(SERVICE_DRMSYS, "RightsServer opcode=0x{:X}", ctx->msg->function);
         switch (ctx->msg->function) {
         case rights_opcode_get_entry_list:
             get_entry_list(ctx);
             break;
 
+        case rights_opcode_get_prepared_data:
+            get_prepared_data(ctx);
+            break;
+
         case rights_opcode_initialize_key:
             init_key(ctx);
+            break;
+
+        case rights_opcode_check_rights:
+            check_rights(ctx);
+            break;
+
+        case rights_opcode_count:
+            count(ctx);
             break;
 
         case rights_opcode_consume:

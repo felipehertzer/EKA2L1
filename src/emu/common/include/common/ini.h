@@ -1,43 +1,43 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* This ini parser is made to deal with many INI types across Symbian OS
  *
- * There includes wsini, cenrep ini, etc.. These INI are advances from the original INI 
+ * There includes wsini, cenrep ini, etc.. These INI are advances from the original INI
  * format and each server has it own parser.
- * 
+ *
  * Here i group them all, and keep struct as lightweight as possible.
- * 
+ *
  * Parsing support
  * Two types of prop (pair):
- * 
+ *
  * INT A B (Prop seperate with space)
  * A=5, 7, 9 (Prop equals + seperate with comma)
- * 
+ *
  * These can be recursive, but don't test it to its limit:
- * 
+ *
  * INT A = 5, 7, 9 B
- * 
+ *
  * Will be as:
  * PROP KEY = INT, VALUES = { {KEY = A, VALUE = {5, 7, 9} } , B }
-*/
+ */
 
 #pragma once
 
@@ -266,7 +266,7 @@ namespace eka2l1::common {
         }
 
         /* \brief Access a node with given name/key.
-        */
+         */
         ini_node_ptr operator[](const char *name);
         ini_node_ptr find(const char *name);
         ini_node_ptr find_ignore_case(const char *name);
@@ -306,11 +306,11 @@ namespace eka2l1::common {
          * \returns 0 if success.
          *         -1 if file not found
          *         -2 if file is invalid (syntax invalid).
-        */
+         */
         int load(const char *path, bool ignore_spaces = true);
 
         /*! \brief Save an ini file
-        */
+         */
         // void save(const char *path);
     };
 }

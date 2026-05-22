@@ -1,10 +1,12 @@
-#include <drivers/camera/camera_collection.h>
 #include <drivers/camera/backend/null/camera_collection_null.h>
+#include <drivers/camera/camera_collection.h>
 
 #include <common/platform.h>
 
 #if EKA2L1_PLATFORM(ANDROID)
 #include <drivers/camera/backend/android/camera_collection_android.h>
+#elif EKA2L1_PLATFORM(IOS)
+#include <drivers/camera/backend/ios/camera_ios.h>
 #endif
 
 namespace eka2l1::drivers::camera {
@@ -14,6 +16,8 @@ namespace eka2l1::drivers::camera {
         if (collection_detail == nullptr) {
 #if EKA2L1_PLATFORM(ANDROID)
             collection_detail = std::make_unique<collection_android>();
+#elif EKA2L1_PLATFORM(IOS)
+            collection_detail = std::make_unique<collection_ios>();
 #else
             collection_detail = std::make_unique<collection_null>();
 #endif

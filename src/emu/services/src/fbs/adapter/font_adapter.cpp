@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <common/log.h>
 #include <services/fbs/adapter/font_adapter.h>
 #include <services/fbs/adapter/freetype_font_adapter.h>
 #include <services/fbs/adapter/gdr_font_adapter.h>
 #include <services/fbs/adapter/stb_font_adapter.h>
-#include <common/log.h>
 
 namespace eka2l1::epoc::adapter {
     bool font_file_adapter_base::make_text_shape(const std::size_t face_index, const open_font_shaping_parameter &params, const std::u16string &text, const std::uint32_t metric_identifier, open_font_shaping_header &shaping_header, std::uint8_t *shaping_data) {
@@ -51,9 +51,9 @@ namespace eka2l1::epoc::adapter {
             return true;
         }
 
-        std::uint32_t *glyph_code = reinterpret_cast<std::uint32_t*>(shaping_data);
-        std::uint16_t *positions_and_advance = reinterpret_cast<std::uint16_t*>(shaping_data + shaping_header.glyph_count_ * 4);
-        std::uint16_t *glyph_index_in_text = reinterpret_cast<std::uint16_t*>(reinterpret_cast<std::uint8_t*>(positions_and_advance) + shaping_header.glyph_count_ * 4 + 4);
+        std::uint32_t *glyph_code = reinterpret_cast<std::uint32_t *>(shaping_data);
+        std::uint16_t *positions_and_advance = reinterpret_cast<std::uint16_t *>(shaping_data + shaping_header.glyph_count_ * 4);
+        std::uint16_t *glyph_index_in_text = reinterpret_cast<std::uint16_t *>(reinterpret_cast<std::uint8_t *>(positions_and_advance) + shaping_header.glyph_count_ * 4 + 4);
 
         eka2l1::vec2 current_position = eka2l1::vec2(0, 0);
 

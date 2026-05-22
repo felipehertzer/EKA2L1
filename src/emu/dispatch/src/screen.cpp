@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,17 +24,17 @@
 
 #include <drivers/graphics/graphics.h>
 #include <kernel/kernel.h>
+#include <services/window/classes/wingroup.h>
 #include <services/window/common.h>
 #include <services/window/window.h>
-#include <services/window/classes/wingroup.h>
 #include <system/epoc.h>
 
 #include <fstream>
 
-namespace eka2l1::dispatch {    
+namespace eka2l1::dispatch {
     void screen_post_transferer::construct(ntimer *timing) {
         vsync_notify_event_ = timing->register_event("VSyncNotifyEvent", [this](const std::uint64_t data, const int cycles_late) {
-            epoc::notify_info *info = reinterpret_cast<epoc::notify_info*>(data);
+            epoc::notify_info *info = reinterpret_cast<epoc::notify_info *>(data);
             this->complete_notify(info);
         });
 
@@ -55,7 +55,7 @@ namespace eka2l1::dispatch {
 
     void screen_post_transferer::wait_vsync(epoc::screen *scr, epoc::notify_info &info) {
         std::uint64_t next_sync = 0;
-        scr->vsync(timing_, next_sync);
+        scr->query_vsync_delay(next_sync);
 
         if (next_sync == 0) {
             info.complete(epoc::error_none);
@@ -97,7 +97,7 @@ namespace eka2l1::dispatch {
 
         if (drv) {
             drivers::graphics_command_builder builder;
-            
+
             bool need_send_destroy = false;
 
             for (std::size_t i = 0; i < infos_.size(); i++) {
@@ -140,7 +140,7 @@ namespace eka2l1::dispatch {
             data_format = drivers::texture_format::rgb;
             internal_format = drivers::texture_format::rgb;
             type = drivers::texture_data_type::ushort_5_6_5;
-            line_stride = ((size.x * 2) + 1) / 4 * 4; 
+            line_stride = ((size.x * 2) + 1) / 4 * 4;
 
             break;
 
@@ -148,7 +148,7 @@ namespace eka2l1::dispatch {
             data_format = drivers::texture_format::rgb;
             internal_format = drivers::texture_format::rgb;
             type = drivers::texture_data_type::ubyte;
-            line_stride = ((size.x * 3) + 1) / 4 * 4; 
+            line_stride = ((size.x * 3) + 1) / 4 * 4;
 
             break;
 
@@ -181,7 +181,7 @@ namespace eka2l1::dispatch {
             builder.set_texture_filter(info.transfer_texture_, false, drivers::filter_option::linear);
         }
 
-        builder.update_texture(info.transfer_texture_, reinterpret_cast<const char*>(data), line_stride * size.y, 0, data_format, type, eka2l1::vec3(0, 0, 0),
+        builder.update_texture(info.transfer_texture_, reinterpret_cast<const char *>(data), line_stride * size.y, 0, data_format, type, eka2l1::vec3(0, 0, 0),
             eka2l1::vec3(size.x, size.y, 0), 0);
 
         if (format == FORMAT_RGB32_X888_LE) {
@@ -210,11 +210,14 @@ namespace eka2l1::dispatch {
                 const std::size_t buffer_size = mode_info.size.x * mode_info.size.y * 4;
 
                 std::uint64_t next_vsync_us = 0;
-                scr->vsync(sys->get_ntimer(), next_vsync_us);
+                scr->query_vsync_delay(next_vsync_us);
 
                 if (next_vsync_us) {
                     kern->crr_thread()->sleep(static_cast<std::uint32_t>(next_vsync_us));
                 }
+
+                scr->diag_dsa_updates.fetch_add(1, std::memory_order_relaxed);
+                scr->record_presented_frame();
 
                 std::unique_lock<std::mutex> guard(scr->screen_mutex);
 
@@ -261,7 +264,7 @@ namespace eka2l1::dispatch {
                 // That makes it a standard, non-flip landscape. 0 is obviously standard too. Therefore mode 90 and 180 needs flip.
                 const float rotation_draw = ((mode_info.rotation == 90) || (mode_info.rotation == 180)) ? 180.0f : 0.0f;
 
-                eka2l1::rect source_rect { eka2l1::vec2(0, 0), mode_info.size };
+                eka2l1::rect source_rect{ eka2l1::vec2(0, 0), mode_info.size };
                 eka2l1::rect dest_rect = source_rect;
                 if (rotation_draw != 0.0f) {
                     // Advance position for rotation origin. We can't gurantee the origin to be exactly div by 2.
@@ -283,7 +286,7 @@ namespace eka2l1::dispatch {
                 drivers::command_list retrieved = builder.retrieve_command_list();
                 driver->submit_command_list(retrieved);
 
-                if (((scr->flags_ & epoc::screen::FLAG_SCREEN_UPSCALE_FACTOR_LOCK) == 0) && scr->sync_screen_buffer) {    
+                if (((scr->flags_ & epoc::screen::FLAG_SCREEN_UPSCALE_FACTOR_LOCK) == 0) && scr->sync_screen_buffer) {
                     // The app/game updates normally, try to avoid upscaling it
                     // Sometimes UI are mixed in, and these syncs need to sync UI's data too!
                     // Automatically flag and save this settings
@@ -294,7 +297,10 @@ namespace eka2l1::dispatch {
                     }
                 }
 
-                scr->fire_screen_redraw_callbacks(true);
+                // The bridge path has already copied the direct-screen buffer into the
+                // screen texture. Let frontends present that texture instead of uploading
+                // the guest buffer a second time.
+                scr->fire_screen_redraw_callbacks(false);
             }
 
             scr = scr->next;
@@ -367,7 +373,7 @@ namespace eka2l1::dispatch {
 
                 drivers::command_list retrieved = builder.retrieve_command_list();
                 driver->submit_command_list(retrieved);
-                scr->fire_screen_redraw_callbacks(true);
+                scr->fire_screen_redraw_callbacks(false);
             }
 
             scr = scr->next;

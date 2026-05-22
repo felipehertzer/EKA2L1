@@ -17,8 +17,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <common/applauncher.h>
 #include <common/android/jniutils.h>
+#include <common/applauncher.h>
 
 namespace eka2l1::common {
     bool launch_browser(const std::string &url) {

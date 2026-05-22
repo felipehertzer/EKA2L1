@@ -1,26 +1,26 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <dispatch/libraries/egl/def.h>
 #include <drivers/graphics/graphics.h>
-#include <services/window/screen.h>
 #include <services/window/classes/winuser.h>
+#include <services/window/screen.h>
 
 #include <common/log.h>
 
@@ -29,6 +29,22 @@ namespace eka2l1::dispatch {
     static const std::uint32_t GREEN_SIZE_CONFIG_LOOKUP_TABLE[3] = { 6, 8, 8 };
     static const std::uint32_t BLUE_SIZE_CONFIG_LOOKUP_TABLE[3] = { 5, 8, 8 };
     static const std::uint32_t ALPHA_SIZE_CONFIG_LOOKUP_TABLE[3] = { 0, 0, 8 };
+
+    static const char *egl_context_type_name(const egl_context_type type) {
+        switch (type) {
+        case EGL_GLES1_CONTEXT:
+            return "GLES1";
+
+        case EGL_GLES2_CONTEXT:
+            return "GLES2";
+
+        case EGL_VG_CONTEXT:
+            return "OpenVG";
+
+        default:
+            return "unknown";
+        }
+    }
 
     egl_context::egl_context()
         : draw_surface_(nullptr)
@@ -59,13 +75,13 @@ namespace eka2l1::dispatch {
             backed_window_->add_canvas_observer(this);
         }
     }
-    
+
     egl_surface::~egl_surface() {
         if (backed_window_) {
             backed_window_->remove_canvas_observer(this);
         }
     }
-    
+
     void egl_surface::on_window_size_changed(epoc::canvas_interface *interface) {
         dimension_ = backed_window_->size_for_egl_surface();
         current_scale_ = 0.0f;
@@ -108,14 +124,14 @@ namespace eka2l1::dispatch {
         drivers::graphics_command_builder cmd_builder;
         bool freed_once = false;
 
-        for (auto &ctx: contexts_) {
+        for (auto &ctx : contexts_) {
             if (ctx) {
                 ctx->destroy(driver_, cmd_builder);
                 freed_once = true;
             }
         }
 
-        for (auto &surface: dsurfaces_) {
+        for (auto &surface : dsurfaces_) {
             if (surface) {
                 cmd_builder.destroy_bitmap(surface->handle_);
             }
@@ -128,6 +144,8 @@ namespace eka2l1::dispatch {
 
         contexts_.clear();
         dsurfaces_.clear();
+        swapped_contexts_.clear();
+        auto_present_logged_contexts_.clear();
     }
 
     egl_controller::~egl_controller() {
@@ -143,7 +161,7 @@ namespace eka2l1::dispatch {
             if (ite->second->draw_surface_ && ite->second->draw_surface_->dead_pending_) {
                 ite->second->cmd_builder_.destroy_bitmap(ite->second->draw_surface_->handle_);
 
-                for (auto &var: dsurfaces_) {
+                for (auto &var : dsurfaces_) {
                     if (var.get() == ite->second->draw_surface_) {
                         // Free slot
                         var = nullptr;
@@ -154,7 +172,7 @@ namespace eka2l1::dispatch {
             if ((ite->second->draw_surface_ != ite->second->read_surface_) && ite->second->read_surface_ && ite->second->read_surface_->dead_pending_) {
                 ite->second->cmd_builder_.destroy_bitmap(ite->second->read_surface_->handle_);
 
-                for (auto &var: dsurfaces_) {
+                for (auto &var : dsurfaces_) {
                     if (var.get() == ite->second->read_surface_) {
                         // Free slot
                         var = nullptr;
@@ -175,14 +193,14 @@ namespace eka2l1::dispatch {
 
             if (ite->second->dead_pending_) {
                 ite->second->destroy(driver_, ite->second->cmd_builder_);
-            } else {    
+            } else {
                 // Submit pending works...
                 drivers::command_list list = ite->second->cmd_builder_.retrieve_command_list();
                 driver_->submit_command_list(list);
             }
 
             if (ite->second->dead_pending_) {
-                for (auto &var: contexts_) {
+                for (auto &var : contexts_) {
                     if (var.get() == ite->second) {
                         // Free slot
                         var = nullptr;
@@ -235,7 +253,7 @@ namespace eka2l1::dispatch {
 
     void egl_controller::destroy_managed_surface(const std::uint32_t handle) {
         egl_surface_instance *inst = dsurfaces_.get(handle);
-        
+
         if (inst && inst->get()) {
             bool can_del_imm = true;
 
@@ -263,7 +281,7 @@ namespace eka2l1::dispatch {
     }
 
     void egl_controller::remove_managed_surface_from_management(const egl_surface *surface) {
-        for (auto &var: dsurfaces_) {
+        for (auto &var : dsurfaces_) {
             if (var.get() == surface) {
                 var = nullptr;
                 break;
@@ -300,6 +318,9 @@ namespace eka2l1::dispatch {
         if (can_del_imm) {
             drivers::graphics_command_builder builder;
             context_ptr->get()->destroy(driver_, builder);
+
+            swapped_contexts_.erase(context_ptr->get());
+            auto_present_logged_contexts_.erase(context_ptr->get());
 
             drivers::command_list retrieved = builder.retrieve_command_list();
             driver_->submit_command_list(retrieved);
@@ -339,7 +360,7 @@ namespace eka2l1::dispatch {
 
         return pop_error(context->associated_thread_uid_);
     }
-    
+
     void egl_controller::push_egl_error(kernel::uid thread_id, const std::uint32_t error) {
         egl_error_map_[thread_id] = error;
     }
@@ -355,7 +376,7 @@ namespace eka2l1::dispatch {
 
         return result;
     }
-    
+
     void egl_controller::set_graphics_driver(drivers::graphics_driver *driver) {
         driver_ = driver;
         es1_shaderman_.set_graphics_driver(driver);
@@ -365,6 +386,76 @@ namespace eka2l1::dispatch {
         auto ite = active_context_.find(thread_id);
         if (ite == active_context_.end()) {
             return nullptr;
+        }
+
+        return ite->second;
+    }
+
+    bool egl_controller::should_auto_present(const egl_context *context) const {
+        if (!context || !context->draw_surface_ || !context->draw_surface_->backed_window_) {
+            return false;
+        }
+
+        return swapped_contexts_.find(const_cast<egl_context *>(context)) == swapped_contexts_.end();
+    }
+
+    void egl_controller::mark_context_swapped(egl_context *context) {
+        if (context) {
+            swapped_contexts_.insert(context);
+        }
+    }
+
+    epoc::canvas_base *egl_controller::queue_present_context_surface(egl_context *context, drivers::graphics_driver *driver) {
+        if (!context || !context->draw_surface_ || !context->draw_surface_->backed_window_ || !context->draw_surface_->backed_screen_) {
+            return nullptr;
+        }
+
+        egl_surface *surface = context->draw_surface_;
+        if (!surface->backed_window_->can_be_physically_seen()) {
+            return nullptr;
+        }
+
+        surface->backed_window_->prepare_for_draw();
+        surface->scale(context, driver);
+
+        drivers::graphics_command_builder &window_builder = surface->backed_window_->pre_gdi_driver_builder_;
+        window_builder.set_feature(drivers::graphics_feature::blend, false);
+        window_builder.set_feature(drivers::graphics_feature::depth_test, false);
+
+        eka2l1::rect dest_rect(eka2l1::vec2(0, 0), surface->backed_window_->abs_rect.size);
+        dest_rect.scale(surface->backed_screen_->display_scale_factor);
+
+        int rotation = 0;
+        if (surface->backed_window_->flags & epoc::window::flag_fix_native_orientation) {
+            rotation = (surface->backed_screen_->current_mode().rotation + 180) % 360;
+            eka2l1::drivers::advance_draw_pos_around_origin(dest_rect, rotation);
+
+            if (rotation % 180 != 0) {
+                std::swap(dest_rect.size.x, dest_rect.size.y);
+            }
+        }
+
+        window_builder.draw_bitmap(surface->handle_, 0, dest_rect, eka2l1::rect(eka2l1::vec2(0, 0), eka2l1::vec2(0, 0)),
+            eka2l1::vec2(0, 0), static_cast<float>(rotation), 0);
+
+        surface->backed_window_->content_changed(true);
+
+        if (auto_present_logged_contexts_.insert(context).second) {
+            LOG_INFO(HLE_DISPATCHER, "Auto-presenting {} context {} to window {} because eglSwapBuffers has not been observed",
+                egl_context_type_name(context->context_type()), context->my_id_, surface->backed_window_->id);
+        }
+
+        return surface->backed_window_;
+    }
+
+    void egl_controller::bind_api(kernel::uid thread_id, const std::uint32_t api) {
+        bound_api_map_[thread_id] = api;
+    }
+
+    std::uint32_t egl_controller::bound_api(kernel::uid thread_id) const {
+        const auto ite = bound_api_map_.find(thread_id);
+        if (ite == bound_api_map_.end()) {
+            return EGL_OPENGL_ES_API_EMU;
         }
 
         return ite->second;

@@ -1,33 +1,33 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <dispatch/libraries/gles_shared/consts.h>
-#include <dispatch/def.h>
 #include <cstdint>
+#include <dispatch/def.h>
+#include <dispatch/libraries/gles_shared/consts.h>
 
 #include <mem/ptr.h>
 
 namespace eka2l1::dispatch {
     BRIDGE_FUNC_LIBRARY(std::uint32_t, gl_create_shader_emu, const std::uint32_t shader_type);
-    BRIDGE_FUNC_LIBRARY(void, gl_shader_binary_emu);        // Unsupported by emulator
+    BRIDGE_FUNC_LIBRARY(void, gl_shader_binary_emu); // Unsupported by emulator
     BRIDGE_FUNC_LIBRARY(void, gl_shader_source_emu, std::uint32_t shader, std::int32_t count, eka2l1::ptr<const char> *strings,
         const std::int32_t *length);
     BRIDGE_FUNC_LIBRARY(void, gl_get_shader_iv_emu, std::uint32_t shader, std::uint32_t pname, std::int32_t *params);

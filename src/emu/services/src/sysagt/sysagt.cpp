@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -63,7 +63,7 @@ namespace eka2l1 {
     void system_agent_event_queue::notify(const std::uint32_t uid, const std::uint32_t state) {
         const std::lock_guard<std::mutex> guard(mut_);
 
-        for (system_agent_notify_info *info: infos_) {
+        for (system_agent_notify_info *info : infos_) {
             if (info->woke_target_.empty()) {
                 continue;
             }
@@ -75,15 +75,15 @@ namespace eka2l1 {
                     return;
                 }
 
-                std::uint32_t *uid_ptr = reinterpret_cast<std::uint32_t*>(info->target_uid_->get_pointer(pr));
-                std::uint32_t *state_ptr = reinterpret_cast<std::uint32_t*>(info->state_value_->get_pointer(pr));
+                std::uint32_t *uid_ptr = reinterpret_cast<std::uint32_t *>(info->target_uid_->get_pointer(pr));
+                std::uint32_t *state_ptr = reinterpret_cast<std::uint32_t *>(info->state_value_->get_pointer(pr));
 
                 if (!uid_ptr) {
                     LOG_ERROR(SERVICE_SYSAGT, "Pointer to fill event UID is unavailable!");
                 } else {
                     *uid_ptr = uid;
                 }
-                
+
                 if (!state_ptr) {
                     LOG_ERROR(SERVICE_SYSAGT, "Pointer to fill event state is unavailable!");
                 } else {
@@ -96,7 +96,7 @@ namespace eka2l1 {
 
         infos_.clear();
     }
-    
+
     void system_agent_event_queue::deque(system_agent_notify_info &info) {
         const std::lock_guard<std::mutex> guard(mut_);
         auto ite = std::find(infos_.begin(), infos_.end(), &info);
@@ -248,7 +248,7 @@ namespace eka2l1 {
             ctx->complete(epoc::error_argument);
             return;
         }
-        
+
         kernel_system *kern = ctx->sys->get_kernel_system();
         property_ptr prop = kern->get_prop(SYSTEM_AGENT_PROPERTY_CATEGORY, uid.value());
 

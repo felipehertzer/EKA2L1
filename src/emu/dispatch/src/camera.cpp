@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <drivers/camera/camera_collection.h>
 
-#include <dispatch/dispatcher.h>
-#include <dispatch/camera.h>
 #include <common/log.h>
+#include <dispatch/camera.h>
+#include <dispatch/dispatcher.h>
 #include <system/epoc.h>
 #include <utils/err.h>
 
@@ -102,7 +102,7 @@ namespace eka2l1::dispatch {
     }
 
     BRIDGE_FUNC_DISPATCHER(std::int32_t, ecam_query_still_image_size, std::uint32_t handle,
-                           std::uint32_t format, std::int32_t size_index, eka2l1::vec2 *size) {
+        std::uint32_t format, std::int32_t size_index, eka2l1::vec2 *size) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         epoc_camera *cam = dispatcher->cameras_.get_object(handle);
         if (!cam) {
@@ -125,14 +125,14 @@ namespace eka2l1::dispatch {
         }
         if (cam->cached_frame_sizes_[format_casted].size() <= size_index) {
             LOG_TRACE(HLE_DISPATCHER, "Camera size index is out of range ([0..{}], value asked={})",
-                      cam->cached_frame_sizes_[format_casted].size(), size_index);
+                cam->cached_frame_sizes_[format_casted].size(), size_index);
         }
         *size = cam->cached_frame_sizes_[format_casted][static_cast<std::uint32_t>(size_index)];
         return epoc::error_none;
     }
 
     BRIDGE_FUNC_DISPATCHER(std::int32_t, ecam_take_image, std::uint32_t handle, std::int32_t size_index,
-                           std::int32_t format, eka2l1::rect *clip_rect, eka2l1::ptr<epoc::request_status> status) {
+        std::int32_t format, eka2l1::rect *clip_rect, eka2l1::ptr<epoc::request_status> status) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         epoc_camera *cam = dispatcher->cameras_.get_object(handle);
         kernel_system *kern = sys->get_kernel_system();
@@ -160,23 +160,23 @@ namespace eka2l1::dispatch {
         cam->done_image_capture_notify_ = epoc::notify_info(status, kern->crr_thread());
 
         cam->impl_->capture_image(size_index, static_cast<drivers::camera::frame_format>(format),
-                                  [cam, kern](const void *buffer, std::size_t buffer_size, int err) {
-            const std::lock_guard<std::mutex> guard(cam->lock_);
-            kern->lock();
+            [cam, kern](const void *buffer, std::size_t buffer_size, int err) {
+                const std::lock_guard<std::mutex> guard(cam->lock_);
+                kern->lock();
 
-            if (err < 0) {
-                cam->done_image_capture_notify_.complete(epoc::error_general);
-            } else {
-                // Copy data to temporary buffer
-                cam->received_image_capture_.resize(buffer_size);
-                std::memcpy(cam->received_image_capture_.data(), buffer, buffer_size);
+                if (err < 0) {
+                    cam->done_image_capture_notify_.complete(epoc::error_general);
+                } else {
+                    // Copy data to temporary buffer
+                    cam->received_image_capture_.resize(buffer_size);
+                    std::memcpy(cam->received_image_capture_.data(), buffer, buffer_size);
 
-                cam->image_capture_taken_ = false;
-                cam->done_image_capture_notify_.complete(epoc::error_none);
-            }
+                    cam->image_capture_taken_ = false;
+                    cam->done_image_capture_notify_.complete(epoc::error_none);
+                }
 
-            kern->unlock();
-        });
+                kern->unlock();
+            });
 
         return epoc::error_none;
     }
@@ -226,7 +226,7 @@ namespace eka2l1::dispatch {
             *size = static_cast<std::int32_t>(frame_vec_ptr->size());
         } else {
             const std::int32_t copy_size = common::min<std::int32_t>(*size,
-                 static_cast<std::int32_t>(frame_vec_ptr->size()));
+                static_cast<std::int32_t>(frame_vec_ptr->size()));
 
             std::memcpy(data_ptr, frame_vec_ptr->data(), copy_size);
 
@@ -243,7 +243,7 @@ namespace eka2l1::dispatch {
     }
 
     BRIDGE_FUNC_DISPATCHER(std::int32_t, ecam_start_viewfinder, std::uint32_t handle, eka2l1::vec2 *size,
-                           std::int32_t display_mode, eka2l1::ptr<epoc::request_status> status) {
+        std::int32_t display_mode, eka2l1::ptr<epoc::request_status> status) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         epoc_camera *cam = dispatcher->cameras_.get_object(handle);
         kernel_system *kern = sys->get_kernel_system();
@@ -268,25 +268,23 @@ namespace eka2l1::dispatch {
         drivers::camera::frame_format capture_format;
 
         switch (static_cast<epoc::display_mode>(display_mode)) {
-            case epoc::display_mode::color16m:
-            case epoc::display_mode::color16ma:
-            case epoc::display_mode::color16map:
-            case epoc::display_mode::color16mu:
-                capture_format = drivers::camera::FRAME_FORMAT_FBSBMP_COLOR16MU;
-                break;
+        case epoc::display_mode::color16m:
+        case epoc::display_mode::color16ma:
+        case epoc::display_mode::color16map:
+        case epoc::display_mode::color16mu:
+            capture_format = drivers::camera::FRAME_FORMAT_FBSBMP_COLOR16MU;
+            break;
 
-            case epoc::display_mode::color64k:
-                capture_format = drivers::camera::FRAME_FORMAT_FBSBMP_COLOR64K;
-                break;
+        case epoc::display_mode::color64k:
+            capture_format = drivers::camera::FRAME_FORMAT_FBSBMP_COLOR64K;
+            break;
 
-            default:
-                LOG_TRACE(HLE_DISPATCHER, "Format 0x{:X} is not supported for frame receving!", display_mode);
-                return epoc::error_not_supported;
+        default:
+            LOG_TRACE(HLE_DISPATCHER, "Format 0x{:X} is not supported for frame receving!", display_mode);
+            return epoc::error_not_supported;
         }
 
-        cam->impl_->receive_viewfinder_feed(*size, capture_format, [cam]() {
-            return (cam->current_frame_index_ < static_cast<std::int32_t>(epoc_camera::QUEUE_MAX_PENDING - 1));
-        }, [cam, kern](const void *buffer, std::size_t buffer_size, int err) {
+        cam->impl_->receive_viewfinder_feed(*size, capture_format, [cam]() { return (cam->current_frame_index_ < static_cast<std::int32_t>(epoc_camera::QUEUE_MAX_PENDING - 1)); }, [cam, kern](const void *buffer, std::size_t buffer_size, int err) {
             std::unique_lock<std::mutex> guard(cam->lock_);
             if (cam->current_frame_index_ == static_cast<std::int32_t>(epoc_camera::QUEUE_MAX_PENDING - 1)) {
                 return;
@@ -306,8 +304,7 @@ namespace eka2l1::dispatch {
                 cam->done_frame_viewfinder_notify_.complete(epoc::error_none);
             }
 
-            kern->unlock();
-        });
+            kern->unlock(); });
 
         return epoc::error_none;
     }

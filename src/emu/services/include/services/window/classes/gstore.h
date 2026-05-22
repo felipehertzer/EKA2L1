@@ -1,26 +1,26 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <common/vecx.h>
 #include <common/region.h>
+#include <common/vecx.h>
 
 #include <drivers/graphics/common.h>
 #include <drivers/itc.h>
@@ -76,7 +76,7 @@ namespace eka2l1::epoc {
         std::uint32_t alignment_;
         void *fbs_font_ptr_;
     };
-    
+
     struct gdi_store_command_draw_raw_texture_data {
         drivers::handle texture_;
         eka2l1::rect dest_rect_;
@@ -143,12 +143,12 @@ namespace eka2l1::epoc {
 
         template <typename T>
         T &get_data_struct() {
-            return *reinterpret_cast<T*>(data_);
+            return *reinterpret_cast<T *>(data_);
         }
-        
+
         template <typename T>
         const T &get_data_struct_const() const {
-            return *reinterpret_cast<const T*>(data_);
+            return *reinterpret_cast<const T *>(data_);
         }
     };
 
@@ -165,8 +165,8 @@ namespace eka2l1::epoc {
         common::region region_;
         std::vector<gdi_store_command> commands_;
 
-        std::vector<void*> font_objects_;
-        std::vector<void*> bitmap_objects_;
+        std::vector<void *> font_objects_;
+        std::vector<void *> bitmap_objects_;
 
         ~gdi_store_command_segment();
 
@@ -187,7 +187,8 @@ namespace eka2l1::epoc {
 
         gdi_store_command_segment *add_new_segment(const eka2l1::rect &draw_rect, const gdi_store_command_segment_type type_);
         void promote_last_segment();
-        
+        void clear();
+
         // Returns true if this must cause an invalidation
         bool clean_old_nonredraw_segments();
         void redraw_done();

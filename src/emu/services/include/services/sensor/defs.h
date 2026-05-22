@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -42,7 +42,7 @@ namespace eka2l1 {
     constexpr std::uint32_t VENDOR_ID_LENGTH = 16;
     constexpr std::uint32_t PROPERTY_TEXT_BUFFER_LENGTH = 20;
 
-    #pragma pack(push, 1)
+#pragma pack(push, 1)
     struct channel_info {
         std::uint32_t channel_id;
         std::uint32_t context_type;
@@ -56,7 +56,7 @@ namespace eka2l1 {
         std::uint32_t reserved;
         std::uint32_t reserved2;
     };
-    #pragma pack(pop)
+#pragma pack(pop)
 
     struct listening_parameters {
         std::uint32_t desired_buffering_count;
@@ -71,7 +71,7 @@ namespace eka2l1 {
 
     static_assert(sizeof(data_count_ret_val) == 8);
 
-    #pragma pack(push, 1)
+#pragma pack(push, 1)
     struct sensor_property {
         std::uint32_t property_id;
         std::int32_t item_index;
@@ -103,7 +103,7 @@ namespace eka2l1 {
     };
 
     static_assert(offsetof(sensor_property, property_type) == 72);
-    #pragma pack(pop)
+#pragma pack(pop)
 
     enum property_types {
         uninitialized_property,

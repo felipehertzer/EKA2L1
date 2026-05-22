@@ -1,24 +1,25 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <mem/model/flexible/addrspace.h>
 #include <mem/model/flexible/control.h>
+#include <mem/model/flexible/mapping.h>
 
 namespace eka2l1::mem::flexible {
     address_space::address_space(control_flexible *control)
@@ -31,6 +32,13 @@ namespace eka2l1::mem::flexible {
     }
 
     address_space::~address_space() {
+        for (auto &mapping : mappings_) {
+            if (mapping && (mapping->owner_ == this)) {
+                mapping->owner_ = nullptr;
+            }
+        }
+        mappings_.clear();
+
         if (dir_) {
             control_->dir_mngr_->free_one(dir_->id());
         }

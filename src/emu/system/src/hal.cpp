@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -19,6 +19,7 @@
 #include <kernel/kernel.h>
 #include <kernel/timing.h>
 #include <services/window/window.h>
+#include <system/devices.h>
 #include <system/epoc.h>
 #include <system/hal.h>
 
@@ -49,6 +50,24 @@
 namespace eka2l1::epoc {
     static constexpr std::uint32_t HAL_CONTRAST_MAX = 100;
 
+    static std::uint32_t current_machine_uid(system *sys, const std::uint32_t fallback) {
+        if (!sys) {
+            return fallback;
+        }
+
+        device_manager *manager = sys->get_device_manager();
+        if (!manager) {
+            return fallback;
+        }
+
+        device *current_device = manager->get_current();
+        if (!current_device || (current_device->machine_uid == 0)) {
+            return fallback;
+        }
+
+        return current_device->machine_uid;
+    }
+
     hal::hal(eka2l1::system *sys)
         : sys(sys) {}
 
@@ -63,13 +82,13 @@ namespace eka2l1::epoc {
     }
 
     /**
-     * \brief Kernel HAL cagetory. 
-     * 
+     * \brief Kernel HAL cagetory.
+     *
      * Contains HAL of drivers, memory, etc...
      */
     struct kern_hal : public eka2l1::epoc::hal {
         /**
-         * \brief Get the size of a page. 
+         * \brief Get the size of a page.
          *
          * \param a1 The pointer to the integer destination, supposed to
          *           contains the page size.
@@ -144,7 +163,9 @@ namespace eka2l1::epoc {
             info_ptr->build_ = rom_info.header.build;
 
             info_ptr->processor_clock_in_mhz_ = sys->get_ntimer()->get_clock_frequency_mhz();
-            info_ptr->machine_uid_ = 0x70000001;
+            info_ptr->machine_uid_ = current_machine_uid(sys, 0x70000001);
+            info_ptr->led_caps_ = 0;
+            info_ptr->speed_factor_ = 1;
 
             return 0;
         }
@@ -185,7 +206,7 @@ namespace eka2l1::epoc {
             // Intentional
             info.video_address_ = scr->screen_buffer_chunk->base(nullptr).ptr_address();
             info.offset_to_first_pixel_ = sizeof(std::uint16_t) * epoc::WORD_PALETTE_ENTRIES_COUNT;
-            info.offset_between_lines_ = ((info.bits_per_pixel_ + 31) / 32) * 4 * info.size_in_pixels_.x;
+            info.offset_between_lines_ = get_byte_width(info.size_in_pixels_.x, info.bits_per_pixel_);
             info.display_mode_ = 0;
         }
 
@@ -329,7 +350,6 @@ namespace eka2l1::epoc {
                 return epoc::error_not_found;
             }
 
-
             epoc::des8 *package = reinterpret_cast<epoc::des8 *>(a1);
             kernel::process *crr = sys->get_kernel_system()->crr_process();
 
@@ -421,7 +441,7 @@ namespace eka2l1::epoc {
         epoc::screen *crr_screen = winserv->get_current_focus_screen();
 
         info.backlight_present_ = 1;
-        info.clock_speed_mhz_ = 0;
+        info.clock_speed_mhz_ = sys->get_ntimer()->get_clock_frequency_mhz();
         info.display_id_ = 0;
         info.xy_input_size_pixels_ = crr_screen->size();
         info.display_size_pixels_ = crr_screen->size();
@@ -429,7 +449,7 @@ namespace eka2l1::epoc {
         info.input_type_ = xy_input_type_pointer;
         info.keyboard_id_ = 0;
         info.keyboard_present_ = 1;
-        info.machine_unique_id_ = 0; // TODO: Machine Unique ID here
+        info.machine_unique_id_ = current_machine_uid(sys, 0);
         info.maximum_display_color_ = get_num_colors_from_display_mode(crr_screen->disp_mode);
         info.offset_to_display_in_pixels_ = eka2l1::point(0, 0);
         info.speed_factor_ = 1;
@@ -484,7 +504,7 @@ namespace eka2l1::epoc {
             *reinterpret_cast<std::uint32_t *>(data) = HAL_CONTRAST_MAX;
             break;
 
-        case kernel::hal_data_eka1_display_memory_address: {    
+        case kernel::hal_data_eka1_display_memory_address: {
             window_server *winserv = reinterpret_cast<window_server *>(sys->get_kernel_system()->get_by_name<service::server>(
                 eka2l1::get_winserv_name_by_epocver(sys->get_symbian_version_use())));
 

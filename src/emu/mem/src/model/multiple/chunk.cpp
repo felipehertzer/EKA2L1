@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,12 +22,24 @@
 #include <mem/model/multiple/process.h>
 
 #include <common/algorithm.h>
+#include <common/platform.h>
 #include <common/virtualmem.h>
 
 #include <common/log.h>
 #include <cpu/arm_interface.h>
 
 namespace eka2l1::mem {
+    namespace {
+        prot host_backing_protection(prot perm) {
+#if EKA2L1_PLATFORM(DARWIN)
+            if ((perm & prot_write) && (perm & prot_exec)) {
+                return static_cast<prot>(perm & ~prot_exec);
+            }
+#endif
+            return perm;
+        }
+    }
+
     std::size_t multiple_mem_model_chunk::commit(const vm_address offset, const std::size_t size, bool ignore_committed) {
         // Align the offset
         vm_address running_offset = offset;
@@ -65,7 +77,7 @@ namespace eka2l1::mem {
             const std::size_t host_commit_size = page_num << control_->page_size_bits_;
 
             // Commit the memory to the host
-            if (!is_external_host && !common::commit(host_commit_ptr, host_commit_size, permission_)) {
+            if (!is_external_host && !common::commit(host_commit_ptr, host_commit_size, host_backing_protection(permission_))) {
                 return running_offset - offset;
             }
 
@@ -118,7 +130,7 @@ namespace eka2l1::mem {
                         break;
                     }
                 }
-                //LOG_TRACE(MEMORY, "Mapped to CPU: 0x{:X}, size 0x{:X}", off_start_just_mapped, size_just_mapped);
+                // LOG_TRACE(MEMORY, "Mapped to CPU: 0x{:X}, size 0x{:X}", off_start_just_mapped, size_just_mapped);
             }
 
             if (ptid == 0xFFFFFFFF) {
@@ -209,7 +221,7 @@ namespace eka2l1::mem {
 
             // Unmap the rest
             if (size_just_unmapped != 0) {
-                //LOG_TRACE(MEMORY, "Unmapped from CPU: 0x{:X}, size 0x{:X}", off_start_just_unmapped, size_just_unmapped);
+                // LOG_TRACE(MEMORY, "Unmapped from CPU: 0x{:X}, size 0x{:X}", off_start_just_unmapped, size_just_unmapped);
                 for (auto &mm : mul_ctrl->mmus_) {
                     if (!own_process_ || mul_process->addr_space_id_ == mm->current_addr_space()) {
                         mm->unmap_from_cpu(off_start_just_unmapped, size_just_unmapped);

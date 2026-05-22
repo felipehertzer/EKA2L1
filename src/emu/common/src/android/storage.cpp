@@ -16,8 +16,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <common/android/storage.h>
 #include <common/android/jniutils.h>
+#include <common/android/storage.h>
 #include <common/log.h>
 
 namespace eka2l1::common::android {
@@ -38,11 +38,11 @@ namespace eka2l1::common::android {
 
     std::string external_files_dir;
     std::string external_dir;
-    
+
     void set_external_files_dir(const std::string &dir) {
         external_files_dir = dir;
     }
-    
+
     void set_external_dir(const std::string &dir) {
         external_dir = dir;
     }
@@ -50,56 +50,58 @@ namespace eka2l1::common::android {
     std::string get_external_files_dir() {
         return external_files_dir;
     }
-    
+
     std::string get_external_dir() {
         return external_dir;
     }
 
-#define CHECK_METHOD_GET_OK(x) if (x == nullptr) return;
+#define CHECK_METHOD_GET_OK(x) \
+    if (x == nullptr)          \
+        return;
 
     void register_storage_callbacks(JNIEnv *env) {
         jclass temp_clazz = jni::find_class("com/github/eka2l1/emu/Emulator");
-        emulator_clazz = (jclass) env->NewGlobalRef(temp_clazz);  
+        emulator_clazz = (jclass)env->NewGlobalRef(temp_clazz);
         env->DeleteLocalRef(temp_clazz);
 
         open_content_uri_method_id = env->GetStaticMethodID(emulator_clazz, "openContentUri",
-                                          "(Ljava/lang/String;Ljava/lang/String;)I");
+            "(Ljava/lang/String;Ljava/lang/String;)I");
         CHECK_METHOD_GET_OK(open_content_uri_method_id);
         list_content_uri_dir_method_id = env->GetStaticMethodID(emulator_clazz, "listContentUriDir",
-                                             "(Ljava/lang/String;)[Ljava/lang/String;");
+            "(Ljava/lang/String;)[Ljava/lang/String;");
         CHECK_METHOD_GET_OK(list_content_uri_dir_method_id);
         content_uri_create_directory_method_id = env->GetStaticMethodID(emulator_clazz,
-                                                     "contentUriCreateDirectory",
-                                                     "(Ljava/lang/String;Ljava/lang/String;)I");
+            "contentUriCreateDirectory",
+            "(Ljava/lang/String;Ljava/lang/String;)I");
         CHECK_METHOD_GET_OK(content_uri_create_directory_method_id);
         content_uri_create_file_method_id = env->GetStaticMethodID(emulator_clazz,
-                                                "contentUriCreateFile",
-                                                "(Ljava/lang/String;Ljava/lang/String;)I");
+            "contentUriCreateFile",
+            "(Ljava/lang/String;Ljava/lang/String;)I");
         CHECK_METHOD_GET_OK(content_uri_create_file_method_id);
         content_uri_copy_file_method_id = env->GetStaticMethodID(emulator_clazz, "contentUriCopyFile",
-                                              "(Ljava/lang/String;Ljava/lang/String;)I");
+            "(Ljava/lang/String;Ljava/lang/String;)I");
         CHECK_METHOD_GET_OK(content_uri_copy_file_method_id);
         content_uri_remove_file_method_id = env->GetStaticMethodID(emulator_clazz, "contentUriRemoveFile",
-                                                "(Ljava/lang/String;)I");
+            "(Ljava/lang/String;)I");
         CHECK_METHOD_GET_OK(content_uri_remove_file_method_id);
         content_uri_move_file_method_id = env->GetStaticMethodID(emulator_clazz, "contentUriMoveFile",
-                                              "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
         CHECK_METHOD_GET_OK(content_uri_move_file_method_id);
         content_uri_rename_file_to_method_id = env->GetStaticMethodID(emulator_clazz,
-                                                  "contentUriRenameFileTo",
-                                                  "(Ljava/lang/String;Ljava/lang/String;)I");
+            "contentUriRenameFileTo",
+            "(Ljava/lang/String;Ljava/lang/String;)I");
         CHECK_METHOD_GET_OK(content_uri_rename_file_to_method_id);
         content_uri_get_file_info_method_id = env->GetStaticMethodID(emulator_clazz,
-                                                 "contentUriGetFileInfo",
-                                                 "(Ljava/lang/String;)Ljava/lang/String;");
+            "contentUriGetFileInfo",
+            "(Ljava/lang/String;)Ljava/lang/String;");
         CHECK_METHOD_GET_OK(content_uri_get_file_info_method_id);
         content_uri_file_exists_method_id = env->GetStaticMethodID(emulator_clazz,
-                                               "contentUriFileExists",
-                                               "(Ljava/lang/String;)Z");
+            "contentUriFileExists",
+            "(Ljava/lang/String;)Z");
         CHECK_METHOD_GET_OK(content_uri_file_exists_method_id);
         is_external_storage_preserved_legacy_method_id = env->GetStaticMethodID(emulator_clazz,
-                                                            "isExternalStoragePreservedLegacy",
-                                                            "()Z");
+            "isExternalStoragePreservedLegacy",
+            "()Z");
         CHECK_METHOD_GET_OK(is_external_storage_preserved_legacy_method_id);
     }
 
@@ -112,18 +114,18 @@ namespace eka2l1::common::android {
             fname.pop_back();
 
         auto env = jni::environment();
-        
+
         const char *modeStr = "";
         switch (mode) {
-            case open_content_uri_mode::READ:
-                modeStr = "r";
-                break;
-            case open_content_uri_mode::READ_WRITE:
-                modeStr = "rw";
-                break;
-            case open_content_uri_mode::READ_WRITE_TRUNCATE:
-                modeStr = "rwt";
-                break;
+        case open_content_uri_mode::READ:
+            modeStr = "r";
+            break;
+        case open_content_uri_mode::READ_WRITE:
+            modeStr = "rw";
+            break;
+        case open_content_uri_mode::READ_WRITE_TRUNCATE:
+            modeStr = "rwt";
+            break;
         }
         jstring j_filename = env->NewStringUTF(fname.c_str());
         jstring j_mode = env->NewStringUTF(modeStr);
@@ -137,8 +139,8 @@ namespace eka2l1::common::android {
         jstring paramDirName = env->NewStringUTF(dirName.c_str());
 
         return storage_error_from_int(
-                env->CallStaticIntMethod(emulator_clazz, content_uri_create_directory_method_id,
-                                         paramRoot, paramDirName));
+            env->CallStaticIntMethod(emulator_clazz, content_uri_create_directory_method_id,
+                paramRoot, paramDirName));
     }
 
     storage_error create_file(const std::string &parentTreeUri, const std::string &fileName) {
@@ -146,8 +148,8 @@ namespace eka2l1::common::android {
         jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
         jstring paramFileName = env->NewStringUTF(fileName.c_str());
         return storage_error_from_int(
-                env->CallStaticIntMethod(emulator_clazz, content_uri_create_file_method_id, paramRoot,
-                                   paramFileName));
+            env->CallStaticIntMethod(emulator_clazz, content_uri_create_file_method_id, paramRoot,
+                paramFileName));
     }
 
     storage_error copy_file(const std::string &fileUri, const std::string &destParentUri) {
@@ -155,26 +157,26 @@ namespace eka2l1::common::android {
         jstring paramFileName = env->NewStringUTF(fileUri.c_str());
         jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
         return storage_error_from_int(
-                env->CallStaticIntMethod(emulator_clazz, content_uri_copy_file_method_id,
-                                         paramFileName, paramDestParentUri));
+            env->CallStaticIntMethod(emulator_clazz, content_uri_copy_file_method_id,
+                paramFileName, paramDestParentUri));
     }
 
     storage_error move_file(const std::string &fileUri, const std::string &srcParentUri,
-                                  const std::string &destParentUri) {
+        const std::string &destParentUri) {
         auto env = jni::environment();
         jstring paramFileName = env->NewStringUTF(fileUri.c_str());
         jstring paramSrcParentUri = env->NewStringUTF(srcParentUri.c_str());
         jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
         return storage_error_from_int(
-                env->CallStaticIntMethod(emulator_clazz, content_uri_move_file_method_id,
-                                         paramFileName, paramSrcParentUri, paramDestParentUri));
+            env->CallStaticIntMethod(emulator_clazz, content_uri_move_file_method_id,
+                paramFileName, paramSrcParentUri, paramDestParentUri));
     }
 
     storage_error remove_file(const std::string &fileUri) {
         auto env = jni::environment();
         jstring paramFileName = env->NewStringUTF(fileUri.c_str());
         return storage_error_from_int(
-                env->CallStaticIntMethod(emulator_clazz, content_uri_remove_file_method_id, paramFileName));
+            env->CallStaticIntMethod(emulator_clazz, content_uri_remove_file_method_id, paramFileName));
     }
 
     storage_error rename_file_to(const std::string &fileUri, const std::string &newName) {
@@ -182,17 +184,17 @@ namespace eka2l1::common::android {
         jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
         jstring paramNewName = env->NewStringUTF(newName.c_str());
         return storage_error_from_int(
-                env->CallStaticIntMethod(emulator_clazz, content_uri_rename_file_to_method_id,
-                                         paramFileUri, paramNewName));
+            env->CallStaticIntMethod(emulator_clazz, content_uri_rename_file_to_method_id,
+                paramFileUri, paramNewName));
     }
 
     std::optional<std::string> get_file_info_as_string(const std::string &fileUri) {
         auto env = jni::environment();
         jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 
-        jstring str = (jstring) env->CallStaticObjectMethod(emulator_clazz,
-                                                      content_uri_get_file_info_method_id,
-                                                      paramFileUri);
+        jstring str = (jstring)env->CallStaticObjectMethod(emulator_clazz,
+            content_uri_get_file_info_method_id,
+            paramFileUri);
         if (!str) {
             return std::nullopt;
         }
@@ -208,7 +210,7 @@ namespace eka2l1::common::android {
         auto env = jni::environment();
         jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
         bool exists = env->CallStaticBooleanMethod(emulator_clazz, content_uri_file_exists_method_id,
-                                                   paramFileUri);
+            paramFileUri);
         return exists;
     }
 
@@ -217,16 +219,16 @@ namespace eka2l1::common::android {
 
         jstring param = env->NewStringUTF(path.c_str());
         jobject retval = env->CallStaticObjectMethod(emulator_clazz, list_content_uri_dir_method_id,
-                                                     param);
+            param);
 
-        jobjectArray fileList = (jobjectArray) retval;
+        jobjectArray fileList = (jobjectArray)retval;
         std::vector<std::string> items;
 
         int size = env->GetArrayLength(fileList);
         for (int i = 0; i < size; i++) {
-            jstring str = (jstring) env->GetObjectArrayElement(fileList, i);
+            jstring str = (jstring)env->GetObjectArrayElement(fileList, i);
             const char *charArray = env->GetStringUTFChars(str, 0);
-            if (charArray) {  // paranoia
+            if (charArray) { // paranoia
                 items.push_back(std::string(charArray));
             }
             env->ReleaseStringUTFChars(str, charArray);
@@ -240,23 +242,23 @@ namespace eka2l1::common::android {
     bool is_external_storage_preserved_legacy() {
         auto env = jni::environment();
         return env->CallStaticBooleanMethod(emulator_clazz,
-                                            is_external_storage_preserved_legacy_method_id);
+            is_external_storage_preserved_legacy_method_id);
     }
 
     const char *error_to_string(storage_error error) {
         switch (error) {
-            case storage_error::SUCCESS:
-                return "SUCCESS";
-            case storage_error::UNKNOWN:
-                return "UNKNOWN";
-            case storage_error::NOT_FOUND:
-                return "NOT_FOUND";
-            case storage_error::DISK_FULL:
-                return "DISK_FULL";
-            case storage_error::ALREADY_EXISTS:
-                return "ALREADY_EXISTS";
-            default:
-                return "(UNKNOWN)";
+        case storage_error::SUCCESS:
+            return "SUCCESS";
+        case storage_error::UNKNOWN:
+            return "UNKNOWN";
+        case storage_error::NOT_FOUND:
+            return "NOT_FOUND";
+        case storage_error::DISK_FULL:
+            return "DISK_FULL";
+        case storage_error::ALREADY_EXISTS:
+            return "ALREADY_EXISTS";
+        default:
+            return "(UNKNOWN)";
         }
     }
 }

@@ -22,7 +22,7 @@
     <string name="screenshot">Screenshot</string>
     <string name="take_screenshot_success">Screenshot saved to %s!</string>
     <string name="take_screenshot_fail">Failed to take screenshot!</string>
-    <string name="opengl_required">Proqram OpenGL ES 3.0+ tələb edir.</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">Xəbərdarlıq</string>
     <string name="scoped_storage_warning">İstifadəçi məlumatlarınız proqramı sildiyiniz zaman <b>silinəcək</b> məkanda saxlanılır:\n</string>
     <string name="install_ng_game">Install N-Gage game</string>

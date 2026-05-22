@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -30,8 +30,8 @@
 #include <utils/err.h>
 
 #include <kernel/kernel.h>
-#include <system/epoc.h>
 #include <loader/e32img.h>
+#include <system/epoc.h>
 
 namespace eka2l1 {
     static const epoc::pid DEFAULT_ALWAYS_EXIST_SKIN_PID = epoc::pid(0x101F84B9, 0);
@@ -101,7 +101,7 @@ namespace eka2l1 {
         if (nof_list_.size() > 0) {
             // The notification list is not empty.
             // Take the first element in the queue, and than signal the client with that code.
-            const epoc::akn_skin_server_change_handler_notification nof_code = std::move(nof_list_.front());
+            const epoc::akn_skin_server_change_handler_notification nof_code = nof_list_.front();
             nof_list_.pop();
 
             ctx->complete(static_cast<int>(nof_code));
@@ -201,7 +201,7 @@ namespace eka2l1 {
         if (!skin_path.has_value()) {
             skin_pid = DEFAULT_ALWAYS_EXIST_SKIN_PID;
             skin_path = epoc::find_skin_file(io, skin_pid);
-            
+
             if (!skin_path.has_value()) {
                 // What?
                 LOG_ERROR(SERVICE_UI, "Unable to find active skin file!");

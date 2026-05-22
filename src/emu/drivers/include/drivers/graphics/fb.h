@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -44,11 +44,11 @@ namespace eka2l1::drivers {
     public:
         /**
          * @brief Initialize a framebuffer.
-         * 
+         *
          * Attachment ID of each color buffer is the index of the color buffer in the initializer list.
-         * 
+         *
          * There may only exists one depth buffer or stencil buffer.
-         * 
+         *
          * @param color_buffer_list                 List of color buffer to attach to this framebuffer.
          * @param depth_buffer                      Depth buffer to attach to this framebuffer.
          * @param stencil_buffer                    Stencil buffer to attach to this framebuffer
@@ -60,7 +60,7 @@ namespace eka2l1::drivers {
         }
 
         framebuffer() = default;
-        virtual ~framebuffer(){};
+        virtual ~framebuffer() {};
 
         virtual void bind(graphics_driver *driver, const framebuffer_bind_type type_bind) = 0;
         virtual void unbind(graphics_driver *driver) = 0;
@@ -70,9 +70,9 @@ namespace eka2l1::drivers {
 
         /**
          * @brief       Set the depth stencil buffer drawable of the framebuffer.
-         * 
+         *
          * If a depth stencil buffer already been set to this framebuffer, it will be overriden.
-         * 
+         *
          * @param       tex       The drawable to set as this framebuffer's depth stencil buffer.
          * @returns     True on success.
          */
@@ -81,7 +81,7 @@ namespace eka2l1::drivers {
 
         /**
          * @brief   Set color buffer to an attachment ID.
-         * 
+         *
          * @param   tex           The color buffer drawable to attach to this framebuffer.
          * @param   position      The ID to set attachment to. -1 for API to choose.
          * @returns Attachment ID of the color buffer. -1 on failure.
@@ -90,12 +90,12 @@ namespace eka2l1::drivers {
 
         /**
          * @brief       Copy content of some framebuffer to draw framebuffer.
-         * 
+         *
          * @param       source_rect           The source rectangle to copy data from.
          * @param       dest_rect             The destination rectangle to put data to draw buffer.
          * @param       flags                 Contains OR of draw_buffer_bit_flags, specifying which buffers to copy from.
          * @param       copy_filter           The filter to apply to texture data copied.
-         * 
+         *
          * @returns     True on success.
          */
         virtual bool blit(const eka2l1::rect &source_rect, const eka2l1::rect &dest_rect, const std::uint32_t flags,

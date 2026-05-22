@@ -1,27 +1,29 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <services/context.h>
+#include <services/applist/common.h>
 #include <services/loader/loader.h>
 #include <services/loader/op.h>
 
+#include <kernel/common.h>
 #include <kernel/kernel.h>
 #include <utils/des.h>
 
@@ -105,15 +107,23 @@ namespace eka2l1 {
 
         LOG_TRACE(SERVICE_LOADER, "Trying to summon: {}", name_process);
 
-        std::u16string pext = path_extension(*process_name16);
+        std::u16string process_path = *process_name16;
+        std::u16string process_cmd_args = *process_args;
+
+        if (std::optional<std::u16string> mapped_executable_name = parse_mapped_executable_name(process_path)) {
+            process_path = kernel::BRIDAGED_EXECUTABLE_NAME;
+            process_cmd_args = *mapped_executable_name;
+        }
+
+        std::u16string pext = path_extension(process_path);
 
         if (pext.empty()) {
             // Just append it
-            *process_name16 += u".exe";
+            process_path += u".exe";
         }
 
         kernel_system *kern = ctx.sys->get_kernel_system();
-        process_ptr pr = kern->spawn_new_process(*process_name16, *process_args, uid3, stack_size);
+        process_ptr pr = kern->spawn_new_process(process_path, process_cmd_args, uid3, stack_size);
 
         if (!pr) {
             LOG_DEBUG(SERVICE_LOADER, "Try spawning process {} failed", name_process);

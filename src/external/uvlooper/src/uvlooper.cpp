@@ -57,7 +57,11 @@ namespace libuv {
         stopped_ = true;
         uv_async_send(stop_async_);
 
-        running_thread_->join();
+        if (running_thread_->joinable()) {
+            running_thread_->join();
+        }
+
+        running_thread_.reset();
     }
 
     inline void close_and_delete_async(uv_async_t *async) {
@@ -212,5 +216,5 @@ namespace libuv {
         }
     }
 
-    extern std::shared_ptr<looper> default_looper = std::make_shared<looper>(uv_default_loop());
+    std::shared_ptr<looper> default_looper = std::make_shared<looper>(uv_default_loop());
 }

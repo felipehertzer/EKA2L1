@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,12 +21,14 @@
 #include <algorithm>
 #include <atomic>
 #include <queue>
+#include <regex>
 #include <thread>
 
 #include <cpu/arm_analyser.h>
 #include <cpu/arm_interface.h>
 #include <cpu/arm_utils.h>
 
+#include <common/algorithm.h>
 #include <common/armemitter.h>
 #include <common/buffer.h>
 #include <common/chunkyseri.h>
@@ -39,9 +41,10 @@
 
 #include <disasm/disasm.h>
 
+#include <kernel/chunk.h>
+#include <kernel/guomen_process.h>
 #include <kernel/kernel.h>
 #include <kernel/libmanager.h>
-#include <kernel/guomen_process.h>
 #include <kernel/scheduler.h>
 #include <kernel/thread.h>
 #include <loader/romimage.h>
@@ -51,8 +54,6 @@
 
 #include <loader/e32img.h>
 #include <loader/romimage.h>
-
-#include <re2/re2.h>
 
 #include <common/time.h>
 #include <config/config.h>
@@ -101,6 +102,7 @@ namespace eka2l1 {
 
     void kernel_system::wipeout() {
         wiping_ = true;
+        cpu_->clear_instruction_cache();
         timing_->remove_event(realtime_ipc_signal_evt_);
 
         if (rom_map_) {
@@ -117,9 +119,9 @@ namespace eka2l1 {
     container.clear();
 
 #define OBJECT_CONTAINER_CLEANUP_KEEP_OBJECTS(container) \
-    for (auto &obj : container) {           \
-        if (obj)                            \
-            obj->destroy();                 \
+    for (auto &obj : container) {                        \
+        if (obj)                                         \
+            obj->destroy();                              \
     }
 
 #define OBJECT_CONTAINER_CLEAR(container) \
@@ -139,7 +141,7 @@ namespace eka2l1 {
         OBJECT_CONTAINER_CLEANUP(chunks_);
 
         for (std::size_t i = 0; i < msgs_.size(); i++) {
-            msgs_[i].reset();   
+            msgs_[i].reset();
         }
 
         OBJECT_CONTAINER_CLEANUP_KEEP_OBJECTS(threads_);
@@ -174,7 +176,7 @@ namespace eka2l1 {
             assert(thr);
 
             lock();
-            thr->signal_request();
+            thr->signal_request(1, "realtime_ipc");
             unlock();
         });
 
@@ -342,9 +344,70 @@ namespace eka2l1 {
     }
 
     bool kernel_system::cpu_handle_access_violation(arm::core *core, const address occurred, const bool read) {
+        auto try_adjust_for_process = [&](kernel::process *process) {
+            if (!process || !process->get_mem_model()) {
+                return false;
+            }
+
+            if (!process->get_ptr_on_addr_space(occurred) && !process->get_mem_model()->adjust_chunk_to_include(occurred)) {
+                return false;
+            }
+
+            mem::mmu_base *mmu = mem_->get_mmu(core);
+            mmu->set_current_addr_space(process->get_mem_model()->address_space_id());
+            core->flush_tlb();
+            return true;
+        };
+
+        kernel::process *process = crr_process();
+        if (try_adjust_for_process(process)) {
+            return true;
+        }
+
+        kernel::thread *thread = crr_thread();
+        kernel::process *thread_process = thread ? thread->owning_process() : nullptr;
+        if (thread_process != process && try_adjust_for_process(thread_process)) {
+            LOG_WARN(KERNEL, "Recovered access violation at 0x{:X} using thread owner process {} instead of scheduler process {}",
+                occurred,
+                thread_process ? thread_process->name() : "<none>",
+                process ? process->name() : "<none>");
+            return true;
+        }
+
         if (is_eka1()) {
             if ((occurred >= mem::kern_mapping_eka1) && (occurred <= mem::kern_mapping_eka1_end)) {
                 setup_stub_io_mapping(occurred);
+                return true;
+            }
+
+            const std::uint32_t page_size = static_cast<std::uint32_t>(mem_->get_page_size());
+            for (auto &obj : chunks_) {
+                auto *chunk = reinterpret_cast<kernel::chunk *>(obj.get());
+                if (!chunk || chunk->position_access() != kernel::chunk_access::global) {
+                    continue;
+                }
+
+                const address chunk_base = chunk->base(nullptr).ptr_address();
+                if (occurred < chunk_base) {
+                    continue;
+                }
+
+                const std::uint32_t offset = occurred - chunk_base;
+                if (offset >= chunk->max_size()) {
+                    continue;
+                }
+
+                chunk->adjust(common::align<std::uint32_t>(offset + 1, page_size));
+                if (!chunk->ensure_committed(offset, page_size) || !mem_->get_real_pointer(occurred, 0)) {
+                    continue;
+                }
+
+                if (process && process->get_mem_model()) {
+                    mem::mmu_base *mmu = mem_->get_mmu(core);
+                    mmu->set_current_addr_space(process->get_mem_model()->address_space_id());
+                }
+
+                core->flush_tlb();
                 return true;
             }
         }
@@ -360,7 +423,15 @@ namespace eka2l1 {
                 return true;
             }
 
-            LOG_ERROR(KERNEL, "Access violation {} address 0x{:X} in thread {}", (exception_type == arm::exception_type_access_violation_read) ? "reading" : "writing", exception_data, crr_thread()->name());
+            LOG_ERROR(KERNEL, "Access violation {} address 0x{:X} in thread {} process {}{} owner {}{} (pc=0x{:X}, lr=0x{:X})",
+                (exception_type == arm::exception_type_access_violation_read) ? "reading" : "writing",
+                exception_data,
+                crr_thread() ? crr_thread()->name() : "<none>",
+                crr_process() ? crr_process()->name() : "<none>",
+                crr_process() && crr_process()->get_mem_model() ? "" : " (no memory model)",
+                crr_thread() && crr_thread()->owning_process() ? crr_thread()->owning_process()->name() : "<none>",
+                crr_thread() && crr_thread()->owning_process() && crr_thread()->owning_process()->get_mem_model() ? "" : " (no memory model)",
+                core->get_pc(), core->get_lr());
             break;
 
         case arm::exception_type_undefined_inst:
@@ -419,7 +490,7 @@ namespace eka2l1 {
 
             // Create supervisor thread
             create<kernel::thread>(mem_, timing_, nanokern_pr_, kernel::access_type::local_access,
-                SUPERVISOR_THREAD_NAME, 0, 1000, 0, 1000, false);
+                SUPERVISOR_THREAD_NAME, 0, 0x3000, 0, 1000, false);
 
             // Reserve some spaces for loader like BinPDA to relocate their patch code
             create<kernel::chunk>(mem_, nullptr, "SpaceReservePatchROM",
@@ -518,19 +589,16 @@ namespace eka2l1 {
                 kernel_global_data *data = reinterpret_cast<kernel_global_data *>(global_data_chunk_->host_base());
                 data->reset();
 
-                if (is_eka1()) {
-                    // Fill default table info for EKA1
-                    data->char_set_.collation_data_set_ = global_data_chunk_->base(nullptr).ptr_address() + sizeof(kernel_global_data);
-                    kernel::collation_data_set *colset = reinterpret_cast<kernel::collation_data_set*>(reinterpret_cast<std::uint8_t*>(global_data_chunk_->host_base()) + sizeof(kernel_global_data));
-                    colset->collation_datas_ = data->char_set_.collation_data_set_ + sizeof(kernel::collation_data_set);
-                    colset->count_ = 1;
+                data->char_set_.collation_data_set_ = global_data_chunk_->base(nullptr).ptr_address() + sizeof(kernel_global_data);
+                kernel::collation_data_set *colset = reinterpret_cast<kernel::collation_data_set *>(reinterpret_cast<std::uint8_t *>(global_data_chunk_->host_base()) + sizeof(kernel_global_data));
+                colset->collation_datas_ = data->char_set_.collation_data_set_ + sizeof(kernel::collation_data_set);
+                colset->count_ = 1;
 
-                    kernel::collation_data *coldata = reinterpret_cast<kernel::collation_data*>(reinterpret_cast<std::uint8_t*>(global_data_chunk_->host_base()) + sizeof(kernel_global_data) + sizeof(kernel::collation_data_set));
-                    coldata->id_ = 0;
-                    coldata->main_table_ = 0;
-                    coldata->override_table_ = 0;
-                    coldata->flags_ = 0;
-                }
+                kernel::collation_data *coldata = reinterpret_cast<kernel::collation_data *>(reinterpret_cast<std::uint8_t *>(global_data_chunk_->host_base()) + sizeof(kernel_global_data) + sizeof(kernel::collation_data_set));
+                coldata->id_ = 0;
+                coldata->main_table_ = 0;
+                coldata->override_table_ = 0;
+                coldata->flags_ = 0;
             }
         }
 
@@ -553,7 +621,7 @@ namespace eka2l1 {
             setup_custom_static_data_chunk();
         }
 
-        std::uint8_t *data = reinterpret_cast<std::uint8_t*>(static_data_chunk_->host_base()) + static_data_chunk_cursor_;
+        std::uint8_t *data = reinterpret_cast<std::uint8_t *>(static_data_chunk_->host_base()) + static_data_chunk_cursor_;
         std::memcpy(data, variable.data(), variable.length());
         data[variable.length()] = '\0';
 
@@ -564,15 +632,15 @@ namespace eka2l1 {
     }
 
     address kernel_system::put_static_array(address *addrs, const std::size_t addr_count) {
-        return put_global_kernel_binary(reinterpret_cast<std::uint8_t*>(addrs), addr_count * sizeof(address));
+        return put_global_kernel_binary(reinterpret_cast<std::uint8_t *>(addrs), addr_count * sizeof(address));
     }
 
     address kernel_system::put_global_kernel_binary(const std::uint8_t *bin, const std::size_t bin_count) {
         if (!static_data_chunk_) {
             setup_custom_static_data_chunk();
         }
-        
-        std::uint8_t *data = reinterpret_cast<std::uint8_t*>(static_data_chunk_->host_base()) + static_data_chunk_cursor_;
+
+        std::uint8_t *data = reinterpret_cast<std::uint8_t *>(static_data_chunk_->host_base()) + static_data_chunk_cursor_;
         std::memcpy(data, bin, bin_count);
 
         address returnee = static_cast<address>(static_data_chunk_->base(nullptr).ptr_address() + static_data_chunk_cursor_);
@@ -627,6 +695,13 @@ namespace eka2l1 {
         }
     }
 
+    void kernel_system::call_request_complete_callbacks(kernel::thread *target, address status_addr) {
+        for (auto &request_complete_callback_func : request_complete_callbacks_) {
+            if (request_complete_callback_func)
+                request_complete_callback_func(target, status_addr);
+        }
+    }
+
     void kernel_system::call_process_switch_callbacks(arm::core *run_core, kernel::process *old, kernel::process *new_one) {
         for (auto &process_switch_callback_func : process_switch_callback_funcs_) {
             if (process_switch_callback_func)
@@ -671,6 +746,10 @@ namespace eka2l1 {
         return thread_kill_callbacks_.add(callback);
     }
 
+    std::size_t kernel_system::register_request_complete_callback(request_complete_callback callback) {
+        return request_complete_callbacks_.add(callback);
+    }
+
     std::size_t kernel_system::register_breakpoint_hit_callback(breakpoint_callback callback) {
         return breakpoint_callbacks_.add(callback);
     }
@@ -690,7 +769,7 @@ namespace eka2l1 {
     std::size_t kernel_system::register_uid_process_change_callback(uid_of_process_change_callback callback) {
         return uid_of_process_callback_funcs_.add(callback);
     }
-    
+
     std::size_t kernel_system::register_guomen_process_run_callback(guomen_process_run_callback callback) {
         return guomen_process_run_callback_funcs_.add(callback);
     }
@@ -705,6 +784,10 @@ namespace eka2l1 {
 
     bool kernel_system::unregister_thread_kill_callback(const std::size_t handle) {
         return thread_kill_callbacks_.remove(handle);
+    }
+
+    bool kernel_system::unregister_request_complete_callback(const std::size_t handle) {
+        return request_complete_callbacks_.remove(handle);
     }
 
     bool kernel_system::unregister_breakpoint_hit_callback(const std::size_t handle) {
@@ -730,7 +813,7 @@ namespace eka2l1 {
     bool kernel_system::unregister_uid_of_process_change_callback(const std::size_t handle) {
         return uid_of_process_callback_funcs_.remove(handle);
     }
-    
+
     bool kernel_system::unregister_guomen_process_run_callback(const std::size_t handle) {
         return guomen_process_run_callback_funcs_.remove(handle);
     }
@@ -824,23 +907,16 @@ namespace eka2l1 {
         const std::uint32_t stack_size) {
         if (path == kernel::BRIDAGED_EXECUTABLE_NAME) {
             // Spawn a fake process that's linked to a real process
-            return create<kernel::guomen_process>(mem_, cmd_arg);
-        }
-
-        // NOTE: Workaround for launching game on S^3 or more with keeping the path same for both applist and system calls
-        // For ID3works games
-        std::u16string corrected_path = path;
-
-        if (get_epoc_version() >= epocver::epoc95) {
-            auto root_path = eka2l1::root_path(corrected_path, true);
-            auto rel_path = eka2l1::file_directory(corrected_path, true);
-            if (!root_path.empty() && (root_path == rel_path)) {
-                corrected_path.erase(corrected_path.begin() + 2);
+            process_ptr pr = create<kernel::guomen_process>(mem_, cmd_arg);
+            if (promised_uid3 != 0) {
+                pr->set_uid_type(std::make_tuple(0, 0, promised_uid3));
             }
+
+            return pr;
         }
 
         std::u16string full_path;
-        auto imgs = lib_mngr_->try_search_and_parse(corrected_path, &full_path);
+        auto imgs = lib_mngr_->try_search_and_parse(path, &full_path);
 
         if (!imgs.first && !imgs.second) {
             return nullptr;
@@ -912,7 +988,7 @@ namespace eka2l1 {
         }
 
         LOG_TRACE(KERNEL, "Spawned process: {}, entry point = 0x{:X}", process_name, cs->get_code_run_addr(&(*pr)));
-        
+
         if (eka2l1::has_root_name(path, true)) {
             cs->set_full_path(path);
         }
@@ -1187,7 +1263,8 @@ namespace eka2l1 {
 
     std::optional<find_handle> kernel_system::find_object(const std::string &name, int start, kernel::object_type type, const bool use_full_name) {
         find_handle handle_find_info;
-        RE2 filter(common::wildcard_to_regex_string(name, false));
+        std::regex filter(common::wildcard_to_regex_string(name, false),
+            std::regex_constants::ECMAScript | std::regex_constants::icase);
         start = (start & FIND_HANDLE_IDX_MASK) + 1;
 
         // NOTE: See about the starting index of find handle info in the struct's document!
@@ -1201,7 +1278,7 @@ namespace eka2l1 {
             } else {                                                                               \
                 to_compare = rhs->name();                                                          \
             }                                                                                      \
-            return RE2::FullMatch(to_compare, filter);                                           \
+            return std::regex_match(to_compare, filter);                                           \
         });                                                                                        \
         if (res == obj_map.end())                                                                  \
             return std::nullopt;                                                                   \
@@ -1374,7 +1451,7 @@ namespace eka2l1 {
     }
 
     bool kernel_system::handle_guomen_process_run(kernel::process *guomen_process) {
-        for (auto func: guomen_process_run_callback_funcs_) {
+        for (const auto &func : guomen_process_run_callback_funcs_) {
             if (func(guomen_process)) {
                 return true;
             }
@@ -1382,7 +1459,7 @@ namespace eka2l1 {
 
         return false;
     }
-    
+
     bool kernel_system::should_panic_be_blocked(kernel::thread *thr, const std::string &category, const std::int32_t code) {
         if (!thr || !thr->owning_process()) {
             return false;

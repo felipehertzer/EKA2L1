@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,9 +21,9 @@
 #pragma once
 
 #include <common/algorithm.h>
-#include <common/platform.h>
-#include <common/fileutils.h>
 #include <common/cvt.h>
+#include <common/fileutils.h>
+#include <common/platform.h>
 
 #include <cstdint>
 #include <cstring>
@@ -107,8 +107,8 @@ namespace eka2l1 {
             virtual std::uint64_t write(const void *buf, const std::uint64_t write_size) override { return 0; }
         };
 
-        /*! \brief Another buffer stream, base on LLVM's Buffer 
-        */
+        /*! \brief Another buffer stream, base on LLVM's Buffer
+         */
         class buffer_stream_base {
         protected:
             uint8_t *beg;
@@ -183,10 +183,10 @@ namespace eka2l1 {
             }
         };
 
-        class wo_growable_buf_stream: public wo_stream {
+        class wo_growable_buf_stream : public wo_stream {
         private:
             std::ostringstream stream_;
-        
+
         public:
             explicit wo_growable_buf_stream() {
             }
@@ -417,7 +417,7 @@ namespace eka2l1 {
             }
         };
 
-        class ro_window_ref_stream: public ro_stream {
+        class ro_window_ref_stream : public ro_stream {
         private:
             ro_stream &ref_;
             std::size_t start_;

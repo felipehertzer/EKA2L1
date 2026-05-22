@@ -1,35 +1,35 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <dispatch/libraries/gles_shared/def.h>
-#include <dispatch/libraries/gles2/consts.h>
-#include <drivers/graphics/graphics.h>
 #include <common/vecx.h>
+#include <dispatch/libraries/gles2/consts.h>
+#include <dispatch/libraries/gles_shared/def.h>
+#include <drivers/graphics/graphics.h>
 
 #include <array>
 #include <optional>
 #include <queue>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 namespace eka2l1 {
     class system;
@@ -42,7 +42,7 @@ namespace eka2l1 {
 namespace eka2l1::dispatch {
     struct gles_program_object;
 
-    struct gles_shader_object: public gles_driver_object {
+    struct gles_shader_object : public gles_driver_object {
     private:
         std::string source_;
         std::string compile_info_;
@@ -51,7 +51,7 @@ namespace eka2l1::dispatch {
         bool delete_pending_;
         bool source_changed_;
 
-        std::vector<gles_program_object*> attached_programs_;
+        std::vector<gles_program_object *> attached_programs_;
         void cleanup_current_driver_module();
 
     public:
@@ -112,7 +112,7 @@ namespace eka2l1::dispatch {
         }
     };
 
-    struct gles_program_object: public gles_driver_object {
+    struct gles_program_object : public gles_driver_object {
     private:
         gles_shader_object *attached_vertex_shader_;
         gles_shader_object *attached_fragment_shader_;
@@ -131,7 +131,7 @@ namespace eka2l1::dispatch {
         std::map<int, int> attrib_bind_routes_;
         std::map<int, int> attrib_bind_routes_reverse_;
         std::map<std::string, int> pending_attrib_binds_;
- 
+
         void cleanup_current_driver_program();
         void delete_from_object_store();
 
@@ -189,7 +189,7 @@ namespace eka2l1::dispatch {
         const std::int32_t active_attribute_max_name_length() const {
             return linked_ ? metadata_.get_attribute_max_name_length() : 0;
         }
-        
+
         const std::int32_t active_uniform_max_name_length() const {
             return linked_ ? metadata_.get_uniform_max_name_length() : 0;
         }
@@ -201,7 +201,7 @@ namespace eka2l1::dispatch {
         const drivers::handle fragment_shader_handle() const {
             return attached_fragment_shader_ ? attached_fragment_shader_->handle_value() : 0;
         }
-        
+
         const drivers::handle vertex_shader_handle() const {
             return attached_vertex_shader_ ? attached_vertex_shader_->handle_value() : 0;
         }
@@ -218,7 +218,7 @@ namespace eka2l1::dispatch {
         std::uint32_t format_;
         eka2l1::vec2 size_;
 
-        std::vector<gles_framebuffer_object*> attached_fbs_;
+        std::vector<gles_framebuffer_object *> attached_fbs_;
         float current_scale_;
 
     public:
@@ -300,9 +300,9 @@ namespace eka2l1::dispatch {
         bool is_cube_;
     };
 
-    struct egl_context_es2: public egl_context_es_shared {
+    struct egl_context_es2 : public egl_context_es_shared {
     private:
-        bool retrieve_vertex_buffer_slot(std::vector<drivers::handle> &vertex_buffers_alloc, drivers::graphics_driver *drv,
+        bool retrieve_vertex_buffer_slot(std::vector<drivers::handle> &vertex_buffers_alloc, std::vector<std::size_t> &vertex_buffer_offsets_alloc, drivers::graphics_driver *drv,
             kernel::process *crr_process, const gles_vertex_attrib &attrib, const std::int32_t first_index, const std::int32_t vcount,
             std::uint32_t &res, int &offset, bool &attrib_not_persistent) override;
 

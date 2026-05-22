@@ -1,26 +1,26 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <drivers/ui/input_dialog.h>
 #include <services/notifier/notifier.h>
 #include <services/notifier/queries.h>
-#include <drivers/ui/input_dialog.h>
 #include <system/epoc.h>
 
 #include <utils/consts.h>
@@ -28,7 +28,59 @@
 
 #include <common/cvt.h>
 
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
+
 namespace eka2l1 {
+    static std::string notifier_byte_preview(const std::uint8_t *data, const std::uint32_t size) {
+        std::string result;
+        const std::uint32_t count = std::min<std::uint32_t>(size, 192);
+
+        for (std::uint32_t i = 0; i < count; i++) {
+            char byte_text[4] = {};
+            std::snprintf(byte_text, sizeof(byte_text), "%02X", data[i]);
+
+            if (!result.empty()) {
+                result += ' ';
+            }
+
+            result += byte_text;
+        }
+
+        if (count < size) {
+            result += " ...";
+        }
+
+        return result;
+    }
+
+    static std::string notifier_ascii_preview(const std::uint8_t *data, const std::uint32_t size) {
+        std::string result;
+        std::string current;
+
+        for (std::uint32_t i = 0; i <= size; i++) {
+            const bool printable = (i < size) && std::isprint(static_cast<unsigned char>(data[i])) && data[i] != '\\';
+
+            if (printable) {
+                current += static_cast<char>(data[i]);
+                continue;
+            }
+
+            if (current.size() >= 3) {
+                if (!result.empty()) {
+                    result += " | ";
+                }
+
+                result += current;
+            }
+
+            current.clear();
+        }
+
+        return result;
+    }
+
     std::string get_notifier_server_name_by_epocver(const epocver ver) {
         if (ver < epocver::epoc7) {
             return "Notifier";
@@ -73,7 +125,28 @@ namespace eka2l1 {
 
         epoc::notifier::plugin_base *plug = server<notifier_server>()->get_plugin(plugin_uid.value());
         if (!plug) {
-            LOG_ERROR(SERVICE_NOTIFIER, "Can't find the plugin with UID 0x{:X}. This is fine (but take note).", plugin_uid.value());
+            LOG_TRACE(SERVICE_NOTIFIER, "Can't find the plugin with UID 0x{:X}. This is fine (but take note).", plugin_uid.value());
+
+            kernel::process *caller_pr = ctx->msg->own_thr->owning_process();
+            epoc::desc8 *request_data = eka2l1::ptr<epoc::desc8>(ctx->msg->args.args[1]).get(caller_pr);
+            epoc::des8 *respond_data = eka2l1::ptr<epoc::des8>(ctx->msg->args.args[2]).get(caller_pr);
+
+            if (request_data) {
+                std::uint8_t *request_ptr = reinterpret_cast<std::uint8_t *>(request_data->get_pointer(caller_pr));
+                const std::uint32_t request_size = request_data->get_length();
+                const std::uint32_t response_max_size = respond_data ? respond_data->get_max_length(caller_pr) : 0;
+
+                LOG_INFO(SERVICE_NOTIFIER, "Missing notifier request: uid=0x{:X}, size={}, response_max={}, hex=[{}], ascii=[{}]",
+                    plugin_uid.value(), request_size, response_max_size,
+                    request_ptr ? notifier_byte_preview(request_ptr, request_size) : std::string(),
+                    request_ptr ? notifier_ascii_preview(request_ptr, request_size) : std::string());
+            }
+
+            if (respond_data && respond_data->get_pointer_raw(caller_pr) && (respond_data->get_max_length(caller_pr) > 0)) {
+                const std::uint8_t default_response = 0;
+                respond_data->assign(caller_pr, &default_response, sizeof(default_response));
+            }
+
             ctx->complete(epoc::error_none);
 
             return;
@@ -137,10 +210,10 @@ namespace eka2l1 {
         std::u16string button_text2 = combined_text->substr(length_line1 + length_line2 + length_button_text1,
             length_button_text2);
 
-        //LOG_TRACE(SERVICE_NOTIFIER, "Trying to display: {} {} {} {}", common::ucs2_to_utf8(line1),
-        //    common::ucs2_to_utf8(line2), common::ucs2_to_utf8(button_text1), common::ucs2_to_utf8(button_text2));
+        // LOG_TRACE(SERVICE_NOTIFIER, "Trying to display: {} {} {} {}", common::ucs2_to_utf8(line1),
+        //     common::ucs2_to_utf8(line2), common::ucs2_to_utf8(button_text1), common::ucs2_to_utf8(button_text2));
 
-        int *status = reinterpret_cast<int*>(ctx->get_descriptor_argument_ptr(0));
+        int *status = reinterpret_cast<int *>(ctx->get_descriptor_argument_ptr(0));
         if (!status) {
             ctx->complete(epoc::error_argument);
             return;

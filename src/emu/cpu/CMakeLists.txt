@@ -21,13 +21,6 @@ set(SOURCE_12L1R
         include/cpu/12l1r/reg_loc.h
         include/cpu/12l1r/thumb_visitor.h
         include/cpu/12l1r/visit_session.h
-        src/12l1r/tests/imb_range.cpp
-        src/12l1r/tests/mem_stress.cpp
-        src/12l1r/tests/reg_cache_stress.cpp
-        src/12l1r/tests/test_cpu.cpp
-        src/12l1r/tests/test_cpu.h
-        src/12l1r/tests/test_entry.cpp
-        src/12l1r/tests/vfp.cpp
         src/12l1r/translate/branch.cpp
         src/12l1r/translate/coprocessor.cpp
         src/12l1r/translate/data_processing.cpp
@@ -51,6 +44,15 @@ set(SOURCE_12L1R
         src/12l1r/reg_loc.cpp
         src/12l1r/thumb_visitor.cpp
         src/12l1r/visit_session.cpp)
+
+set(SOURCE_12L1R_TESTS
+        src/12l1r/tests/imb_range.cpp
+        src/12l1r/tests/mem_stress.cpp
+        src/12l1r/tests/reg_cache_stress.cpp
+        src/12l1r/tests/test_cpu.cpp
+        src/12l1r/tests/test_cpu.h
+        src/12l1r/tests/test_entry.cpp
+        src/12l1r/tests/vfp.cpp)
 
 set(SOURCE_DYNCOM
         include/cpu/dyncom/vfp/asm_vfp.h
@@ -92,8 +94,11 @@ add_library(cpu
 
 if (ARCHITECTURE_ARM32)
     target_sources(cpu PRIVATE ${SOURCE_12L1R})
-    target_link_libraries(cpu PRIVATE Catch2)
-else()
+    if (EKA2L1_BUILD_TESTS)
+        target_sources(cpu PRIVATE ${SOURCE_12L1R_TESTS})
+        target_link_libraries(cpu PRIVATE Catch2)
+    endif()
+elseif(EKA2L1_ENABLE_DYNARMIC)
     target_sources(cpu PRIVATE
             include/cpu/arm_dynarmic.h
             src/arm_dynarmic.cpp)
@@ -108,4 +113,4 @@ target_include_directories(cpu PRIVATE ${capstone_INCLUDE_DIRS})
 target_link_libraries(cpu PUBLIC common)
 target_link_libraries(cpu
         PRIVATE
-        capstone-static)
+        capstone)

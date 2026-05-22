@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -35,10 +35,10 @@ namespace eka2l1::common {
     /*! \brief A parser for command line arguments.
      *
      * This is a lightweight command line parser, works with a callback mechanic.
-     * 
+     *
      * Users use this will use a callback function to handle with arguments whenether there
      * is an occurence of an option.
-    */
+     */
     class arg_parser {
         int argc;
         const char **argv;
@@ -63,9 +63,9 @@ namespace eka2l1::common {
         /*! \brief Get the next argument token.
          *
          * Intended for use in both this and the handler.
-         * 
+         *
          * \returns Nullptr if there is no other token left.
-        */
+         */
         const char *next_token();
 
         /**
@@ -80,12 +80,12 @@ namespace eka2l1::common {
          *
          * \param userdata      Pointer to userdata.
 
-         * \param err           Pointer to a string, which error code will be written to 
+         * \param err           Pointer to a string, which error code will be written to
          *                      if the return value of this function is 0
          *
-         * 
+         *
          * \returns             True on success, false on failure or force stop.
-         *                      Handler should report errors on real failure. Force stop will 
+         *                      Handler should report errors on real failure. Force stop will
          *                      leave the error string empty.
         */
         bool parse(void *userdata, std::string *err);

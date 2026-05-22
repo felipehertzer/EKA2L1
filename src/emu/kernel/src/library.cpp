@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -35,7 +35,7 @@ namespace eka2l1 {
     namespace kernel {
         library::library(kernel_system *kern, codeseg_ptr codeseg)
             : kernel_obj(kern, codeseg->name(), nullptr, access_type::global_access)
-            , codeseg(std::move(codeseg))
+            , codeseg(codeseg)
             , reffed(false) {
             obj_type = object_type::library;
             codeseg->increase_access_count();
@@ -61,10 +61,10 @@ namespace eka2l1 {
                 // Still attach first to increase ref count! But we also needed to see if it has
                 // never been attached before in the process.
                 kernel::codeseg_state prev_state = codeseg->state_with(pr);
-                codeseg->attach(pr);            
+                codeseg->attach(pr);
 
                 reffed = true;
-                
+
                 if (prev_state == codeseg_state_detached) {
                     std::vector<std::uint32_t> call_list;
 

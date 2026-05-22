@@ -1,33 +1,34 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the free software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dispatch/libraries/gles1/gles1.h>
 #include <dispatch/libraries/gles1/def.h>
+#include <dispatch/libraries/gles1/gles1.h>
 #include <dispatch/libraries/gles_shared/consts.h>
 #include <dispatch/libraries/gles_shared/utils.h>
 
 #include <dispatch/dispatcher.h>
 #include <drivers/graphics/graphics.h>
-#include <system/epoc.h>
 #include <kernel/kernel.h>
+#include <system/epoc.h>
 
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 namespace eka2l1::dispatch {
@@ -68,6 +69,10 @@ namespace eka2l1::dispatch {
         env_info_.combine_a_func_ = gles_texture_env_info::SOURCE_COMBINE_MODULATE;
 
         env_colors_[0] = env_colors_[1] = env_colors_[2] = env_colors_[3] = 0.0f;
+        coord_uniforms_[0] = 0.0f;
+        coord_uniforms_[1] = 0.0f;
+        coord_uniforms_[2] = 0.0f;
+        coord_uniforms_[3] = 1.0f;
     }
 
     gles1_light_info::gles1_light_info()
@@ -83,7 +88,7 @@ namespace eka2l1::dispatch {
         position_or_dir_[2] = 1.0f;
 
         position_or_dir_transformed_[0] = position_or_dir_transformed_[1] = position_or_dir_transformed_[3] = 0.0f;
-        position_or_dir_transformed_[2] = 1.0f; 
+        position_or_dir_transformed_[2] = 1.0f;
 
         spot_dir_[0] = spot_dir_[1] = 0.0f;
         spot_dir_[2] = -1.0f;
@@ -143,6 +148,9 @@ namespace eka2l1::dispatch {
 
         // Uniforms
         color_uniforms_[0] = color_uniforms_[1] = color_uniforms_[2] = color_uniforms_[3] = 1.0f;
+        normal_uniforms_[0] = 0.0f;
+        normal_uniforms_[1] = 0.0f;
+        normal_uniforms_[2] = 1.0f;
 
         // Attribs
         vertex_attrib_.size_ = 4;
@@ -217,14 +225,15 @@ namespace eka2l1::dispatch {
             if (!obj->get()) {
                 // The capacity is still enough. Someone has deleted the texture that should not be ! (yes, Pet Me by mBounce)
                 LOG_WARN(HLE_DISPATCHER, "Texture name {} was previously deleted, generate a new one"
-                    " (only because the slot is empty)!", handle);
+                                         " (only because the slot is empty)!",
+                    handle);
                 *obj = std::make_unique<gles_driver_texture>(*this);
             } else {
                 return nullptr;
             }
         }
 
-        return reinterpret_cast<gles_driver_texture*>(obj->get());
+        return reinterpret_cast<gles_driver_texture *>(obj->get());
     }
 
     bool egl_context_es1::enable(const std::uint32_t feature) {
@@ -240,7 +249,7 @@ namespace eka2l1::dispatch {
         case GL_CLIP_PLANE0_EMU:
             fragment_statuses_ |= egl_context_es1::FRAGMENT_STATE_CLIP_PLANE0_ENABLE;
             break;
-            
+
         case GL_CLIP_PLANE1_EMU:
             fragment_statuses_ |= egl_context_es1::FRAGMENT_STATE_CLIP_PLANE1_ENABLE;
             break;
@@ -300,13 +309,14 @@ namespace eka2l1::dispatch {
         case GL_LIGHT6_EMU:
             vertex_statuses_ |= egl_context_es1::VERTEX_STATE_LIGHT6_ON;
             break;
-        
+
         case GL_LIGHT7_EMU:
             vertex_statuses_ |= egl_context_es1::VERTEX_STATE_LIGHT7_ON;
             break;
 
         case GL_TEXTURE_2D_EMU:
             texture_units_[active_texture_unit_].texturing_enabled_ = true;
+            attrib_changed_ = true;
             break;
 
         case GL_NORMALIZE_EMU:
@@ -341,7 +351,7 @@ namespace eka2l1::dispatch {
         case GL_CLIP_PLANE0_EMU:
             fragment_statuses_ &= ~egl_context_es1::FRAGMENT_STATE_CLIP_PLANE0_ENABLE;
             break;
-            
+
         case GL_CLIP_PLANE1_EMU:
             fragment_statuses_ &= ~egl_context_es1::FRAGMENT_STATE_CLIP_PLANE1_ENABLE;
             break;
@@ -401,13 +411,14 @@ namespace eka2l1::dispatch {
         case GL_LIGHT6_EMU:
             vertex_statuses_ &= ~egl_context_es1::VERTEX_STATE_LIGHT6_ON;
             break;
-        
+
         case GL_LIGHT7_EMU:
             vertex_statuses_ &= ~egl_context_es1::VERTEX_STATE_LIGHT7_ON;
             break;
 
         case GL_TEXTURE_2D_EMU:
             texture_units_[active_texture_unit_].texturing_enabled_ = false;
+            attrib_changed_ = true;
             break;
 
         case GL_NORMALIZE_EMU:
@@ -502,7 +513,7 @@ namespace eka2l1::dispatch {
         case GL_LIGHT6_EMU:
             enabled = (vertex_statuses_ & egl_context_es1::VERTEX_STATE_LIGHT6_ON) ? 1 : 0;
             break;
-        
+
         case GL_LIGHT7_EMU:
             enabled = (vertex_statuses_ & egl_context_es1::VERTEX_STATE_LIGHT7_ON) ? 1 : 0;
             break;
@@ -532,8 +543,7 @@ namespace eka2l1::dispatch {
             break;
 
         case GL_TEXTURE_COORD_ARRAY_EMU: {
-            std::uint64_t mask = 1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS +
-                static_cast<std::uint8_t>(active_client_texture_unit_));
+            std::uint64_t mask = 1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS + static_cast<std::uint8_t>(active_client_texture_unit_));
             enabled = (vertex_statuses_ & mask) ? 1 : 0;
             break;
         }
@@ -562,7 +572,8 @@ namespace eka2l1::dispatch {
 
         case GL_ALPHA_TEST_FUNC_EMU:
             *params = static_cast<T>(((ctx->fragment_statuses_ & egl_context_es1::FRAGMENT_STATE_ALPHA_FUNC_MASK)
-                >> egl_context_es1::FRAGMENT_STATE_ALPHA_TEST_FUNC_POS) + GL_NEVER_EMU);
+                                         >> egl_context_es1::FRAGMENT_STATE_ALPHA_TEST_FUNC_POS)
+                + GL_NEVER_EMU);
             break;
 
         case GL_ALPHA_TEST_REF_EMU:
@@ -575,8 +586,7 @@ namespace eka2l1::dispatch {
         case GL_CLIP_PLANE3_EMU:
         case GL_CLIP_PLANE4_EMU:
         case GL_CLIP_PLANE5_EMU:
-            *params = static_cast<T>((ctx->fragment_statuses_ & (1 << (egl_context_es1::FRAGMENT_STATE_CLIP_PLANE_BIT_POS +
-                pname - GL_CLIP_PLANE0_EMU))) ? 1 : 0);
+            *params = static_cast<T>((ctx->fragment_statuses_ & (1 << (egl_context_es1::FRAGMENT_STATE_CLIP_PLANE_BIT_POS + pname - GL_CLIP_PLANE0_EMU))) ? 1 : 0);
             break;
 
         case GL_COLOR_ARRAY_EMU:
@@ -643,7 +653,7 @@ namespace eka2l1::dispatch {
         case GL_NORMAL_ARRAY_STRIDE_EMU:
             *params = static_cast<T>(ctx->normal_attrib_.stride_);
             break;
-        
+
         case GL_NORMAL_ARRAY_TYPE_EMU:
             *params = static_cast<T>(ctx->normal_attrib_.data_type_);
             break;
@@ -653,8 +663,7 @@ namespace eka2l1::dispatch {
             break;
 
         case GL_TEXTURE_COORD_ARRAY_EMU: {
-            std::uint64_t mask = 1 << static_cast<std::uint8_t>(egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS +
-                static_cast<std::uint8_t>(ctx->active_client_texture_unit_));
+            std::uint64_t mask = 1 << static_cast<std::uint8_t>(egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS + static_cast<std::uint8_t>(ctx->active_client_texture_unit_));
 
             *params = static_cast<T>((ctx->vertex_statuses_ & mask) ? 1 : 0);
             break;
@@ -671,7 +680,7 @@ namespace eka2l1::dispatch {
         case GL_VERTEX_ARRAY_SIZE_EMU:
             *params = static_cast<T>(ctx->vertex_attrib_.size_);
             break;
-        
+
         case GL_VERTEX_ARRAY_TYPE_EMU:
             *params = static_cast<T>(ctx->vertex_attrib_.data_type_);
             break;
@@ -731,7 +740,7 @@ namespace eka2l1::dispatch {
 
             break;
         }
-        
+
         case GL_TEXTURE_MATRIX_EMU: {
             glm::mat4 &mat = ctx->texture_units_[ctx->active_texture_unit_].texture_mat_stack_.top();
             float *mat_ptr = glm::value_ptr(mat);
@@ -741,7 +750,7 @@ namespace eka2l1::dispatch {
 
             break;
         }
-        
+
         case GL_MODELVIEW_STACK_DEPTH_EMU:
             *params = static_cast<T>(ctx->model_view_mat_stack_.size());
             break;
@@ -823,16 +832,16 @@ namespace eka2l1::dispatch {
         }
         switch (data_type) {
         case GLES_GET_DATA_TYPE_BOOLEAN:
-            return get_data_impl_es1<std::int32_t>(this, drv, feature, reinterpret_cast<std::int32_t*>(data), 255);
+            return get_data_impl_es1<std::int32_t>(this, drv, feature, reinterpret_cast<std::int32_t *>(data), 255);
 
         case GLES_GET_DATA_TYPE_FIXED:
-            return get_data_impl_es1<gl_fixed>(this, drv, feature, reinterpret_cast<gl_fixed*>(data), 65536);
+            return get_data_impl_es1<gl_fixed>(this, drv, feature, reinterpret_cast<gl_fixed *>(data), 65536);
 
         case GLES_GET_DATA_TYPE_FLOAT:
-            return get_data_impl_es1<float>(this, drv, feature, reinterpret_cast<float*>(data), 1);
+            return get_data_impl_es1<float>(this, drv, feature, reinterpret_cast<float *>(data), 1);
 
         case GLES_GET_DATA_TYPE_INTEGER:
-            return get_data_impl_es1<std::uint32_t>(this, drv, feature, reinterpret_cast<std::uint32_t*>(data), 255);
+            return get_data_impl_es1<std::uint32_t>(this, drv, feature, reinterpret_cast<std::uint32_t *>(data), 255);
 
         default:
             break;
@@ -844,7 +853,7 @@ namespace eka2l1::dispatch {
     std::uint32_t egl_context_es1::bind_texture(const std::uint32_t target, const std::uint32_t tex) {
         auto *obj = objects_.get(tex);
         if (obj && (*obj).get()) {
-            std::uint32_t bind_res = reinterpret_cast<gles_driver_texture*>((*obj).get())->try_bind(target);
+            std::uint32_t bind_res = reinterpret_cast<gles_driver_texture *>((*obj).get())->try_bind(target);
             if (bind_res != 0) {
                 return bind_res;
             }
@@ -883,9 +892,9 @@ namespace eka2l1::dispatch {
             return nullptr;
         }
 
-        return reinterpret_cast<egl_context_es1*>(context);
+        return reinterpret_cast<egl_context_es1 *>(context);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_matrix_mode_emu, std::uint32_t mode) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -902,7 +911,7 @@ namespace eka2l1::dispatch {
 
         ctx->active_mat_stack_ = mode;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_push_matrix_emu) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -991,7 +1000,7 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_load_identity_emu) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1000,7 +1009,7 @@ namespace eka2l1::dispatch {
 
         ctx->active_matrix() = glm::identity<glm::mat4>();
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_load_matrixf_emu, float *mat) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1041,7 +1050,7 @@ namespace eka2l1::dispatch {
         // Column wise, so is good
         ctx->active_matrix() = glm::make_mat4(converted);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_orthof_emu, float left, float right, float bottom, float top, float near, float far) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1099,7 +1108,7 @@ namespace eka2l1::dispatch {
 
         ctx->active_matrix() *= glm::make_mat4(converted);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_scalef_emu, float x, float y, float z) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1108,7 +1117,7 @@ namespace eka2l1::dispatch {
 
         ctx->active_matrix() = glm::scale(ctx->active_matrix(), glm::vec3(x, y, z));
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_scalex_emu, gl_fixed x, gl_fixed y, gl_fixed z) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1117,7 +1126,7 @@ namespace eka2l1::dispatch {
 
         ctx->active_matrix() = glm::scale(ctx->active_matrix(), glm::vec3(FIXED_32_TO_FLOAT(x), FIXED_32_TO_FLOAT(y), FIXED_32_TO_FLOAT(z)));
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_translatef_emu, float x, float y, float z) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1135,7 +1144,7 @@ namespace eka2l1::dispatch {
 
         ctx->active_matrix() = glm::translate(ctx->active_matrix(), glm::vec3(FIXED_32_TO_FLOAT(x), FIXED_32_TO_FLOAT(y), FIXED_32_TO_FLOAT(z)));
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_rotatef_emu, float angles, float x, float y, float z) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1153,7 +1162,7 @@ namespace eka2l1::dispatch {
 
         ctx->active_matrix() = glm::rotate(ctx->active_matrix(), glm::radians(FIXED_32_TO_FLOAT(angles)), glm::vec3(FIXED_32_TO_FLOAT(x), FIXED_32_TO_FLOAT(y), FIXED_32_TO_FLOAT(z)));
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_frustumf_emu, float left, float right, float bottom, float top, float near, float far) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1216,7 +1225,7 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_normal_3f_emu, float nx, float ny, float nz) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1238,7 +1247,7 @@ namespace eka2l1::dispatch {
         ctx->normal_uniforms_[1] = FIXED_32_TO_FLOAT(ny);
         ctx->normal_uniforms_[2] = FIXED_32_TO_FLOAT(nz);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_color_4f_emu, float red, float green, float blue, float alpha) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1284,14 +1293,14 @@ namespace eka2l1::dispatch {
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
-        if ((unit < GL_TEXTURE0_EMU) && (unit >= GL_TEXTURE0_EMU + GLES1_EMU_MAX_TEXTURE_COUNT)) {
+        if ((unit < GL_TEXTURE0_EMU) || (unit >= GL_TEXTURE0_EMU + GLES1_EMU_MAX_TEXTURE_COUNT)) {
             controller.push_error(ctx, GL_INVALID_ENUM);
             return;
         }
 
         ctx->active_client_texture_unit_ = unit - GL_TEXTURE0_EMU;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_multi_tex_coord_4f_emu, std::uint32_t unit, float s, float t, float r, float q) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1301,7 +1310,7 @@ namespace eka2l1::dispatch {
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
-        if ((unit < GL_TEXTURE0_EMU) && (unit >= GL_TEXTURE0_EMU + GLES1_EMU_MAX_TEXTURE_COUNT)) {
+        if ((unit < GL_TEXTURE0_EMU) || (unit >= GL_TEXTURE0_EMU + GLES1_EMU_MAX_TEXTURE_COUNT)) {
             controller.push_error(ctx, GL_INVALID_ENUM);
             return;
         }
@@ -1323,10 +1332,12 @@ namespace eka2l1::dispatch {
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
-        if ((unit < GL_TEXTURE0_EMU) && (unit >= GL_TEXTURE0_EMU + GLES1_EMU_MAX_TEXTURE_COUNT)) {
+        if ((unit < GL_TEXTURE0_EMU) || (unit >= GL_TEXTURE0_EMU + GLES1_EMU_MAX_TEXTURE_COUNT)) {
             controller.push_error(ctx, GL_INVALID_ENUM);
             return;
         }
+
+        unit -= GL_TEXTURE0_EMU;
 
         ctx->texture_units_[unit].coord_uniforms_[0] = FIXED_32_TO_FLOAT(s);
         ctx->texture_units_[unit].coord_uniforms_[1] = FIXED_32_TO_FLOAT(t);
@@ -1346,28 +1357,33 @@ namespace eka2l1::dispatch {
         switch (state) {
         case GL_VERTEX_ARRAY_EMU:
             ctx->vertex_statuses_ |= egl_context_es1::VERTEX_STATE_CLIENT_VERTEX_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_COLOR_ARRAY_EMU:
             ctx->vertex_statuses_ |= egl_context_es1::VERTEX_STATE_CLIENT_COLOR_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_NORMAL_ARRAY_EMU:
             ctx->vertex_statuses_ |= egl_context_es1::VERTEX_STATE_CLIENT_NORMAL_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_TEXTURE_COORD_ARRAY_EMU:
-            ctx->vertex_statuses_ |= (1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS +
-                static_cast<std::uint8_t>(ctx->active_client_texture_unit_)));
+            ctx->vertex_statuses_ |= (1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS + static_cast<std::uint8_t>(ctx->active_client_texture_unit_)));
+            ctx->attrib_changed_ = true;
 
             break;
 
         case GL_WEIGHT_ARRAY_OES:
             ctx->vertex_statuses_ |= egl_context_es1::VERTEX_STATE_CLIENT_WEIGHT_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_MATRIX_INDEX_ARRAY_OES:
             ctx->vertex_statuses_ |= egl_context_es1::VERTEX_STATE_CLIENT_MATRIX_INDEX_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         default:
@@ -1388,27 +1404,32 @@ namespace eka2l1::dispatch {
         switch (state) {
         case GL_VERTEX_ARRAY_EMU:
             ctx->vertex_statuses_ &= ~egl_context_es1::VERTEX_STATE_CLIENT_VERTEX_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_COLOR_ARRAY_EMU:
             ctx->vertex_statuses_ &= ~egl_context_es1::VERTEX_STATE_CLIENT_COLOR_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_NORMAL_ARRAY_EMU:
             ctx->vertex_statuses_ &= ~egl_context_es1::VERTEX_STATE_CLIENT_NORMAL_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_TEXTURE_COORD_ARRAY_EMU:
-            ctx->vertex_statuses_ &= ~(1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS +
-                static_cast<std::uint8_t>(ctx->active_client_texture_unit_)));
+            ctx->vertex_statuses_ &= ~(1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS + static_cast<std::uint8_t>(ctx->active_client_texture_unit_)));
+            ctx->attrib_changed_ = true;
             break;
-            
+
         case GL_WEIGHT_ARRAY_OES:
             ctx->vertex_statuses_ &= ~egl_context_es1::VERTEX_STATE_CLIENT_WEIGHT_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         case GL_MATRIX_INDEX_ARRAY_OES:
             ctx->vertex_statuses_ &= ~egl_context_es1::VERTEX_STATE_CLIENT_MATRIX_INDEX_ARRAY;
+            ctx->attrib_changed_ = true;
             break;
 
         default:
@@ -1691,7 +1712,7 @@ namespace eka2l1::dispatch {
             gl_fog_f_emu(sys, target, *param);
             return;
         }
-        
+
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
             return;
@@ -1715,7 +1736,7 @@ namespace eka2l1::dispatch {
             gl_fog_x_emu(sys, target, *param);
             return;
         }
-        
+
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
             return;
@@ -1803,7 +1824,7 @@ namespace eka2l1::dispatch {
 
         return true;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_tex_envi_emu, std::uint32_t target, std::uint32_t name, std::int32_t param) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -1992,7 +2013,7 @@ namespace eka2l1::dispatch {
             info.src0_a_op_ = operand;
             break;
         }
-        
+
         case GL_OPERAND1_RGB_EMU: {
             gles_texture_env_info::source_operand operand;
             if (!convert_gl_texenv_operand_to_our_enum(param, operand, false)) {
@@ -2014,7 +2035,7 @@ namespace eka2l1::dispatch {
             info.src1_a_op_ = operand;
             break;
         }
-        
+
         case GL_OPERAND2_RGB_EMU: {
             gles_texture_env_info::source_operand operand;
             if (!convert_gl_texenv_operand_to_our_enum(param, operand, false)) {
@@ -2060,21 +2081,21 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_tex_envf_emu, std::uint32_t target, std::uint32_t name, float param) {
         gl_tex_envi_emu(sys, target, name, static_cast<std::int32_t>(param));
     }
 
     BRIDGE_FUNC_LIBRARY(void, gl_tex_envx_emu, std::uint32_t target, std::uint32_t name, gl_fixed param) {
         std::int32_t param_casted = static_cast<std::int32_t>(param);
-        
+
         if ((name == GL_ALPHA_SCALE_EMU) || (name == GL_RGB_SCALE_EMU)) {
-            param_casted = static_cast<std::int32_t>(FIXED_32_TO_FLOAT(param)); 
+            param_casted = static_cast<std::int32_t>(FIXED_32_TO_FLOAT(param));
         }
 
         gl_tex_envi_emu(sys, target, name, param_casted);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_tex_enviv_emu, std::uint32_t target, std::uint32_t name, const std::int32_t *param) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -2151,14 +2172,14 @@ namespace eka2l1::dispatch {
         }
 
         std::int32_t param_casted = static_cast<std::int32_t>(*param);
-        
+
         if ((name == GL_ALPHA_SCALE_EMU) || (name == GL_RGB_SCALE_EMU)) {
-            param_casted = static_cast<std::int32_t>(FIXED_32_TO_FLOAT(*param)); 
+            param_casted = static_cast<std::int32_t>(FIXED_32_TO_FLOAT(*param));
         }
 
         gl_tex_envi_emu(sys, target, name, param_casted);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_get_pointerv_emu, std::uint32_t target, std::uint32_t *off) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -2190,13 +2211,13 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_light_f_emu, std::uint32_t light, std::uint32_t pname, float param) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2238,13 +2259,13 @@ namespace eka2l1::dispatch {
     BRIDGE_FUNC_LIBRARY(void, gl_light_x_emu, std::uint32_t light, std::uint32_t pname, gl_fixed param) {
         gl_light_f_emu(sys, light, pname, FIXED_32_TO_FLOAT(param));
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_light_fv_emu, std::uint32_t light, std::uint32_t pname, const float *param) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2297,7 +2318,7 @@ namespace eka2l1::dispatch {
             info.position_or_dir_transformed_[1] = transformed_pos.y;
             info.position_or_dir_transformed_[2] = transformed_pos.z;
             info.position_or_dir_transformed_[3] = info.position_or_dir_[3];
-            
+
             break;
         }
 
@@ -2309,7 +2330,7 @@ namespace eka2l1::dispatch {
             info.spot_dir_transformed_[0] = transformed_spot_dir.x;
             info.spot_dir_transformed_[1] = transformed_spot_dir.y;
             info.spot_dir_transformed_[2] = transformed_spot_dir.z;
-            
+
             break;
         }
 
@@ -2324,7 +2345,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2383,14 +2404,14 @@ namespace eka2l1::dispatch {
             info.position_or_dir_[1] = FIXED_32_TO_FLOAT(param[1]);
             info.position_or_dir_[2] = FIXED_32_TO_FLOAT(param[2]);
             info.position_or_dir_[3] = FIXED_32_TO_FLOAT(param[3]);
-            
+
             glm::vec4 transformed_pos = ctx->model_view_mat_stack_.top() * glm::make_vec4(info.position_or_dir_);
 
             info.position_or_dir_transformed_[0] = transformed_pos.x;
             info.position_or_dir_transformed_[1] = transformed_pos.y;
             info.position_or_dir_transformed_[2] = transformed_pos.z;
             info.position_or_dir_transformed_[3] = info.position_or_dir_[3];
-            
+
             break;
         }
 
@@ -2398,13 +2419,13 @@ namespace eka2l1::dispatch {
             info.spot_dir_[0] = FIXED_32_TO_FLOAT(param[0]);
             info.spot_dir_[1] = FIXED_32_TO_FLOAT(param[1]);
             info.spot_dir_[2] = FIXED_32_TO_FLOAT(param[2]);
-            
+
             glm::vec3 transformed_spot_dir = (glm::mat3(ctx->model_view_mat_stack_.top()) * glm::make_vec3(info.spot_dir_)) * glm::vec3(-1);
 
             info.spot_dir_transformed_[0] = transformed_spot_dir.x;
             info.spot_dir_transformed_[1] = transformed_spot_dir.y;
             info.spot_dir_transformed_[2] = transformed_spot_dir.z;
-            
+
             break;
         }
 
@@ -2413,13 +2434,13 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_light_model_f_emu, std::uint32_t pname, float param) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2444,7 +2465,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2500,7 +2521,7 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_clip_plane_f_emu, std::uint32_t plane, float *eq) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {
@@ -2543,7 +2564,7 @@ namespace eka2l1::dispatch {
         ctx->clip_planes_[plane_index][0] = FIXED_32_TO_FLOAT(eq[0]);
         ctx->clip_planes_[plane_index][1] = FIXED_32_TO_FLOAT(eq[1]);
         ctx->clip_planes_[plane_index][2] = FIXED_32_TO_FLOAT(eq[2]);
-        ctx->clip_planes_[plane_index][3] = FIXED_32_TO_FLOAT(eq[3]); 
+        ctx->clip_planes_[plane_index][3] = FIXED_32_TO_FLOAT(eq[3]);
 
         glm::vec4 transformed = glm::make_vec4(ctx->clip_planes_[plane - GL_CLIP_PLANE0_EMU]) * glm::inverse(ctx->model_view_mat_stack_.top());
         ctx->clip_planes_transformed_[plane - GL_CLIP_PLANE0_EMU][0] = transformed.x;
@@ -2613,7 +2634,7 @@ namespace eka2l1::dispatch {
                         texture_units_[i].env_colors_, 16);
                 }
             }
-            
+
             for (std::uint8_t i = 0; i < GLES1_EMU_MAX_CLIP_PLANE; i++) {
                 if (fragment_statuses_ & (1 << (egl_context_es1::FRAGMENT_STATE_CLIP_PLANE_BIT_POS + i))) {
                     cmd_builder_.set_dynamic_uniform(var_info->clip_plane_loc_[i], drivers::shader_var_type::vec4,
@@ -2626,7 +2647,7 @@ namespace eka2l1::dispatch {
 
             cmd_builder_.set_dynamic_uniform(var_info->material_diffuse_loc_, drivers::shader_var_type::vec4,
                 material_diffuse_, 16);
-            
+
             cmd_builder_.set_dynamic_uniform(var_info->material_specular_loc_, drivers::shader_var_type::vec4,
                 material_specular_, 16);
 
@@ -2693,10 +2714,15 @@ namespace eka2l1::dispatch {
     void egl_context_es1::prepare_vertex_buffer_and_descriptors(drivers::graphics_driver *drv, kernel::process *crr_process, const std::int32_t first_index, const std::uint32_t vcount, const std::uint32_t active_texs) {
         if (attrib_changed_ || (previous_first_index_ != first_index)) {
             std::vector<drivers::handle> vertex_buffers_alloc;
+            std::vector<std::size_t> vertex_buffer_offsets_alloc;
             bool not_persistent = false;
 
             auto retrieve_vertex_buffer_slot = [&](gles_vertex_attrib attrib, std::uint32_t &res, int &offset) -> bool {
-                return this->retrieve_vertex_buffer_slot(vertex_buffers_alloc, drv, crr_process, attrib, first_index, vcount, res, offset, not_persistent);
+                return this->retrieve_vertex_buffer_slot(vertex_buffers_alloc, vertex_buffer_offsets_alloc, drv, crr_process, attrib, first_index, vcount, res, offset, not_persistent);
+            };
+
+            auto attrib_stride = [](const gles_vertex_attrib &attrib) -> int {
+                return static_cast<int>(get_gl_attrib_stride(attrib));
             };
 
             // Remade and attach descriptors
@@ -2710,21 +2736,17 @@ namespace eka2l1::dispatch {
             }
 
             temp_desc.location = 0;
-            temp_desc.stride = vertex_attrib_.stride_;
+            temp_desc.stride = attrib_stride(vertex_attrib_);
 
             gl_enum_to_drivers_data_format(vertex_attrib_.data_type_, temp_format);
             temp_desc.set_format(vertex_attrib_.size_, temp_format);
-
-            if (vertex_attrib_.data_type_ == GL_FIXED_EMU) {
-                temp_desc.set_normalized(true);
-            }
 
             descs.push_back(temp_desc);
 
             if (vertex_statuses_ & egl_context_es1::VERTEX_STATE_CLIENT_COLOR_ARRAY) {
                 if (retrieve_vertex_buffer_slot(color_attrib_, temp_desc.buffer_slot, temp_desc.offset)) {
                     temp_desc.location = 1;
-                    temp_desc.stride = color_attrib_.stride_;
+                    temp_desc.stride = attrib_stride(color_attrib_);
                     temp_desc.set_normalized(true);
 
                     gl_enum_to_drivers_data_format(color_attrib_.data_type_, temp_format);
@@ -2739,7 +2761,7 @@ namespace eka2l1::dispatch {
             if (vertex_statuses_ & egl_context_es1::VERTEX_STATE_CLIENT_NORMAL_ARRAY) {
                 if (retrieve_vertex_buffer_slot(normal_attrib_, temp_desc.buffer_slot, temp_desc.offset)) {
                     temp_desc.location = 2;
-                    temp_desc.stride = normal_attrib_.stride_;
+                    temp_desc.stride = attrib_stride(normal_attrib_);
 
                     gl_enum_to_drivers_data_format(normal_attrib_.data_type_, temp_format);
                     temp_desc.set_format(normal_attrib_.size_, temp_format);
@@ -2756,7 +2778,7 @@ namespace eka2l1::dispatch {
                     if ((active_texs & (1 << i)) && (vertex_statuses_ & (1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS + static_cast<std::uint8_t>(i))))
                         && retrieve_vertex_buffer_slot(texture_units_[i].coord_attrib_, temp_desc.buffer_slot, temp_desc.offset)) {
                         temp_desc.location = 3 + i;
-                        temp_desc.stride = texture_units_[i].coord_attrib_.stride_;
+                        temp_desc.stride = attrib_stride(texture_units_[i].coord_attrib_);
 
                         gl_enum_to_drivers_data_format(texture_units_[i].coord_attrib_.data_type_, temp_format);
                         temp_desc.set_format(texture_units_[i].coord_attrib_.size_, temp_format);
@@ -2772,7 +2794,7 @@ namespace eka2l1::dispatch {
                 if (vertex_statuses_ & egl_context_es1::VERTEX_STATE_CLIENT_MATRIX_INDEX_ARRAY) {
                     if (retrieve_vertex_buffer_slot(matrix_index_attrib_, temp_desc.buffer_slot, temp_desc.offset)) {
                         temp_desc.location = 6;
-                        temp_desc.stride = matrix_index_attrib_.stride_;
+                        temp_desc.stride = attrib_stride(matrix_index_attrib_);
                         temp_desc.set_format(matrix_index_attrib_.size_, drivers::data_format::byte);
 
                         descs.push_back(temp_desc);
@@ -2782,7 +2804,7 @@ namespace eka2l1::dispatch {
                 if (vertex_statuses_ & egl_context_es1::VERTEX_STATE_CLIENT_WEIGHT_ARRAY) {
                     if (retrieve_vertex_buffer_slot(weight_attrib_, temp_desc.buffer_slot, temp_desc.offset)) {
                         temp_desc.location = 7;
-                        temp_desc.stride = weight_attrib_.stride_;
+                        temp_desc.stride = attrib_stride(weight_attrib_);
 
                         gl_enum_to_drivers_data_format(weight_attrib_.data_type_, temp_format);
                         temp_desc.set_format(weight_attrib_.size_, temp_format);
@@ -2802,7 +2824,7 @@ namespace eka2l1::dispatch {
                 cmd_builder_.update_input_descriptors(input_desc_, descs.data(), static_cast<std::uint32_t>(descs.size()));
             }
 
-            cmd_builder_.set_vertex_buffers(vertex_buffers_alloc.data(), 0, static_cast<std::uint32_t>(vertex_buffers_alloc.size()));
+            cmd_builder_.set_vertex_buffers(vertex_buffers_alloc.data(), vertex_buffer_offsets_alloc.data(), 0, static_cast<std::uint32_t>(vertex_buffers_alloc.size()));
 
             if (!not_persistent)
                 attrib_changed_ = false;
@@ -2827,7 +2849,7 @@ namespace eka2l1::dispatch {
 
         return arr;
     }
-    
+
     static std::uint32_t retrieve_active_textures_bitarr_for_shader(egl_context_es1 *ctx) {
         std::uint32_t arr = 0;
         for (std::size_t i = 0; i < GLES1_EMU_MAX_TEXTURE_COUNT; i++) {
@@ -2836,7 +2858,7 @@ namespace eka2l1::dispatch {
             }
             auto *inst = ctx->objects_.get(ctx->texture_units_[i].binded_texture_handle_);
             if (inst && (*inst).get()) {
-                gles_driver_texture *tex = reinterpret_cast<gles_driver_texture*>(inst->get());
+                gles_driver_texture *tex = reinterpret_cast<gles_driver_texture *>(inst->get());
                 switch (tex->internal_format()) {
                 case GL_ALPHA_EMU:
                     arr |= 0b10 << (i * 2);
@@ -2858,13 +2880,15 @@ namespace eka2l1::dispatch {
     }
 
     bool egl_context_es1::prepare_for_draw(drivers::graphics_driver *drv, egl_controller &controller, kernel::process *crr_process,
-        const std::int32_t first_index, const std::uint32_t vcount)  {
+        const std::int32_t first_index, const std::uint32_t vcount) {
         if ((vertex_statuses_ & egl_context_es1::VERTEX_STATE_CLIENT_VERTEX_ARRAY) == 0) {
             // No drawing needed?
             return true;
         }
 
         std::uint32_t active_textures_bitarr = retrieve_active_textures_bitarr(this);
+        const std::uint32_t shader_texture_bitarr = retrieve_active_textures_bitarr_for_shader(this);
+
         prepare_vertex_buffer_and_descriptors(drv, crr_process, first_index, vcount, active_textures_bitarr);
 
         flush_state_changes();
@@ -2879,7 +2903,7 @@ namespace eka2l1::dispatch {
             }
         }
 
-        active_textures_bitarr = retrieve_active_textures_bitarr_for_shader(this);
+        active_textures_bitarr = shader_texture_bitarr;
         if (!prepare_shader_program_for_draw(controller, active_textures_bitarr)) {
             return false;
         }
@@ -2896,7 +2920,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2918,7 +2942,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2951,7 +2975,7 @@ namespace eka2l1::dispatch {
 
         ctx->attrib_changed_ = true;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_matrix_index_pointer_oes_emu, std::int32_t size, std::uint32_t type, std::int32_t stride, std::uint32_t offset) {
         egl_context_es1 *ctx = get_es1_active_context(sys);
         if (!ctx) {

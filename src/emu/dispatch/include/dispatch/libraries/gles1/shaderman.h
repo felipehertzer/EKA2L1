@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,12 +20,12 @@
 #pragma once
 
 #include <cstdint>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
+#include <dispatch/libraries/gles1/consts.h>
 #include <drivers/graphics/common.h>
 #include <drivers/graphics/graphics.h>
-#include <dispatch/libraries/gles1/consts.h>
 
 namespace eka2l1::dispatch {
     struct gles_texture_env_info;
@@ -66,8 +66,7 @@ namespace eka2l1::dispatch {
     protected:
         std::unordered_map<std::uint64_t, drivers::handle> vertex_cache_;
         std::unordered_map<std::uint64_t, drivers::handle> fragment_cache_;
-        std::unordered_map<std::uint64_t, std::unordered_map<std::uint64_t,
-            std::pair<drivers::handle, std::unique_ptr<gles1_shader_variables_info>>>> program_cache_;
+        std::unordered_map<std::uint64_t, std::unordered_map<std::uint64_t, std::pair<drivers::handle, std::unique_ptr<gles1_shader_variables_info>>>> program_cache_;
 
         drivers::graphics_driver *driver_;
         void *fragment_status_hasher_;
@@ -75,7 +74,7 @@ namespace eka2l1::dispatch {
     public:
         explicit gles1_shaderman(drivers::graphics_driver *driver);
         ~gles1_shaderman();
-        
+
         void set_graphics_driver(drivers::graphics_driver *driver);
 
         drivers::handle retrieve_program(const std::uint64_t vertex_statuses, const std::uint64_t fragment_statuses,

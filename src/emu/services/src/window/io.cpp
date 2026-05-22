@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,9 +22,21 @@
 #include <services/window/io.h>
 #include <services/window/window.h>
 
+#include <common/log.h>
+
 #include <kernel/kernel.h>
 
 namespace eka2l1::epoc {
+    static bool pointer_event_releases_grab(const epoc::event &evt) {
+        if (evt.type != epoc::event_code::touch) {
+            return false;
+        }
+
+        return (evt.adv_pointer_evt_.evtype == epoc::event_type::button1up)
+            || (evt.adv_pointer_evt_.evtype == epoc::event_type::button2up)
+            || (evt.adv_pointer_evt_.evtype == epoc::event_type::button3up);
+    }
+
     void window_pointer_focus_walker::add_new_event(const epoc::event &evt) {
         evts_.emplace_back(evt, false);
     }
@@ -64,6 +76,26 @@ namespace eka2l1::epoc {
         }
 
         epoc::canvas_base *user = reinterpret_cast<epoc::canvas_base *>(win);
+        epoc::canvas_base *pointer_grabber = user->scr ? user->scr->pointer_grabber_ : nullptr;
+
+        if (pointer_grabber) {
+            for (auto &[evt, sent_to_highest_z] : evts_) {
+                if (sent_to_highest_z) {
+                    continue;
+                }
+
+                scr_coord_ = evt.adv_pointer_evt_.pos;
+                process_event_to_target_window(pointer_grabber, evt);
+                sent_to_highest_z = true;
+
+                if (pointer_event_releases_grab(evt) && pointer_grabber->scr) {
+                    pointer_grabber->scr->pointer_grabber_ = nullptr;
+                    pointer_grabber->flags &= ~epoc::window::flags_allow_pointer_grab;
+                }
+            }
+
+            return false;
+        }
 
         std::optional<eka2l1::rect> contain_area;
         auto contain_rect_this_mode_ite = user->scr->pointer_areas_.find(user->scr->crr_mode);
@@ -169,6 +201,9 @@ namespace eka2l1::epoc {
             evt.handle = focus->get_client_handle();
             extra_event.handle = focus->get_client_handle();
 
+            LOG_TRACE(SERVICE_WINDOW, "Ship key to focus group 0x{:X}: type={}, scancode=0x{:X}, code=0x{:X}, repeatable={}",
+                focus->id, static_cast<int>(evt.type), evt.key_evt_.scancode, the_code, repeatable);
+
             kern->lock();
             focus->queue_event(evt);
             kern->unlock();
@@ -187,7 +222,7 @@ namespace eka2l1::epoc {
             if ((evt.type == epoc::event_code::key_up) && repeatable) {
                 kern->lock();
 
-                if (!timing->unschedule_event(serv_->repeatable_event_, data_for_repeatable)) {    
+                if (!timing->unschedule_event(serv_->repeatable_event_, data_for_repeatable)) {
                     serv_->cancel_repeatable_list.insert(data_for_repeatable);
                 }
 
@@ -195,16 +230,26 @@ namespace eka2l1::epoc {
             }
 
             // Iterates through key capture requests and deliver those in needs.key_capture_request_queue &rqueue = key_capture_requests[extra_key_evt.key_evt_.code];
-            window_server::key_capture_request_queue &rqueue = serv_->key_capture_requests[evt.key_evt_.code];
+            auto rqueue_ite = serv_->key_capture_requests.find(the_code);
+            if (rqueue_ite == serv_->key_capture_requests.end() || rqueue_ite->second.empty()) {
+                continue;
+            }
 
-            for (auto ite = rqueue.end(); ite != rqueue.begin(); ite--) {
+            window_server::key_capture_request_queue &rqueue = rqueue_ite->second;
+            LOG_TRACE(SERVICE_WINDOW, "Ship captured key 0x{:X} to {} registered window groups", the_code, rqueue.size());
+
+            for (auto ite = rqueue.begin(); ite != rqueue.end(); ++ite) {
                 // No need to deliver twice.
                 if (ite->user->id == focus->id) {
-                    break;
+                    continue;
                 }
 
                 switch (ite->type_) {
                 case epoc::event_key_capture_type::normal:
+                    if (dont_send_extra_key_event) {
+                        break;
+                    }
+
                     extra_event.handle = ite->user->get_client_handle();
 
                     kern->lock();
@@ -213,14 +258,17 @@ namespace eka2l1::epoc {
 
                     break;
 
-                case epoc::event_key_capture_type::up_and_downs:
-                    evt.handle = ite->user->get_client_handle();
+                case epoc::event_key_capture_type::up_and_downs: {
+                    epoc::event captured_evt = evt;
+                    captured_evt.handle = ite->user->get_client_handle();
+                    captured_evt.key_evt_.code = the_code;
 
                     kern->lock();
-                    ite->user->queue_event(evt);
+                    ite->user->queue_event(captured_evt);
                     kern->unlock();
+                }
 
-                    break;
+                break;
 
                 default:
                     break;

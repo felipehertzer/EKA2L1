@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -47,7 +47,8 @@ device_install_dialog::device_install_dialog(QWidget *parent, eka2l1::device_man
     , conf_(conf)
     , device_mngr_(dvcmngr)
     , canceled_(false)
-    , ui(new Ui::device_install_dialog) {
+    , ui(new Ui::device_install_dialog)
+    , install_watcher_(nullptr) {
     setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
     setAttribute(Qt::WA_DeleteOnClose);
 
@@ -69,6 +70,13 @@ device_install_dialog::device_install_dialog(QWidget *parent, eka2l1::device_man
 }
 
 device_install_dialog::~device_install_dialog() {
+    if (install_watcher_) {
+        canceled_ = true;
+        install_watcher_->waitForFinished();
+        delete install_watcher_;
+        install_watcher_ = nullptr;
+    }
+
     delete ui;
 }
 
@@ -104,6 +112,11 @@ void device_install_dialog::on_current_index_changed(int new_index) {
 }
 
 void device_install_dialog::on_progress_bar_update(const std::size_t so_far, const std::size_t total) {
+    if (total == 0) {
+        ui->install_progress_bar->setValue(0);
+        return;
+    }
+
     ui->install_progress_bar->setValue(static_cast<int>(so_far * 100 / total));
 }
 
@@ -121,7 +134,7 @@ int device_install_dialog::on_firmware_variant_selects(const std::vector<std::st
     }
 
     const int index = list_qstring.indexOf(result);
-    if (index >= list.size()) {
+    if ((index < 0) || (static_cast<std::size_t>(index) >= list.size())) {
         LOG_ERROR(eka2l1::FRONTEND_UI, "The index of the choosen variant is out of provided range! (index={})", index);
         return -1;
     }
@@ -130,11 +143,25 @@ int device_install_dialog::on_firmware_variant_selects(const std::vector<std::st
 }
 
 void device_install_dialog::on_install_triggered() {
+    if (install_watcher_) {
+        return;
+    }
+
     ui->installation_choose_widget->setVisible(false);
     ui->install_progress_bar->setVisible(true);
     ui->confirmation_install_btn->setDisabled(true);
 
-    QFuture<eka2l1::device_installation_error> install_future = QtConcurrent::run([this]() {
+    const bool install_rom_dump = ui->rom_browse_widget->isVisible();
+    const bool install_rpkg_dump = ui->rpkg_browse_widget->isVisible();
+    const bool install_vpl_firmware = ui->vpl_browse_widget->isVisible();
+    const std::string rom_path = ui->rom_path_line_edit->text().toStdString();
+    const std::string rpkg_path = ui->rpkg_path_line_edit->text().toStdString();
+    const std::string vpl_path = ui->vpl_path_line_edit->text().toStdString();
+
+    install_watcher_ = new QFutureWatcher<eka2l1::device_installation_error>(this);
+    connect(install_watcher_, &QFutureWatcher<eka2l1::device_installation_error>::finished, this, &device_install_dialog::on_install_finished);
+
+    QFuture<eka2l1::device_installation_error> install_future = QtConcurrent::run([this, install_rom_dump, install_rpkg_dump, install_vpl_firmware, rom_path, rpkg_path, vpl_path]() {
         const std::string root_c_path = eka2l1::add_path(conf_.storage, "drives/c/");
         const std::string root_e_path = eka2l1::add_path(conf_.storage, "drives/e/");
         const std::string root_z_path = eka2l1::add_path(conf_.storage, "drives/z/");
@@ -158,17 +185,17 @@ void device_install_dialog::on_install_triggered() {
 
         std::string firmware_code;
 
-        if (ui->rom_browse_widget->isVisible()) {
-            if (ui->rpkg_browse_widget->isVisible()) {
-                error = eka2l1::loader::install_rpkg(device_mngr_, ui->rpkg_path_line_edit->text().toStdString(), root_z_path, firmware_code, progress_update_cb_func, cancel_cb_func);
+        if (install_rom_dump) {
+            if (install_rpkg_dump) {
+                error = eka2l1::loader::install_rpkg(device_mngr_, rpkg_path, root_z_path, firmware_code, progress_update_cb_func, cancel_cb_func);
                 need_copy_rom = true;
             } else {
-                error = eka2l1::loader::install_rom(device_mngr_, ui->rom_path_line_edit->text().toStdString(), rom_resident_path, root_z_path, progress_update_cb_func, cancel_cb_func);
+                error = eka2l1::loader::install_rom(device_mngr_, rom_path, rom_resident_path, root_z_path, progress_update_cb_func, cancel_cb_func);
             }
         }
 
-        if (ui->vpl_browse_widget->isVisible()) {
-            error = eka2l1::install_firmware(device_mngr_, ui->vpl_path_line_edit->text().toStdString(), root_c_path, root_e_path, root_z_path, rom_resident_path, select_variant_cb_func, progress_update_cb_func, cancel_cb_func);
+        if (install_vpl_firmware) {
+            error = eka2l1::install_firmware(device_mngr_, vpl_path, root_c_path, root_e_path, root_z_path, rom_resident_path, select_variant_cb_func, progress_update_cb_func, cancel_cb_func);
         }
 
         if (error != eka2l1::device_installation_none) {
@@ -180,21 +207,28 @@ void device_install_dialog::on_install_triggered() {
         if (need_copy_rom) {
             const std::string rom_directory = eka2l1::add_path(conf_.storage, eka2l1::add_path("roms", firmware_code + "\\"));
             eka2l1::common::create_directories(rom_directory);
-            eka2l1::common::copy_file(ui->rom_path_line_edit->text().toStdString(), eka2l1::add_path(rom_directory, "SYM.ROM"), true);
+            eka2l1::common::copy_file(rom_path, eka2l1::add_path(rom_directory, "SYM.ROM"), true);
         }
 
         return error;
     });
 
-    while (!install_future.isFinished()) {
-        QCoreApplication::processEvents();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    install_watcher_->setFuture(install_future);
+}
+
+void device_install_dialog::on_install_finished() {
+    if (!install_watcher_) {
+        return;
     }
+
+    const eka2l1::device_installation_error result = install_watcher_->result();
+    install_watcher_->deleteLater();
+    install_watcher_ = nullptr;
 
     if (!canceled_) {
         QWidget *leecher = parentWidget();
 
-        if (install_future.result() == eka2l1::device_installation_none) {
+        if (result == eka2l1::device_installation_none) {
             eka2l1::device *lastest = device_mngr_->lastest();
             QMessageBox::information(leecher, tr("Installation completed"),
                 tr("Device %1 (%2) has been successfully installed!").arg(QString::fromStdString(lastest->model), QString::fromStdString(lastest->firmware_code)));
@@ -203,7 +237,7 @@ void device_install_dialog::on_install_triggered() {
         } else {
             QString error_string;
 
-            switch (install_future.result()) {
+            switch (result) {
             case eka2l1::device_installation_already_exist:
                 error_string = tr("The device has already been installed!");
                 break;
@@ -298,7 +332,7 @@ void device_install_dialog::on_rom_browse_triggered() {
 
 void device_install_dialog::on_rpkg_browse_triggered() {
     QString rpkg_file_path = QFileDialog::getOpenFileName(this, tr("Choose the RPKG"),
-        QString(), tr("RPKG file (*.rpkg *.RPKG);;All files (*.*"));
+        QString(), tr("RPKG file (*.rpkg *.RPKG);;All files (*.*)"));
 
     if (!rpkg_file_path.isEmpty()) {
         ui->rpkg_path_line_edit->setText(rpkg_file_path);

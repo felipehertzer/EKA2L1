@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,6 +21,8 @@
 
 #include <common/buffer.h>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <utils/des.h>
 
 namespace eka2l1 {
@@ -59,7 +61,7 @@ namespace eka2l1 {
          * \brief The embeddability of an app.
          *
          * This was used during EKA1.
-        */
+         */
         enum class embeddability : std::int32_t {
             not_embeddable,
             embeddable,
@@ -71,7 +73,7 @@ namespace eka2l1 {
         /**
          * \brief The attribute of the capability.
          */
-        enum capability_attrib :  std::int32_t {
+        enum capability_attrib : std::int32_t {
             built_as_dll = 1,
             control_panel_item = 2,
             non_native = 4
@@ -119,7 +121,25 @@ namespace eka2l1 {
     // and we may accidentally run the executable that is supposed to not exist?
     // So better add an extension.
     static constexpr const char16_t *UNIQUE_MAPPED_EXTENSION_STRING = u".mapper";
-    
+
     static constexpr std::size_t MAPPED_EXECUTABLE_HEAD_STRING_LENGTH = std::char_traits<char16_t>::length(MAPPED_EXECUTABLE_HEAD_STRING);
     static constexpr std::size_t UNIQUE_MAPPED_EXTENSION_STRING_LENGTH = std::char_traits<char16_t>::length(UNIQUE_MAPPED_EXTENSION_STRING);
+
+    inline std::optional<std::u16string> parse_mapped_executable_name(const std::u16string &path) {
+        if (path.find(MAPPED_EXECUTABLE_HEAD_STRING) != 0) {
+            return std::nullopt;
+        }
+
+        constexpr std::size_t name_begin = MAPPED_EXECUTABLE_HEAD_STRING_LENGTH + 1;
+        const std::size_t extension_pos = path.rfind(UNIQUE_MAPPED_EXTENSION_STRING);
+
+        if ((path.length() <= name_begin) || (path[MAPPED_EXECUTABLE_HEAD_STRING_LENGTH] != u'_')
+            || (extension_pos == std::u16string::npos)
+            || (extension_pos + UNIQUE_MAPPED_EXTENSION_STRING_LENGTH != path.length())
+            || (extension_pos <= name_begin)) {
+            return std::nullopt;
+        }
+
+        return path.substr(name_begin, extension_pos - name_begin);
+    }
 }

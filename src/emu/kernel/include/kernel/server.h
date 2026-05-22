@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -80,10 +80,10 @@ namespace eka2l1 {
         };
 
         /*! \brief An IPC HLE server.
-         * 
+         *
          *  The server can receive an message or receive them whenever they want.
          *  After messages were received, they will be processed by the fake HLE server and signal request semaphore of the client thread.
-        */
+         */
         class server : public kernel::kernel_obj {
         protected:
             system *sys;
@@ -94,7 +94,7 @@ namespace eka2l1 {
             common::roundabout delivered_msgs;
 
             /** The thread own this server */
-            //thread_ptr owning_thread;
+            // thread_ptr owning_thread;
 
             /** Placeholder message uses for processing */
         protected:

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,6 +24,7 @@
 
 #include <common/container.h>
 
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -31,7 +32,6 @@
 
 namespace eka2l1::drivers {
     using dsp_buffer = std::vector<std::uint8_t>;
-
 
     struct dsp_output_stream_shared : public dsp_output_stream {
     protected:
@@ -43,8 +43,8 @@ namespace eka2l1::drivers {
         common::ring_buffer<std::uint16_t, RING_BUFFER_MAX_SAMPLE_COUNT> buffer_;
         std::size_t avg_frame_count_;
 
-        bool virtual_stop;
-        bool more_requested;
+        std::atomic_bool virtual_stop;
+        std::atomic_bool more_requested;
 
     protected:
         virtual bool internal_decode_running_out();
@@ -70,13 +70,13 @@ namespace eka2l1::drivers {
         std::uint64_t position() override;
 
         virtual bool is_playing() const override {
-            return !virtual_stop;
+            return !virtual_stop.load(std::memory_order_acquire);
         }
     };
-    
+
     struct dsp_input_stream_shared : public dsp_input_stream {
     private:
-        using input_read_request = std::pair<std::uint8_t*, std::uint32_t>;
+        using input_read_request = std::pair<std::uint8_t *, std::uint32_t>;
 
         static constexpr std::size_t RING_BUFFER_MAX_SAMPLE_COUNT = 0x20000;
 
@@ -87,7 +87,7 @@ namespace eka2l1::drivers {
         std::mutex callback_lock_;
 
         std::queue<input_read_request> read_queue_;
-        std::uint32_t read_bytes_; 
+        std::uint32_t read_bytes_;
 
     protected:
         std::size_t record_data_callback(std::int16_t *buffer, std::size_t frames);
@@ -105,11 +105,11 @@ namespace eka2l1::drivers {
 
         virtual std::uint64_t real_time_position() override;
         std::uint64_t position() override;
-        
+
         bool is_recording() const override {
             return stream_->is_recording();
         }
- 
+
         virtual void get_supported_formats(std::vector<four_cc> &cc_list) override {
             cc_list.clear();
         }

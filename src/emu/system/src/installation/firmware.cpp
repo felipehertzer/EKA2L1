@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -35,10 +35,10 @@
 #include <fstream>
 #include <pugixml.hpp>
 
-#include <fat/fat.h>
+#include <fat16/fat16.h>
 
 namespace eka2l1 {
-    static void extract_file(Fat::Image &img, Fat::Entry &entry, const std::string &path) {
+    static void extract_file(Fat16::Image &img, Fat16::Entry &entry, const std::string &path) {
         const std::u16string filename_16 = entry.get_filename();
         std::string filename = eka2l1::add_path(path, common::ucs2_to_utf8(filename_16));
 
@@ -69,15 +69,15 @@ namespace eka2l1 {
         }
     }
 
-    static void extract_directory(Fat::Image &img, Fat::Entry mee, std::string dir_path) {
+    static void extract_directory(Fat16::Image &img, Fat16::Entry mee, std::string dir_path) {
         common::create_directories(dir_path);
 
         while (img.get_next_entry(mee)) {
-            if (mee.entry.file_attributes & (int)Fat::EntryAttribute::DIRECTORY) {
+            if (mee.entry.file_attributes & (int)Fat16::EntryAttribute::DIRECTORY) {
                 // Also check if it's not the back folder (. and ..)
                 // This can be done by gathering the name
-                if (mee.entry.get_entry_type_from_filename() != Fat::EntryType::DIRECTORY) {
-                    Fat::Entry baby;
+                if (mee.entry.get_entry_type_from_filename() != Fat16::EntryType::DIRECTORY) {
+                    Fat16::Entry baby;
                     if (!img.get_first_entry_dir(mee, baby))
                         break;
 
@@ -91,7 +91,7 @@ namespace eka2l1 {
                 }
             }
 
-            if ((mee.entry.file_attributes & (int)Fat::EntryAttribute::ARCHIVE) || (!(mee.entry.file_attributes & (int)Fat::EntryAttribute::DIRECTORY) && (mee.entry.file_size != 0))) {
+            if ((mee.entry.file_attributes & (int)Fat16::EntryAttribute::ARCHIVE) || (!(mee.entry.file_attributes & (int)Fat16::EntryAttribute::DIRECTORY) && (mee.entry.file_size != 0))) {
                 extract_file(img, mee, dir_path);
             }
         }
@@ -248,7 +248,7 @@ namespace eka2l1 {
             // Extract the FAT image, with some twists
             // I was using ifstream, but not sure why it fucked up
             common::ro_std_file_stream fat_image_file(image_path, true);
-            Fat::Image fat_img(
+            Fat16::Image fat_img(
                 &fat_image_file,
                 // Read hook
                 [](void *userdata, void *buffer, std::uint32_t size) -> std::uint32_t {
@@ -258,7 +258,7 @@ namespace eka2l1 {
                 // Seek hook
                 [](void *userdata, std::uint32_t offset, int mode) -> std::uint32_t {
                     common::ro_std_file_stream *stream = reinterpret_cast<common::ro_std_file_stream *>(userdata);
-                    stream->seek(offset, (mode == Fat::IMAGE_SEEK_MODE_BEG ? common::seek_where::beg : (mode == Fat::IMAGE_SEEK_MODE_CUR ? common::seek_where::cur : common::seek_where::end)));
+                    stream->seek(offset, (mode == Fat16::IMAGE_SEEK_MODE_BEG ? common::seek_where::beg : (mode == Fat16::IMAGE_SEEK_MODE_CUR ? common::seek_where::cur : common::seek_where::end)));
 
                     return static_cast<std::uint32_t>(stream->tell());
                 });
@@ -266,7 +266,7 @@ namespace eka2l1 {
             std::string fat_dump_base;
             fat_dump_base = drives_c_path;
 
-            Fat::Entry bootstrap_entry;
+            Fat16::Entry bootstrap_entry;
             extract_directory(fat_img, bootstrap_entry, fat_dump_base);
 
             if (progress_cb)

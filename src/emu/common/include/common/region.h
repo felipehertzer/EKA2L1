@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -39,7 +39,7 @@ namespace eka2l1::common {
 
         /**
          * @brief       Move the region by certain amount of units.
-         * 
+         *
          * @param       amount      The number of X and Y units to move.
          */
         void advance(const eka2l1::vec2 &amount);
@@ -48,7 +48,7 @@ namespace eka2l1::common {
 
         /**
          * @brief       Check if two regions are identical in terms of rectangles it contains
-         * 
+         *
          * Note that if your rectangle are splitted to more smaller part, this can't check that. Hence
          * the identical name here.
          */
@@ -70,7 +70,7 @@ namespace eka2l1::common {
 
         /**
          * @brief   Get intersection between two regions.
-         * 
+         *
          * @param   target    The region to get intersection with.
          * @returns The region that intersects.
          */
@@ -78,14 +78,14 @@ namespace eka2l1::common {
 
         /**
          * @brief Remove a rectangle from this region.
-         * 
+         *
          * @param rect  The rectangle to remove from this region.
          */
         void eliminate(const eka2l1::rect &rect);
 
         /**
          * @brief Remove another region that intersects or inside this region from this region.
-         * 
+         *
          * @param reg   The region to remove from.
          */
         void eliminate(const region &reg);

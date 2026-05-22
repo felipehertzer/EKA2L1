@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -25,10 +25,42 @@
 #include <utils/err.h>
 #include <vfs/vfs.h>
 
+#include <common/cvt.h>
+
+#include <algorithm>
 #include <cwctype>
+#include <filesystem>
+#include <limits>
+#include <system_error>
 
 namespace eka2l1 {
     void fill_drive_info(epoc::fs::drive_info_v1 *info, eka2l1::drive *io_drive, const epoc::version fs_ver);
+
+    std::optional<volume_space_info> query_volume_space(io_system *io, drive_number drv) {
+        if (!io || (drv < drive_a) || (drv >= drive_count)) {
+            return std::nullopt;
+        }
+
+        const char16_t drive_char = drive_to_char16(drv);
+        const std::u16string root_path = std::u16string(1, drive_char) + u":\\";
+        std::optional<std::u16string> raw_path = io->get_raw_path(root_path);
+        if (!raw_path) {
+            return std::nullopt;
+        }
+
+        std::error_code ec;
+        const std::filesystem::space_info space = std::filesystem::space(common::ucs2_to_utf8(*raw_path), ec);
+        if (ec) {
+            return std::nullopt;
+        }
+
+        constexpr std::uintmax_t max_int64 = static_cast<std::uintmax_t>(std::numeric_limits<std::int64_t>::max());
+        volume_space_info result;
+        result.size = static_cast<std::int64_t>(std::min(space.capacity, max_int64));
+        result.free = static_cast<std::int64_t>(std::min(space.available, max_int64));
+
+        return result;
+    }
 
     std::unique_ptr<epoc::fs::drive_info_v1> get_drive_info_struct(const epoc::version fs_version, std::uint32_t &struct_size) {
         if (fs_version.major >= 2) {
@@ -239,13 +271,14 @@ namespace eka2l1 {
 
         drive_name.back() += static_cast<char>(drv - drive_a);
 
+        const std::optional<volume_space_info> volume_space = query_volume_space(ctx->sys->get_io_system(), drv);
+
 #define VOLUME_INFO_GETTERS(info_name)                                                \
-    LOG_WARN(SERVICE_EFSRV, "Volume size stubbed with 1GB");                          \
     fill_drive_info(reinterpret_cast<epoc::fs::drive_info_v1 *>(&info_name.drv_info), \
         io_drive.has_value() ? &io_drive.value() : nullptr, cli_ver);                 \
     info_name.uid = drv;                                                              \
-    info_name.size = common::GB(1);                                                   \
-    info_name.free = common::GB(1);                                                   \
+    info_name.size = volume_space ? volume_space->size : 0;                           \
+    info_name.free = volume_space ? volume_space->free : 0;                           \
     info_name.name.assign(nullptr, drive_name);
 
         const epoc::version cli_ver = client_version();

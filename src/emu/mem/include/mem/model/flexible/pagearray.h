@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -28,18 +28,18 @@ namespace eka2l1::mem::flexible {
 
     /**
      * @brief Store info about page availbility and theirs protection.
-     * 
+     *
      * Each 4 bit is reserved to store information about protection of a page. All 0 means that the page
      * is not available for use.
-     * 
+     *
      * A map can be used to store range information but considering for disconnected chunk case
      * (where memory can be committed randomly), merging range may be complicated. But if any strangers
      * come and want to replace this, cool!
-     * 
+     *
      * Visit RPageArray class in Symbian as this is a mere copy that is customized to emulator cases.
      */
     struct pages_segment {
-    public:    
+    public:
         static constexpr std::uint32_t PAGE_PER_QWORD = 16;
         static constexpr std::uint32_t PAGE_PER_QWORD_SHIFT = 4;
         static constexpr std::uint32_t QWORD_PER_SEGMENT = 16;

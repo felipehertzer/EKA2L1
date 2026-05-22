@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -50,7 +50,7 @@ namespace eka2l1::epoc {
      * Quick note: All struct in this file must be accurate with what's on real hardware, about
      * the structure member layout and order. You can add normal method in these structs, but please
      * absolutely do not use virtual methods since it causes vtable adding in, ruining the layout.
-     * 
+     *
      * Structure with VTable on Symbian is manually added in.
      */
 
@@ -312,7 +312,7 @@ namespace eka2l1::epoc {
 
     /**
      * @brief This struct is returned as pointer to FBS's GetCharacterData.
-     * 
+     *
      * It has one extra field metric_offset, like the s60v5 version!
      */
     struct open_font_glyph_v1_use_for_fbs : public open_font_glyph_v2 {
@@ -351,7 +351,7 @@ namespace eka2l1::epoc {
 
     struct open_font_glyph_offset_array {
         std::int32_t offset_array_offset; /**< Offset of the array contains font glyph offset, starting from
-                                                *this* pointer. */
+                                           *this* pointer. */
 
         std::int32_t offset_array_count; ///< Total entry in the array.
 
@@ -366,30 +366,30 @@ namespace eka2l1::epoc {
         /**
          * \brief   Get the pointer to the offset array.
          * \param   client        The client owner of this array.
-         * 
+         *
          * \returns Pointer to the offset array if available.
          */
         std::int32_t *pointer(fbscli *cli);
 
         /**
          * \brief   Set the glyph cache entry to specified pointer.
-         * 
+         *
          * This doesn't care about if the entry is empty or not.
-         * 
+         *
          * \param   client        The client owner of this array.
          * \param   idx           The index of the glyph in the cache array.
          * \param   cache_entry   The entry to set at specified index.
-         * 
+         *
          * \returns False if index is out of range.
          */
         bool set_glyph(fbscli *client, const std::int32_t idx, void *cache_entry);
 
         /**
          * \brief   Get stored glyph cache entry.
-         * 
+         *
          * \param   client        The client owner of this array.
          * \param   idx The index of the glyph in the cache array.
-         * 
+         *
          * \returns Null if index is out of range or no glyph is stored at specified index.
          */
         void *get_glyph(fbscli *client, const std::int32_t idx);
@@ -408,10 +408,10 @@ namespace eka2l1::epoc {
 
         /**
          * \brief Add a new glyph in the session cache.
-         * 
+         *
          * The function first looks for any empty slot in the offset array. If there isn't any slot,
          * it will free and overwrite the slot at position (codepoint % NUM_OFFSET_ARRAY_COUNT).
-         * 
+         *
          * \param cli        The owner of this session cache.
          * \param code       The codepoint of the added glyph.
          * \param the_glyph  Pointer to the glyph.
@@ -438,12 +438,12 @@ namespace eka2l1::epoc {
 
         /**
          * \brief Add a new glyph in the session cache.
-         * 
+         *
          * The function first looks for any empty slot in the offset array. If there isn't any slot,
          * it will free and overwrite the slot that has not recently been used. The recent usage can be
          * decided through the field last_use of glyph cache v2. The smaller the number is, the less
          * recent it's used.
-         * 
+         *
          * \param cli        The owner of this session cache.
          * \param code       The codepoint of the added glyph.
          * \param the_glyph  Pointer to the glyph.
@@ -470,7 +470,7 @@ namespace eka2l1::epoc {
         /**
          * \brief     Try to find the link that correspond to this client, starting from the link that called
          *            this function. If it doesn't exist, a new link will be created.
-         * 
+         *
          * \param     cli The client to get/create the link of.
          * \returns   The link correspond to given client.
          */

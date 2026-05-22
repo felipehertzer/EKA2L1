@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -31,16 +31,16 @@
 #include <e32def.h>
 #include <e32std.h>
 
-EXPORT_C CMdaAudioToneUtility* CMdaAudioToneUtility::NewL(MMdaAudioToneObserver& aObserver, CMdaServer* aServer) {
+EXPORT_C CMdaAudioToneUtility *CMdaAudioToneUtility::NewL(MMdaAudioToneObserver &aObserver, CMdaServer *aServer) {
     CMdaAudioToneUtility *util = new (ELeave) CMdaAudioToneUtility();
     CleanupStack::PushL(util);
     util->iProperties = CMMFMdaAudioToneUtility::NewL(aObserver, 0, EMdaPriorityPreferenceTimeAndQuality);
     CleanupStack::Pop(util);
 
-    return util;    
+    return util;
 }
 
-EXPORT_C CMdaAudioToneUtility* CMdaAudioToneUtility::NewL(MMdaAudioToneObserver& aObserver, CMdaServer* aServer, TInt aPriority, TMdaPriorityPreference aPref) {
+EXPORT_C CMdaAudioToneUtility *CMdaAudioToneUtility::NewL(MMdaAudioToneObserver &aObserver, CMdaServer *aServer, TInt aPriority, TMdaPriorityPreference aPref) {
     CMdaAudioToneUtility *util = new (ELeave) CMdaAudioToneUtility();
     CleanupStack::PushL(util);
     util->iProperties = CMMFMdaAudioToneUtility::NewL(aObserver, aPriority, aPref);
@@ -81,7 +81,7 @@ void CMdaAudioToneUtility::SetDTMFLengths(TTimeIntervalMicroSeconds32 aToneLengt
     LogOut(KMcaCat, _L("CMdaAudioToneUtility::SetDTMFLengths unimplemented!"));
 }
 
-void CMdaAudioToneUtility::SetRepeats(TInt aRepeatNumberOfTimes, const TTimeIntervalMicroSeconds& aTrailingSilence) {
+void CMdaAudioToneUtility::SetRepeats(TInt aRepeatNumberOfTimes, const TTimeIntervalMicroSeconds &aTrailingSilence) {
     if ((aRepeatNumberOfTimes < 0) && (aRepeatNumberOfTimes != KMdaRepeatForever)) {
         LogOut(KMcaCat, _L("Invalid repeat numbers %d, set repeats does not do anything"), aRepeatNumberOfTimes);
         return;
@@ -90,7 +90,7 @@ void CMdaAudioToneUtility::SetRepeats(TInt aRepeatNumberOfTimes, const TTimeInte
     iProperties->SetRepeats(aRepeatNumberOfTimes, aTrailingSilence);
 }
 
-void CMdaAudioToneUtility::SetVolumeRamp(const TTimeIntervalMicroSeconds& aRampDuration) {
+void CMdaAudioToneUtility::SetVolumeRamp(const TTimeIntervalMicroSeconds &aRampDuration) {
     LogOut(KMcaCat, _L("CMdaAudioToneUtility::SetVolumeRamp unimplemented!"));
 }
 
@@ -98,24 +98,24 @@ TInt CMdaAudioToneUtility::FixedSequenceCount() {
     return iProperties->FixedSequenceCount();
 }
 
-const TDesC& CMdaAudioToneUtility::FixedSequenceName(TInt aSequenceNumber) {
+const TDesC &CMdaAudioToneUtility::FixedSequenceName(TInt aSequenceNumber) {
     LogOut(KMcaCat, _L("CMdaAudioToneUtility::FixedSequenceName unimplemented!"));
     return KNullDesC;
 }
 
-void CMdaAudioToneUtility::PrepareToPlayTone(TInt aFrequency, const TTimeIntervalMicroSeconds& aDuration) {
+void CMdaAudioToneUtility::PrepareToPlayTone(TInt aFrequency, const TTimeIntervalMicroSeconds &aDuration) {
     iProperties->PrepareToPlayTone(aFrequency, aDuration);
 }
 
-void CMdaAudioToneUtility::PrepareToPlayDTMFString(const TDesC& aDTMF) {
+void CMdaAudioToneUtility::PrepareToPlayDTMFString(const TDesC &aDTMF) {
     LogOut(KMcaCat, _L("CMdaAudioToneUtility::PrepareToPlayDTMFString unimplemented!"));
 }
 
-void CMdaAudioToneUtility::PrepareToPlayDesSequence(const TDesC8& aSequence) {
+void CMdaAudioToneUtility::PrepareToPlayDesSequence(const TDesC8 &aSequence) {
     iProperties->PrepareToPlayBufferSequence(aSequence);
 }
 
-void CMdaAudioToneUtility::PrepareToPlayFileSequence(const TDesC& aFileName) {
+void CMdaAudioToneUtility::PrepareToPlayFileSequence(const TDesC &aFileName) {
     iProperties->PrepareToPlayFileSequence(aFileName);
 }
 
@@ -146,16 +146,16 @@ EXPORT_C TInt CMdaAudioToneUtility::GetBalanceL() {
     return err;
 }
 
-EXPORT_C void CMdaAudioToneUtility::PrepareToPlayDualTone(TInt aFrequencyOne, TInt aFrequencyTwo, const TTimeIntervalMicroSeconds& aDuration) {
+EXPORT_C void CMdaAudioToneUtility::PrepareToPlayDualTone(TInt aFrequencyOne, TInt aFrequencyTwo, const TTimeIntervalMicroSeconds &aDuration) {
     LogOut(KMcaCat, _L("CMdaAudioToneUtility::PrepareToPlayDualTone unimplemented!"));
 }
 
 #if (MCA_NEW >= 3)
-EXPORT_C void CMdaAudioToneUtility::PrepareToPlayFileSequence(RFile& aFile) {
+EXPORT_C void CMdaAudioToneUtility::PrepareToPlayFileSequence(RFile &aFile) {
     LogOut(KMcaCat, _L("CMdaAudioToneUtility::PrepareToPlayFileSequence with file handle unimplemented!"));
 }
 
-EXPORT_C TAny* CMdaAudioToneUtility::CustomInterface(TUid aInterfaceId) {
+EXPORT_C TAny *CMdaAudioToneUtility::CustomInterface(TUid aInterfaceId) {
     LogOut(KMcaCat, _L("CMdaAudioToneUtility::CustomInterface unimplemented!"));
     return NULL;
 }

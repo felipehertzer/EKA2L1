@@ -33,20 +33,20 @@ public:
     // Functions from base classes
 
     /**
-	 * From CApaApplication, AppDllUid.
-	 * @return Application's UID (KUidITriedApp).
-	 */
+     * From CApaApplication, AppDllUid.
+     * @return Application's UID (KUidITriedApp).
+     */
     TUid AppDllUid() const;
 
 protected:
     // Functions from base classes
 
     /**
-	 * From CApaApplication, CreateDocumentL.
-	 * Creates CITriedDocument document object. The returned
-	 * pointer in not owned by the CITriedApplication object.
-	 * @return A pointer to the created document object.
-	 */
+     * From CApaApplication, CreateDocumentL.
+     * Creates CITriedDocument document object. The returned
+     * pointer in not owned by the CITriedApplication object.
+     * @return A pointer to the created document object.
+     */
     CApaDocument *CreateDocumentL();
 };
 

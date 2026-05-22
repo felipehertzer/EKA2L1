@@ -1,28 +1,28 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <qt/btnmap/editor.h>
-#include <qt/btnmap/singletouch.h>
-#include <qt/btnmap/joystick.h>
-#include <qt/btnmap/executor.h>
-#include <common/fileutils.h>
 #include <common/cvt.h>
+#include <common/fileutils.h>
+#include <qt/btnmap/editor.h>
+#include <qt/btnmap/executor.h>
+#include <qt/btnmap/joystick.h>
+#include <qt/btnmap/singletouch.h>
 
 #include <vector>
 
@@ -37,7 +37,7 @@ namespace eka2l1::qt::btnmap {
         // TODO: Really clean it out! But the driver should clear it out at the end anyway ;_;
         drivers::graphics_command_builder builder;
 
-        for (auto &resource: resources_) {
+        for (auto &resource : resources_) {
             builder.destroy(resource.second);
         }
 
@@ -104,7 +104,7 @@ namespace eka2l1::qt::btnmap {
                 entities_[i]->draw(driver, builder, scale);
             }
         }
-        
+
         builder.set_feature(eka2l1::drivers::graphics_feature::blend, false);
     }
 
@@ -125,7 +125,7 @@ namespace eka2l1::qt::btnmap {
             }
         }
     }
-    
+
     void editor::on_key_press(const std::uint32_t key) {
         if (selected_entity_) {
             selected_entity_->on_key_press(key);
@@ -174,10 +174,10 @@ namespace eka2l1::qt::btnmap {
             behaviour *beha = exec->behaviours_[i].get();
             switch (beha->get_behaviour_type()) {
             case BEHAVIOUR_TYPE_SINGLE_TOUCH: {
-                single_touch_behaviour *beha_touch = reinterpret_cast<single_touch_behaviour*>(beha);
+                single_touch_behaviour *beha_touch = reinterpret_cast<single_touch_behaviour *>(beha);
                 base_instance inst = std::make_unique<single_touch>(this, beha_touch->position());
 
-                reinterpret_cast<single_touch*>(inst.get())->keycode(beha_touch->keycode() & 0xFFFFFFFF);
+                reinterpret_cast<single_touch *>(inst.get())->keycode(beha_touch->keycode() & 0xFFFFFFFF);
                 inst->type(static_cast<map_type>((beha_touch->keycode() >> 32) & 0xFFFFFFFF));
 
                 entities_.push_back(std::move(inst));
@@ -185,10 +185,10 @@ namespace eka2l1::qt::btnmap {
             }
 
             case BEHAVIOUR_TYPE_JOYSTICK: {
-                joystick_behaviour *beha_joy = reinterpret_cast<joystick_behaviour*>(beha);
+                joystick_behaviour *beha_joy = reinterpret_cast<joystick_behaviour *>(beha);
                 base_instance inst = std::make_unique<joystick>(this, beha_joy->position());
 
-                joystick *joy_ent = reinterpret_cast<joystick*>(inst.get());
+                joystick *joy_ent = reinterpret_cast<joystick *>(inst.get());
 
                 for (int i = 0; i < 5; i++) {
                     if (beha_joy->key(i) != 0) {
@@ -208,7 +208,6 @@ namespace eka2l1::qt::btnmap {
             default:
                 break;
             }
-
         }
     }
 
@@ -220,7 +219,7 @@ namespace eka2l1::qt::btnmap {
         for (std::size_t i = 0; i < entities_.size(); i++) {
             switch (entities_[i]->entity_type()) {
             case EDITOR_ENTITY_TYPE_SINGLE_TOUCH: {
-                single_touch *touch_ent = reinterpret_cast<single_touch*>(entities_[i].get());
+                single_touch *touch_ent = reinterpret_cast<single_touch *>(entities_[i].get());
                 std::unique_ptr<behaviour> beha = std::make_unique<single_touch_behaviour>(exec, touch_ent->position(),
                     (static_cast<std::uint64_t>(touch_ent->type()) << 32) | touch_ent->keycode_);
 
@@ -228,11 +227,11 @@ namespace eka2l1::qt::btnmap {
                 break;
             }
             case EDITOR_ENTITY_TYPE_JOYSTICK: {
-                joystick *joy_ent = reinterpret_cast<joystick*>(entities_[i].get());
+                joystick *joy_ent = reinterpret_cast<joystick *>(entities_[i].get());
                 std::unique_ptr<behaviour> beha = std::make_unique<joystick_behaviour>(exec, joy_ent->position(),
                     joy_ent->width_);
 
-                joystick_behaviour *joy_beha = reinterpret_cast<joystick_behaviour*>(beha.get());
+                joystick_behaviour *joy_beha = reinterpret_cast<joystick_behaviour *>(beha.get());
                 for (int i = 0; i < 5; i++) {
                     if (joy_ent->keys_[i]) {
                         joy_beha->set_key(i, (static_cast<std::uint64_t>(joy_ent->keys_[i]->type()) << 32) | joy_ent->keys_[i]->keycode());

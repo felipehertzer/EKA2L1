@@ -1,17 +1,17 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team, 2013 Dolphin Emulator Project,
  * 2020 Yuzu Emulator Project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,6 +23,9 @@
 #include <windows.h>
 #else
 #include <pthread.h>
+#if EKA2L1_PLATFORM(DARWIN)
+#include <pthread/qos.h>
+#endif
 #endif
 
 #include <common/cvt.h>
@@ -114,7 +117,9 @@ namespace eka2l1::common {
     }
 #else
     void set_thread_name(const char *thread_name) {
-#if EKA2L1_PLATFORM(DARWIN)
+#if EKA2L1_PLATFORM(VITA)
+        (void)thread_name;
+#elif EKA2L1_PLATFORM(DARWIN)
         pthread_setname_np(thread_name);
 #else
         pthread_setname_np(pthread_self(), thread_name);
@@ -122,6 +127,29 @@ namespace eka2l1::common {
     }
 
     void set_thread_priority(const thread_priority pri) {
+#if EKA2L1_PLATFORM(DARWIN)
+        qos_class_t qos_class = QOS_CLASS_DEFAULT;
+        int relative_priority = 0;
+
+        switch (pri) {
+        case thread_priority_low:
+            qos_class = QOS_CLASS_UTILITY;
+            break;
+        case thread_priority_normal:
+            qos_class = QOS_CLASS_DEFAULT;
+            break;
+        case thread_priority_high:
+            qos_class = QOS_CLASS_USER_INITIATED;
+            break;
+        case thread_priority_very_high:
+            qos_class = QOS_CLASS_USER_INTERACTIVE;
+            break;
+        default:
+            break;
+        }
+
+        pthread_set_qos_class_self_np(qos_class, relative_priority);
+#else
         pthread_t this_thread = pthread_self();
 
         std::int32_t max_prio = sched_get_priority_max(SCHED_OTHER);
@@ -136,6 +164,7 @@ namespace eka2l1::common {
         }
 
         pthread_setschedparam(this_thread, SCHED_OTHER, &params);
+#endif
     }
 #endif
 }

@@ -1,17 +1,17 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
  * Copyright 2018 Citra Emulator Project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -35,8 +35,8 @@
 
 #include <spdlog/sinks/base_sink.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/dist_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #if EKA2L1_PLATFORM(WIN32)
 #include <Windows.h>
@@ -61,7 +61,11 @@ namespace eka2l1 {
     }
 
     bool string_to_log_class(const char *str, log_class &result) {
-#define LOGCLASS(name, short_nice_name, nice_name) if (eka2l1::common::compare_ignore_case(short_nice_name, str) == 0) { result = name; return true; }
+#define LOGCLASS(name, short_nice_name, nice_name)                        \
+    if (eka2l1::common::compare_ignore_case(short_nice_name, str) == 0) { \
+        result = name;                                                    \
+        return true;                                                      \
+    }
 #include <common/logclass.def>
 #undef LOGCLASS
 
@@ -133,7 +137,7 @@ namespace eka2l1 {
         common::pystr filter_pstr(filtering_str);
         std::vector<common::pystr> rules = filter_pstr.split(' ');
 
-        for (const common::pystr &rule: rules) {
+        for (const common::pystr &rule : rules) {
             std::vector<common::pystr> comp = rule.split(':');
             if (comp.size() != 2) {
                 LOG_ERROR(COMMON, "Rule {} is invalid (valid format: <class>:<level>)!", filtering_str);
@@ -192,7 +196,7 @@ namespace eka2l1 {
             }
 
             void flush_() override {
-                //logger->clear();
+                // logger->clear();
             }
         };
 
@@ -242,7 +246,7 @@ namespace eka2l1 {
             filterings = std::make_unique<log_filterings>();
             already_setup = true;
         }
-        
+
         // See https://github.com/citra-emu/citra/blob/master/src/citra_qt/debugger/console.cpp
         void toggle_console() {
             if (!already_setup) {
@@ -258,12 +262,12 @@ namespace eka2l1 {
                 if (AllocConsole()) {
 #endif
 
-                stdout_color_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-                stdout_color_sink->set_pattern("%L %^%v%$");
-                stdout_color_sink->set_level(spdlog::level::trace);
+                    stdout_color_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+                    stdout_color_sink->set_pattern("%L %^%v%$");
+                    stdout_color_sink->set_level(spdlog::level::trace);
 
-                color_dist_sink->add_sink(stdout_color_sink);
-                console_shown = true;
+                    color_dist_sink->add_sink(stdout_color_sink);
+                    console_shown = true;
 
 #ifdef _WIN32
                 }
@@ -272,16 +276,16 @@ namespace eka2l1 {
 #ifdef _WIN32
                 if (FreeConsole()) {
 #endif
-                console_shown = false;
-                color_dist_sink->remove_sink(stdout_color_sink);
-                stdout_color_sink.reset();
+                    console_shown = false;
+                    color_dist_sink->remove_sink(stdout_color_sink);
+                    stdout_color_sink.reset();
 
 #ifdef _WIN32
                 }
 #endif
             }
         }
-        
+
         bool is_console_enabled() {
             return console_shown;
         }

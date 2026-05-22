@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
  * Copyright (c) 2002-2008 Nokia Corporation and/or its subsidiary(-ies).
- * 
+ *
  * This file is part of EKA2L1 project / Symbian OSS Project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -322,6 +322,7 @@ namespace eka2l1::epoc {
         std::map<std::uint64_t, skn_image_table> img_tabs_;
         std::map<std::uint64_t, skn_color_table> color_tabs_;
         std::map<std::uint64_t, skn_bitmap_animation> bitmap_anims_;
+        std::map<std::uint64_t, std::u16string> strings_;
         std::vector<skn_effect_queue> effect_queues_;
 
         common::ro_stream *stream_;
@@ -336,10 +337,14 @@ namespace eka2l1::epoc {
         void process_image_table_def_chunk(std::uint32_t base_offset);
         void process_color_table_def_chunk(std::uint32_t base_offset);
         void process_bitmap_anim_def_chunk(std::uint32_t base_offset);
+        void process_string_item_def_chunk(std::uint32_t base_offset);
         void process_attrib(std::uint32_t base_offset, skn_attrib_info &attrib);
         void process_effect_queue_chunk(std::uint32_t base_offset);
         void process_effects(std::uint32_t &base_offset, std::vector<skn_effect> &effects);
         void process_effect_parameters(std::uint32_t &base_offset, std::vector<skn_effect_parameter> &parameters);
+        void process_class_release_26_restriction_chunk(std::uint32_t base_offset);
+        void process_class_release_generic_restriction_chunk(std::uint32_t base_offset);
+        void process_class_lang_restriction_chunk(std::uint32_t base_offset);
 
         std::uint32_t handle_info_chunk(std::uint32_t base_offset, skn_file_info &info);
         std::uint32_t handle_name_chunk(std::uint32_t base_offset, skn_name &name);

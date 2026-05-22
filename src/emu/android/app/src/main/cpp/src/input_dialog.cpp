@@ -18,8 +18,8 @@
  */
 
 #include <android/input_dialog.h>
-#include <drivers/ui/input_dialog.h>
 #include <android/launcher.h>
+#include <drivers/ui/input_dialog.h>
 
 namespace eka2l1::drivers::ui {
     android::launcher *launcher_instance;
@@ -34,7 +34,7 @@ namespace eka2l1::drivers::ui {
     }
 
     void show_yes_no_dialog(const std::u16string &text, const std::u16string &button1_text, const std::u16string &button2_text,
-                            yes_no_dialog_complete_callback complete_callback) {
+        yes_no_dialog_complete_callback complete_callback) {
         if (!launcher_instance) {
             LOG_TRACE(FRONTEND_UI, "Main window has not been initialized!");
         }
@@ -42,7 +42,7 @@ namespace eka2l1::drivers::ui {
         launcher_instance->open_question_dialog(text, button1_text, button2_text, complete_callback);
     }
 
-    void close_input_view()  {
+    void close_input_view() {
         if (!launcher_instance) {
             LOG_TRACE(FRONTEND_UI, "Main window has not been initialized!");
             return;

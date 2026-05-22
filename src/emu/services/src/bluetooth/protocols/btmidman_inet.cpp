@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,12 +22,12 @@
 #include <services/internet/protocols/common.h>
 #include <services/internet/protocols/inet.h>
 
-#include <common/random.h>
-#include <common/log.h>
 #include <common/algorithm.h>
+#include <common/log.h>
+#include <common/random.h>
 #include <common/thread.h>
-#include <config/config.h>
 #include <common/upnp.h>
+#include <config/config.h>
 
 namespace eka2l1::epoc::bt {
     bool midman_inet::should_upnp_apply_to_port() {
@@ -102,7 +102,7 @@ namespace eka2l1::epoc::bt {
             addr_bind.sin6_family = (discovery_mode_ == DISCOVERY_MODE_LAN) ? AF_INET : AF_INET6;
             addr_bind.sin6_port = htons(static_cast<std::uint16_t>(port_));
 
-            bluetooth_queries_server_socket_->bind(*reinterpret_cast<sockaddr*>(&addr_bind));
+            bluetooth_queries_server_socket_->bind(*reinterpret_cast<sockaddr *>(&addr_bind));
 
             if (should_upnp_apply_to_port()) {
                 UPnP::TryPortmapping(static_cast<std::uint16_t>(port_), true);
@@ -114,7 +114,7 @@ namespace eka2l1::epoc::bt {
                     LOG_ERROR(SERVICE_BLUETOOTH, "Invalid sender address passed to callback!");
                     return;
                 }
-                handle_queries_request(reinterpret_cast<sockaddr*>(&sender_ced.value()), event.data.get(), event.length);
+                handle_queries_request(reinterpret_cast<sockaddr *>(&sender_ced.value()), event.data.get(), event.length);
             });
 
             bluetooth_queries_server_socket_->on<uvw::error_event>([this](const uvw::error_event &event, uvw::udp_handle &handle) {
@@ -194,7 +194,7 @@ namespace eka2l1::epoc::bt {
     }
 
     void midman_inet::handle_queries_request(const sockaddr *sender, const char *buf, std::int64_t nread) {
-        const std::uint32_t asker_id = *reinterpret_cast<const std::uint32_t*>(buf);
+        const std::uint32_t asker_id = *reinterpret_cast<const std::uint32_t *>(buf);
         query_opcode opcode = static_cast<query_opcode>(buf[4]);
         char opcode_result_signature = QUERY_OPCODE_RESULT_START + opcode;
 
@@ -203,23 +203,20 @@ namespace eka2l1::epoc::bt {
             std::string name_utf8 = common::ucs2_to_utf8(device_name());
             name_utf8.insert(name_utf8.begin(), static_cast<char>(name_utf8.length()));
             name_utf8.insert(name_utf8.begin(), opcode_result_signature);
-            name_utf8.insert(name_utf8.begin(), reinterpret_cast<const char*>(&asker_id), reinterpret_cast<const char*>(&asker_id + 1));
+            name_utf8.insert(name_utf8.begin(), reinterpret_cast<const char *>(&asker_id), reinterpret_cast<const char *>(&asker_id + 1));
 
             bluetooth_queries_server_socket_->send(*sender, name_utf8.data(), static_cast<std::uint32_t>(name_utf8.size()));
             break;
         }
 
         case QUERY_OPCODE_IS_REAL_PORT_MAPPED_TO_VIRTUAL_PORT: {
-            std::uint32_t requested_port = static_cast<std::uint8_t>(buf[5]) |
-                (static_cast<std::uint32_t>(static_cast<std::uint8_t>(buf[6])) << 8) |
-                (static_cast<std::uint32_t>(static_cast<std::uint8_t>(buf[7])) << 16) |
-                (static_cast<std::uint32_t>(static_cast<std::uint8_t>(buf[8])) << 24);
+            std::uint32_t requested_port = static_cast<std::uint8_t>(buf[5]) | (static_cast<std::uint32_t>(static_cast<std::uint8_t>(buf[6])) << 8) | (static_cast<std::uint32_t>(static_cast<std::uint8_t>(buf[7])) << 16) | (static_cast<std::uint32_t>(static_cast<std::uint8_t>(buf[8])) << 24);
 
             std::vector<char> check_result;
-            check_result.insert(check_result.end(), reinterpret_cast<const char*>(&asker_id), reinterpret_cast<const char*>(&asker_id + 1));
+            check_result.insert(check_result.end(), reinterpret_cast<const char *>(&asker_id), reinterpret_cast<const char *>(&asker_id + 1));
             check_result.push_back(opcode_result_signature);
 
-            char final_result  = '0';
+            char final_result = '0';
 
             if ((requested_port >= port_offset_) && (requested_port < port_offset_ + MAX_PORT)) {
                 final_result = '1';
@@ -236,7 +233,7 @@ namespace eka2l1::epoc::bt {
             std::uint32_t temp_uint = get_host_port(virtual_port);
 
             std::vector<char> buf_result;
-            buf_result.insert(buf_result.begin(), reinterpret_cast<const char*>(&asker_id), reinterpret_cast<const char*>(&asker_id + 1));
+            buf_result.insert(buf_result.begin(), reinterpret_cast<const char *>(&asker_id), reinterpret_cast<const char *>(&asker_id + 1));
             buf_result.push_back(opcode_result_signature);
             buf_result.insert(buf_result.end(), reinterpret_cast<char *>(&temp_uint), reinterpret_cast<char *>(&temp_uint + 1));
 
@@ -246,7 +243,7 @@ namespace eka2l1::epoc::bt {
 
         case QUERY_OPCODE_GET_VIRTUAL_BLUETOOTH_ADDRESS: {
             std::vector<char> buf_result;
-            buf_result.insert(buf_result.begin(), reinterpret_cast<const char*>(&asker_id), reinterpret_cast<const char*>(&asker_id + 1));
+            buf_result.insert(buf_result.begin(), reinterpret_cast<const char *>(&asker_id), reinterpret_cast<const char *>(&asker_id + 1));
             buf_result.push_back(opcode_result_signature);
             buf_result.insert(buf_result.end(), reinterpret_cast<char *>(&random_device_addr_), reinterpret_cast<char *>(&random_device_addr_ + 1));
 
@@ -289,7 +286,7 @@ namespace eka2l1::epoc::bt {
                 return;
             }
         }
-    
+
         friends_.push_back(info);
         current_active_observer_->on_stranger_call(info.real_addr_, static_cast<std::uint32_t>(friends_.size() - 1));
     }
@@ -304,7 +301,8 @@ namespace eka2l1::epoc::bt {
 
             *static_cast<epoc::internet::sinet_address &>(info.real_addr_).addr_long() = *reinterpret_cast<const std::uint32_t *>(buf);
             buf_pointer += sizeof(std::uint32_t);
-        } else {info.real_addr_.family_ = epoc::internet::INET6_ADDRESS_FAMILY;
+        } else {
+            info.real_addr_.family_ = epoc::internet::INET6_ADDRESS_FAMILY;
 
             std::memcpy(static_cast<epoc::internet::sinet6_address &>(info.real_addr_).address_32x4(), buf, sizeof(std::uint32_t) * 4);
             buf_pointer += sizeof(std::uint32_t) * 4;
@@ -321,7 +319,7 @@ namespace eka2l1::epoc::bt {
 
         const std::lock_guard<std::mutex> guard(friends_lock_);
 
-lookup:
+    lookup:
         for (std::size_t i = 0; i < friends_.size(); i++) {
             if (std::memcmp(friend_addr.addr_, friends_[i].dvc_addr_.addr_, 6) == 0) {
                 addr = friends_[i].real_addr_;
@@ -338,9 +336,8 @@ lookup:
 
         return false;
     }
-    
 
-    void midman_inet::get_friend_address_async(const device_address &friend_virt_addr, std::function<void(epoc::socket::saddress*)> callback) {
+    void midman_inet::get_friend_address_async(const device_address &friend_virt_addr, std::function<void(epoc::socket::saddress *)> callback) {
         if (discovery_mode_ == DISCOVERY_MODE_OFF) {
             callback(nullptr);
             return;
@@ -465,7 +462,7 @@ lookup:
         if ((virtual_port > MAX_PORT) || (virtual_port == 0)) {
             return 0;
         }
-        
+
         if (allocated_ports_.is_allocated(virtual_port - 1)) {
             return port_offset_ + virtual_port - 1;
         }
@@ -490,7 +487,7 @@ lookup:
         allocated_ports_.force_fill(virtual_port - 1, 1);
         port_refs_[virtual_port - 1] = 1;
     }
-    
+
     std::uint16_t midman_inet::get_free_port() {
         if (discovery_mode_ == DISCOVERY_MODE_OFF) {
             return 0;
@@ -514,7 +511,7 @@ lookup:
             LOG_ERROR(SERVICE_BLUETOOTH, "Port {} is out of allowed range!", virtual_port);
             return;
         }
-        
+
         port_refs_[virtual_port - 1]++;
     }
 
@@ -568,8 +565,8 @@ lookup:
                     invalid_address_indicies.push_back(FRIEND_UPDATE_ERROR_INVALID_ADDR | static_cast<std::uint32_t>(i));
                 } else {
                     std::memset(&info.real_addr_, 0, sizeof(epoc::socket::saddress));
-                    internet::host_sockaddr_to_guest_saddress(reinterpret_cast<sockaddr*>(&in_temp), info.real_addr_);
-                
+                    internet::host_sockaddr_to_guest_saddress(reinterpret_cast<sockaddr *>(&in_temp), info.real_addr_);
+
                     friends_.push_back(info);
                 }
             }
@@ -590,11 +587,9 @@ lookup:
                 continue;
             }
 
-            if (is_ipv4 && (*static_cast<epoc::internet::sinet_address&>(friends_[i].real_addr_).addr_long() == 
-                *(static_cast<epoc::internet::sinet_address&>(addr).addr_long()))) {
+            if (is_ipv4 && (*static_cast<epoc::internet::sinet_address &>(friends_[i].real_addr_).addr_long() == *(static_cast<epoc::internet::sinet_address &>(addr).addr_long()))) {
                 indicies.push_back(i);
-            } else if (!is_ipv4 && (std::memcmp(static_cast<epoc::internet::sinet6_address&>(friends_[i].real_addr_).address_32x4(),
-                static_cast<epoc::internet::sinet6_address&>(addr).address_32x4(), sizeof(std::uint32_t) * 4) == 0)) {
+            } else if (!is_ipv4 && (std::memcmp(static_cast<epoc::internet::sinet6_address &>(friends_[i].real_addr_).address_32x4(), static_cast<epoc::internet::sinet6_address &>(addr).address_32x4(), sizeof(std::uint32_t) * 4) == 0)) {
                 indicies.push_back(i);
             }
         }
@@ -669,7 +664,7 @@ lookup:
                     });
 
                     lan_discovery_call_listener_socket_->broadcast(true);
-                    lan_discovery_call_listener_socket_->send(*reinterpret_cast<sockaddr*>(&server_addr_modded), broadcast_buf.data(), static_cast<std::uint32_t>(broadcast_buf.size()));
+                    lan_discovery_call_listener_socket_->send(*reinterpret_cast<sockaddr *>(&server_addr_modded), broadcast_buf.data(), static_cast<std::uint32_t>(broadcast_buf.size()));
                 } else {
                     matching_server_socket_->write(&request_friends, 1);
                 }

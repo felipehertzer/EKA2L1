@@ -8,7 +8,7 @@ class CPostingSurface;
 class CPostingSurfaceFactory : public CBase {
 public:
     virtual ~CPostingSurfaceFactory();
-    virtual CPostingSurface* NewPostingSurfaceL(TInt aDisplayIndex);
+    virtual CPostingSurface *NewPostingSurfaceL(TInt aDisplayIndex);
 };
 
 #endif

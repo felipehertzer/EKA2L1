@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -99,12 +99,12 @@ namespace eka2l1::mem {
 
     /**
      * \brief Structure contains info about a page (guest's memory chunk).
-     * 
+     *
      * In real OS, this is also called a page entry.
      */
     struct page_info {
-        prot perm; ///< The permission of this page.
-        void *host_addr; ///< Pointer to the host memory chunk. Nullptr for unoccupied
+        prot perm = prot_none; ///< The permission of this page.
+        void *host_addr = nullptr; ///< Pointer to the host memory chunk. Nullptr for unoccupied
 
         bool occupied() const {
             return host_addr;
@@ -130,7 +130,7 @@ namespace eka2l1::mem {
         /**
          * \brief Get a page info at the given index.
          * \param idx The index of the page info to get.
-         * 
+         *
          * \returns Nullptr if index out of range, else the pointer to the page info.
          */
         page_info *get_page_info(const std::size_t idx);

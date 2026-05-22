@@ -18,12 +18,12 @@
  */
 
 #include <qt/btnetplay_friends_dialog.h>
-#include <services/bluetooth/protocols/common.h>
 #include <services/bluetooth/protocols/btmidman_inet.h>
+#include <services/bluetooth/protocols/common.h>
 
 #include <QIntValidator>
-#include <QPushButton>
 #include <QMessageBox>
+#include <QPushButton>
 
 btnetplay_address_field::btnetplay_address_field(QWidget *parent, const int num)
     : QWidget(parent)
@@ -161,7 +161,7 @@ void btnetplay_friends_dialog::on_add_more_clicked() {
         add_more_btn_->setDisabled(true);
     }
 
-    btnetplay_address_field *addr_field = reinterpret_cast<btnetplay_address_field*>(friends_layout_->itemAt(static_cast<int>(current_friend_count_ + 1))->widget());
+    btnetplay_address_field *addr_field = reinterpret_cast<btnetplay_address_field *>(friends_layout_->itemAt(static_cast<int>(current_friend_count_ + 1))->widget());
     addr_field->show();
 
     current_friend_count_++;
@@ -172,7 +172,7 @@ void btnetplay_friends_dialog::on_remove_clicked() {
         remove_btn_->setDisabled(true);
     }
 
-    btnetplay_address_field *addr_field = reinterpret_cast<btnetplay_address_field*>(friends_layout_->itemAt(static_cast<int>(current_friend_count_))->widget());
+    btnetplay_address_field *addr_field = reinterpret_cast<btnetplay_address_field *>(friends_layout_->itemAt(static_cast<int>(current_friend_count_))->widget());
     addr_field->hide();
 
     current_friend_count_--;
@@ -183,12 +183,12 @@ void btnetplay_friends_dialog::on_save_clicked() {
     std::vector<eka2l1::config::friend_address> friend_collection;
 
     for (std::size_t i = 0; i < current_friend_count_; i++) {
-        btnetplay_address_field *addr_field = reinterpret_cast<btnetplay_address_field*>(friends_layout_->itemAt(static_cast<int>(i + 1))->widget());
+        btnetplay_address_field *addr_field = reinterpret_cast<btnetplay_address_field *>(friends_layout_->itemAt(static_cast<int>(i + 1))->widget());
         addr_temp.addr_ = addr_field->get_address_value().toStdString();
         addr_temp.port_ = addr_field->get_port_value();
 
         if (addr_temp.port_ == 0xFFFFFFFF) {
-            addr_temp.port_ = 35689;        // Default port
+            addr_temp.port_ = 35689; // Default port
         }
 
         friend_collection.push_back(addr_temp);

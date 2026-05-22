@@ -1,19 +1,53 @@
-.vscode/*
-build/*
+# Local IDE/editor state
+.idea/
+.metadata/
+.vs/
+.vscode/
+.cache/
+*.user
+*.user.*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
-.vs
+
+# Local CMake/build output. Use the repository-root build/ directory for all local builds.
+build/
+out/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+.ninja_deps
+.ninja_log
+*.ninja
+*.dSYM/
+*.pdb
+
+# Local/user CMake configuration
+CMakeSettings.json
+CMakeUserPresets.json
+
+# Generated configuration headers
+src/emu/common/include/common/configure.h
+src/emu/common/include/common/version.h
+
+# Runtime logs and host OS metadata
+*.log
+.DS_Store
+**/.DS_Store
+
+# Lazarus local/generated files
 src/emu/lazarus/backup/*
 src/emu/lazarus/lib/*
 src/emu/lazarus/drives/*
 src/emu/lazarus/*.dll
-src/emu/common/include/common/configure.h
-src/emu/common/include/common/version.h
-docs
-CMakeSettings.json
-.vscode
-out
-.metadata
-cmake-build-*
-.idea
+
+# Generated docs, except checked-in project docs
+docs/*
+!docs/
+!docs/PLATFORM_MATRIX.md
+!docs/VULKAN_DEBUG.md

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -29,6 +29,7 @@ namespace eka2l1 {
     namespace service {
         property::property(kernel_system *kern)
             : kernel::kernel_obj(kern, "", nullptr, kernel::access_type::global_access)
+            , ndata(0)
             , data_len(0)
             , data_type(service::property_type::unk) {
             obj_type = kernel::object_type::prop;
@@ -53,9 +54,10 @@ namespace eka2l1 {
 
         void property::define(service::property_type pt, uint32_t pre_allocated) {
             data_type = pt;
-            data_len = pre_allocated;
+            data_len = (pt == service::property_type::bin_data) ? pre_allocated : 0;
+            ndata = 0;
 
-            if (pre_allocated > 512) {
+            if (data_len > 512) {
                 LOG_WARN(KERNEL, "Property trying to alloc more then 512 bytes, limited to 512 bytes");
                 data_len = 512;
             }
@@ -137,7 +139,7 @@ namespace eka2l1 {
             , prop_(prop) {
             obj_type = kernel::object_type::prop_ref;
         }
-    
+
         property_reference::~property_reference() {
             cancel();
         }

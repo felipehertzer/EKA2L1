@@ -1,24 +1,29 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drivers/graphics/backend/ogl/shader_ogl.h>
+#if EKA2L1_BUILD_NATIVE_BACKEND
+#include <drivers/graphics/backend/native/graphics_native.h>
+#endif
+#if EKA2L1_BUILD_VULKAN_BACKEND
+#include <drivers/graphics/backend/vulkan/shader_vulkan.h>
+#endif
 #include <drivers/graphics/graphics.h>
 #include <drivers/graphics/shader.h>
 
@@ -26,27 +31,33 @@
 
 namespace eka2l1::drivers {
     std::unique_ptr<shader_module> make_shader_module(graphics_driver *driver) {
-        switch (driver->get_current_api()) {
-        case graphic_api::opengl: {
-            return std::make_unique<ogl_shader_module>();
+#if EKA2L1_BUILD_VULKAN_BACKEND
+        if (driver && (driver->get_current_api() == graphic_api::vulkan)) {
+            return std::make_unique<vulkan_shader_module>();
         }
+#endif
 
-        default:
-            break;
+#if EKA2L1_BUILD_NATIVE_BACKEND
+        if (driver && (driver->get_current_api() == graphic_api::native)) {
+            return std::make_unique<native_shader_module>();
         }
+#endif
 
         return nullptr;
     }
 
     std::unique_ptr<shader_program> make_shader_program(graphics_driver *driver) {
-        switch (driver->get_current_api()) {
-        case graphic_api::opengl: {
-            return std::make_unique<ogl_shader_program>();
+#if EKA2L1_BUILD_VULKAN_BACKEND
+        if (driver && (driver->get_current_api() == graphic_api::vulkan)) {
+            return std::make_unique<vulkan_shader_program>();
         }
+#endif
 
-        default:
-            break;
+#if EKA2L1_BUILD_NATIVE_BACKEND
+        if (driver && (driver->get_current_api() == graphic_api::native)) {
+            return std::make_unique<native_shader_program>();
         }
+#endif
 
         return nullptr;
     }
@@ -103,7 +114,7 @@ namespace eka2l1::drivers {
         binding = -1;
         return false;
     }
-    
+
     static bool get_info_from_index(const std::uint8_t *metadata, const int index, const std::uint16_t offset,
         const std::uint16_t count, std::string &name, std::int32_t &binding, shader_var_type &var_type, std::int32_t &array_size) {
         if ((index < 0) || (static_cast<std::uint16_t>(index) >= count)) {
@@ -112,7 +123,7 @@ namespace eka2l1::drivers {
         }
 
         std::uint16_t offset_to_binding_offset = offset - (static_cast<std::uint16_t>(count - index) * sizeof(std::uint16_t));
-        std::uint16_t binding_offset = *reinterpret_cast<const std::uint16_t*>(metadata + offset_to_binding_offset);
+        std::uint16_t binding_offset = *reinterpret_cast<const std::uint16_t *>(metadata + offset_to_binding_offset);
 
         metadata += binding_offset;
 
@@ -137,7 +148,7 @@ namespace eka2l1::drivers {
     bool shader_program_metadata::get_attribute_info(const char *name, std::int32_t &binding, shader_var_type &var_type, std::int32_t &array_size) const {
         return search_binding(metadata_, name, reinterpret_cast<const std::uint16_t *>(metadata_)[0], get_attribute_count(), binding, var_type, array_size);
     }
-    
+
     bool shader_program_metadata::get_uniform_info(const int index, std::string &name, std::int32_t &binding, shader_var_type &var_type, std::int32_t &array_size) const {
         return get_info_from_index(metadata_, index, reinterpret_cast<const std::uint16_t *>(metadata_)[6], get_uniform_count(), name, binding,
             var_type, array_size);

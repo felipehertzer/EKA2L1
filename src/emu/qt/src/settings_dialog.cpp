@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -33,13 +33,13 @@
 #include <drivers/graphics/emu_window.h>
 #include <drivers/input/common.h>
 #include <drivers/input/emu_controller.h>
+#include <services/bluetooth/btman.h>
 #include <services/hwrm/def.h>
 #include <services/hwrm/power/power_def.h>
 #include <services/ui/cap/oom_app.h>
 #include <services/window/classes/wingroup.h>
 #include <services/window/screen.h>
 #include <services/window/window.h>
-#include <services/bluetooth/btman.h>
 
 #include <system/devices.h>
 #include <system/epoc.h>
@@ -245,7 +245,7 @@ settings_dialog::settings_dialog(QWidget *parent, eka2l1::system *sys, eka2l1::d
 
     ui_->emulator_display_hide_cursor_checkbox->setChecked(configuration_.hide_mouse_in_screen_space);
     ui_->emulator_display_nearest_neightbor_checkbox->setChecked(configuration_.nearest_neighbor_filtering);
-    
+
     if (configuration_.rtos_level == "low") {
         ui_->system_he_rta_combo->setCurrentIndex(RTA_LOW_INDEX);
     } else if (configuration_.rtos_level == "mid") {
@@ -277,7 +277,7 @@ settings_dialog::settings_dialog(QWidget *parent, eka2l1::system *sys, eka2l1::d
     ui_->emulator_display_true_size_checkbox->setChecked(settings.value(TRUE_SIZE_RESIZE_SETTING_NAME, false).toBool());
     ui_->interface_disable_easter_egg_title_checkbox->setChecked(settings.value(STATIC_TITLE_SETTING_NAME, false).toBool());
     ui_->show_cmd_checkbox->setChecked(settings.value(SHOW_LOG_CONSOLE_SETTING_NAME, true).toBool());
-    
+
 #if ENABLE_DISCORD_RICH_PRESENCE
     ui_->app_config_enable_discord_rich_presence->setChecked(settings.value(ENABLE_DISCORD_RICH_PRESENCE_SETTING_NAME, true).toBool());
 #else
@@ -306,7 +306,7 @@ settings_dialog::settings_dialog(QWidget *parent, eka2l1::system *sys, eka2l1::d
             }
         }
     }
-    
+
     QDir upscale_shader_dir("resources/upscale/");
     upscale_shader_dir.setNameFilters({ "*.frag" });
 
@@ -725,7 +725,7 @@ QString settings_dialog::key_bind_entry_to_string(eka2l1::config::keybind &bind)
     if (bind.source.type == eka2l1::config::KEYBIND_TYPE_KEY) {
         return QKeySequence(bind.source.data.keycode).toString();
     } else if (bind.source.type == eka2l1::config::KEYBIND_TYPE_MOUSE) {
-        return tr("Mouse button %1").arg(bind.source.data.keycode);
+        return tr("Mouse button %1").arg(bind.source.data.keycode + 1);
     } else if (bind.source.type == eka2l1::config::KEYBIND_TYPE_CONTROLLER) {
         QString first_result = tr("Controller %1 : Button %2").arg(bind.source.data.button.controller_id);
         // Backend may not be able to initialized, so should do a check
@@ -768,10 +768,15 @@ bool settings_dialog::eventFilter(QObject *obj, QEvent *event) {
             }
 
             QMouseEvent *mouse_event = reinterpret_cast<QMouseEvent *>(event);
-            const std::uint32_t mouse_button_order = eka2l1::common::find_most_significant_bit_one(mouse_event->button());
+            const int mouse_button = qt_mouse_button_to_driver(mouse_event->button());
+            if (mouse_button < 0) {
+                return false;
+            }
+
+            const std::uint32_t mouse_button_order = static_cast<std::uint32_t>(mouse_button);
             const int target_bind_code = target_bind_codes_[target_bind_];
 
-            target_bind_->setText(tr("Mouse button %1").arg(mouse_button_order));
+            target_bind_->setText(tr("Mouse button %1").arg(mouse_button_order + 1));
 
             eka2l1::window_server *win_serv = get_window_server_through_system(system_);
 
@@ -796,7 +801,7 @@ bool settings_dialog::eventFilter(QObject *obj, QEvent *event) {
         }
     }
 
-    return QWidget::eventFilter(obj, event);
+    return QDialog::eventFilter(obj, event);
 }
 
 void settings_dialog::on_controller_button_press(eka2l1::drivers::input_event event) {
@@ -1088,10 +1093,10 @@ void settings_dialog::closeEvent(QCloseEvent *event) {
     }
 
     configuration_.hide_system_apps = ui_->app_config_hide_system_apps_checkbox->isChecked();
-    
+
     QSettings settings;
     settings.setValue(ENABLE_DISCORD_RICH_PRESENCE_SETTING_NAME, ui_->app_config_enable_discord_rich_presence->isChecked());
-    
+
     emit hide_system_apps_changed();
 }
 
@@ -1180,7 +1185,7 @@ void settings_dialog::on_background_color_pick_button_clicked() {
     // Add the current color and default color, user can roll back if they want
     dialog->setCustomColor(0, grayish_color);
     dialog->setCustomColor(1, default_color);
-    
+
     connect(dialog, &QColorDialog::currentColorChanged, [&](QColor current_color) {
         configuration_.display_background_color = current_color.rgba();
     });
@@ -1240,7 +1245,7 @@ void settings_dialog::on_audio_midi_backend_changed(int index) {
     configuration_.serialize();
 
     QMessageBox::information(this, tr("Successfully changed"), tr("Next time the application requests to play a new MIDI, "
-        "the choosen backend will be used!"));
+                                                                  "the choosen backend will be used!"));
 }
 
 void settings_dialog::on_audio_hsb_browse_clicked() {

@@ -22,8 +22,8 @@
 #include <common/vecx.h>
 
 #include <cstdint>
-#include <vector>
 #include <functional>
+#include <vector>
 
 namespace eka2l1::drivers::camera {
     enum parameter_key {
@@ -79,11 +79,7 @@ namespace eka2l1::drivers::camera {
         CAPTURE_OPTION_VIEWFINDER_CLIPPING = 0x80,
         CAPTURE_OPTION_IMAGE_CLIPPING = 0x100,
         CAPTURE_OPTION_VIDEO_CLIPPING = 0x200,
-        CAPTURE_OPTION_ALL = CAPTURE_OPTION_VIEWFINDER_DIRECT | CAPTURE_OPTION_VIEWFINDER_BITMAP |
-                CAPTURE_OPTION_IMAGE | CAPTURE_OPTION_VIDEO | CAPTURE_OPTION_VIEWFINDER_MIRROR |
-                CAPTURE_OPTION_BRIGHTNESS_SUPPORTED | CAPTURE_OPTION_CONTRAST_SUPPORTED |
-                CAPTURE_OPTION_IMAGE_CLIPPING | CAPTURE_OPTION_VIDEO_CLIPPING |
-                CAPTURE_OPTION_VIEWFINDER_CLIPPING
+        CAPTURE_OPTION_ALL = CAPTURE_OPTION_VIEWFINDER_DIRECT | CAPTURE_OPTION_VIEWFINDER_BITMAP | CAPTURE_OPTION_IMAGE | CAPTURE_OPTION_VIDEO | CAPTURE_OPTION_VIEWFINDER_MIRROR | CAPTURE_OPTION_BRIGHTNESS_SUPPORTED | CAPTURE_OPTION_CONTRAST_SUPPORTED | CAPTURE_OPTION_IMAGE_CLIPPING | CAPTURE_OPTION_VIDEO_CLIPPING | CAPTURE_OPTION_VIEWFINDER_CLIPPING
     };
 
     enum direction : std::uint32_t {
@@ -92,7 +88,7 @@ namespace eka2l1::drivers::camera {
     };
 
     // First argument: buffer data, second: size of buffer, third: error code (< 0 = error)
-    using camera_capture_image_done_callback = std::function<void(const void*, std::size_t, int)>;
+    using camera_capture_image_done_callback = std::function<void(const void *, std::size_t, int)>;
     using camera_wants_new_frame_callback = std::function<bool()>;
 
 #pragma pack(push, 1)
@@ -139,10 +135,10 @@ namespace eka2l1::drivers::camera {
         virtual info get_info() = 0;
 
         virtual void capture_image(const std::uint32_t resolution_index, const frame_format format,
-                                   camera_capture_image_done_callback callback) = 0;
+            camera_capture_image_done_callback callback) = 0;
         virtual void receive_viewfinder_feed(const eka2l1::vec2 &size, const frame_format format,
-                                             camera_wants_new_frame_callback new_frame_needed_callback,
-                                             camera_capture_image_done_callback new_frame_come_callback) = 0;
+            camera_wants_new_frame_callback new_frame_needed_callback,
+            camera_capture_image_done_callback new_frame_come_callback) = 0;
         virtual void stop_viewfinder_feed() = 0;
     };
 }

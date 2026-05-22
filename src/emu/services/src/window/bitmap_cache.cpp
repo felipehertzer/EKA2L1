@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -37,6 +37,9 @@
 #include <utils/guest/akn.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <string>
 
 #include <common/buffer.h>
 #include <common/log.h>
@@ -50,6 +53,223 @@
 #include <lunasvg.h>
 
 namespace eka2l1::epoc {
+    static bool bitmap_trace_enabled() {
+        return std::getenv("EKA2L1_BITMAP_TRACE") != nullptr;
+    }
+
+    static int bitmap_trace_env_int(const char *name, const int fallback) {
+        const char *value = std::getenv(name);
+        if (!value || !*value) {
+            return fallback;
+        }
+
+        return std::atoi(value);
+    }
+
+    static bool bitmap_trace_matches(epoc::bitwise_bitmap *bmp) {
+        if (!bitmap_trace_enabled()) {
+            return false;
+        }
+
+        if (std::getenv("EKA2L1_BITMAP_TRACE_ALL")) {
+            return true;
+        }
+
+        const int width = bitmap_trace_env_int("EKA2L1_BITMAP_TRACE_WIDTH", 0);
+        const int height = bitmap_trace_env_int("EKA2L1_BITMAP_TRACE_HEIGHT", 0);
+        if ((width > 0) && (bmp->header_.size_pixels.x != width)) {
+            return false;
+        }
+
+        if ((height > 0) && (bmp->header_.size_pixels.y != height)) {
+            return false;
+        }
+
+        return (width > 0) || (height > 0);
+    }
+
+    static std::string bitmap_trace_sample(const char *data, const std::size_t size) {
+        constexpr std::size_t SAMPLE_SIZE = 32;
+        const std::size_t count = std::min(SAMPLE_SIZE, size);
+        std::string result;
+        result.reserve(count * 3);
+
+        for (std::size_t i = 0; i < count; i++) {
+            char byte_string[4];
+            std::snprintf(byte_string, sizeof(byte_string), "%02X", static_cast<unsigned>(static_cast<std::uint8_t>(data[i])));
+            if (i != 0) {
+                result.push_back(' ');
+            }
+            result += byte_string;
+        }
+
+        return result;
+    }
+
+    static void trace_bitmap_upload(const char *stage, epoc::bitwise_bitmap *bmp, const char *data,
+        const std::size_t size, const std::uint32_t upload_bpp, const std::size_t pixels_per_line,
+        const std::uint64_t hash, const bool should_upload, const bool should_recreate) {
+        if (!bitmap_trace_matches(bmp) || !data) {
+            return;
+        }
+
+        std::uint8_t min_value = 0xFF;
+        std::uint8_t max_value = 0x00;
+        std::size_t non_zero = 0;
+        std::size_t non_ff = 0;
+        const std::size_t inspected_size = std::min<std::size_t>(size, 1024 * 1024);
+
+        for (std::size_t i = 0; i < inspected_size; i++) {
+            const std::uint8_t value = static_cast<std::uint8_t>(data[i]);
+            min_value = std::min(min_value, value);
+            max_value = std::max(max_value, value);
+            if (value != 0) {
+                non_zero++;
+            }
+            if (value != 0xFF) {
+                non_ff++;
+            }
+        }
+
+        epoc::display_mode current_dsp = bmp->settings_.current_display_mode();
+        if (current_dsp == epoc::display_mode::none) {
+            current_dsp = bmp->settings_.initial_display_mode();
+        }
+
+        LOG_INFO(SERVICE_WINDOW,
+            "Bitmap trace {} ptr={} uid=0x{:X} size={}x{} header_bpp={} upload_bpp={} mode={} init_mode={} byte_width={} header_len={} bitmap_size={} data_size={} comp={} upload={} recreate={} pixels_per_line={} hash=0x{:X} inspected={} non_zero={} non_ff={} min={} max={} sample={}",
+            stage,
+            reinterpret_cast<void *>(bmp),
+            bmp->uid_,
+            bmp->header_.size_pixels.x,
+            bmp->header_.size_pixels.y,
+            bmp->header_.bit_per_pixels,
+            upload_bpp,
+            static_cast<int>(current_dsp),
+            static_cast<int>(bmp->settings_.initial_display_mode()),
+            bmp->byte_width_,
+            bmp->header_.header_len,
+            bmp->header_.bitmap_size,
+            bmp->data_size(),
+            static_cast<int>(bmp->compression_type()),
+            should_upload,
+            should_recreate,
+            pixels_per_line,
+            hash,
+            inspected_size,
+            non_zero,
+            non_ff,
+            min_value,
+            max_value,
+            bitmap_trace_sample(data, size));
+    }
+
+    static std::uint8_t bitmap_dump_expand_bits(const std::uint32_t value, const std::uint32_t bits) {
+        const std::uint32_t max_value = (1U << bits) - 1U;
+        return static_cast<std::uint8_t>((value * 255U + (max_value / 2U)) / max_value);
+    }
+
+    static void bitmap_dump_write_ppm(epoc::bitwise_bitmap *bmp, const char *data,
+        const std::size_t size, const std::uint32_t upload_bpp, const std::size_t pixels_per_line,
+        const std::uint64_t hash) {
+        const char *dump_dir = std::getenv("EKA2L1_BITMAP_DUMP_DIR");
+        if (!dump_dir || !*dump_dir || !bitmap_trace_matches(bmp) || !data) {
+            return;
+        }
+
+        static int dump_count = 0;
+        const int dump_limit = bitmap_trace_env_int("EKA2L1_BITMAP_DUMP_LIMIT", 200);
+        if ((dump_limit > 0) && (dump_count >= dump_limit)) {
+            return;
+        }
+
+        const std::uint32_t width = static_cast<std::uint32_t>(bmp->header_.size_pixels.x);
+        const std::uint32_t height = static_cast<std::uint32_t>(bmp->header_.size_pixels.y);
+        std::size_t bytes_per_pixel = 0;
+        switch (upload_bpp) {
+        case 12:
+        case 16:
+            bytes_per_pixel = 2;
+            break;
+
+        case 24:
+            bytes_per_pixel = 3;
+            break;
+
+        case 32:
+            bytes_per_pixel = 4;
+            break;
+
+        default:
+            return;
+        }
+
+        const std::size_t row_stride = pixels_per_line
+            ? (pixels_per_line * bytes_per_pixel)
+            : (height ? (size / height) : 0);
+        if ((width == 0) || (height == 0) || (row_stride < width * bytes_per_pixel)) {
+            return;
+        }
+
+        char filename[1024];
+        std::snprintf(filename, sizeof(filename), "%s/bitmap-%04d-%ux%u-bpp%u-%016llx.ppm",
+            dump_dir, dump_count, width, height, upload_bpp,
+            static_cast<unsigned long long>(hash));
+
+        FILE *out = std::fopen(filename, "wb");
+        if (!out) {
+            return;
+        }
+
+        std::fprintf(out, "P6\n%u %u\n255\n", width, height);
+        const std::uint8_t *source = reinterpret_cast<const std::uint8_t *>(data);
+        for (std::uint32_t y = 0; y < height; y++) {
+            const std::uint8_t *row = source + (row_stride * y);
+            for (std::uint32_t x = 0; x < width; x++) {
+                const std::uint8_t *pixel = row + (x * bytes_per_pixel);
+                std::uint8_t rgb[3] = { 0, 0, 0 };
+
+                switch (upload_bpp) {
+                case 12: {
+                    const std::uint16_t packed = static_cast<std::uint16_t>(pixel[0] | (pixel[1] << 8));
+                    rgb[0] = bitmap_dump_expand_bits((packed >> 8) & 0xF, 4);
+                    rgb[1] = bitmap_dump_expand_bits((packed >> 4) & 0xF, 4);
+                    rgb[2] = bitmap_dump_expand_bits(packed & 0xF, 4);
+                    break;
+                }
+
+                case 16: {
+                    const std::uint16_t packed = static_cast<std::uint16_t>(pixel[0] | (pixel[1] << 8));
+                    rgb[0] = bitmap_dump_expand_bits((packed >> 11) & 0x1F, 5);
+                    rgb[1] = bitmap_dump_expand_bits((packed >> 5) & 0x3F, 6);
+                    rgb[2] = bitmap_dump_expand_bits(packed & 0x1F, 5);
+                    break;
+                }
+
+                case 24:
+                    rgb[0] = pixel[2];
+                    rgb[1] = pixel[1];
+                    rgb[2] = pixel[0];
+                    break;
+
+                case 32:
+                    rgb[0] = pixel[2];
+                    rgb[1] = pixel[1];
+                    rgb[2] = pixel[0];
+                    break;
+
+                default:
+                    break;
+                }
+
+                std::fwrite(rgb, sizeof(rgb), 1, out);
+            }
+        }
+
+        std::fclose(out);
+        dump_count++;
+    }
+
     bitmap_cache::bitmap_cache(kernel_system *kern_)
         : fbss_(nullptr)
         , kern(kern_) {
@@ -104,7 +324,7 @@ namespace eka2l1::epoc {
         }
         return return_ptr;
     }
-    
+
     static char *converted_gray_four_bpp_to_twenty_four_bpp_bitmap(epoc::bitwise_bitmap *bw_bmp,
         const std::uint8_t *original_ptr, std::size_t &raw_size) {
         std::uint32_t byte_width_converted = common::align(bw_bmp->header_.size_pixels.x * 3, 4);
@@ -161,8 +381,8 @@ namespace eka2l1::epoc {
 
                 case epoc::display_mode::color16: {
                     const std::uint8_t palette_index_for_two = original_ptr[y * bw_bmp->byte_width_ + x];
-                    const std::uint32_t palette_color_first = the_palette[palette_index_for_two & 0xFFFF];
-                    const std::uint32_t palette_color_second = the_palette[(palette_index_for_two >> 4) & 0xFFFF];
+                    const std::uint32_t palette_color_first = the_palette_16[palette_index_for_two & 0x0F];
+                    const std::uint32_t palette_color_second = the_palette_16[(palette_index_for_two >> 4) & 0x0F];
                     const std::size_t location = byte_width_converted * y + x * 3 * 2;
 
                     return_ptr[location + 2] = palette_color_first & 0xFF;
@@ -172,7 +392,7 @@ namespace eka2l1::epoc {
                     return_ptr[location + 5] = palette_color_second & 0xFF;
                     return_ptr[location + 4] = (palette_color_second >> 8) & 0xFF;
                     return_ptr[location + 3] = (palette_color_second >> 16) & 0xFF;
-                    
+
                     break;
                 }
 
@@ -214,7 +434,15 @@ namespace eka2l1::epoc {
         XXH64_update(state, reinterpret_cast<const void *>(&bw_bmp->uid_), sizeof(bw_bmp->uid_));
 
         // Lastly, we needs to hash the data, to see if anything changed
-        XXH64_update(state, bw_bmp->data_pointer(fbss_), bw_bmp->header_.bitmap_size - sizeof(bw_bmp->header_));
+        const std::size_t bitmap_data_size = bw_bmp->header_.bitmap_size > sizeof(bw_bmp->header_)
+            ? static_cast<std::size_t>(bw_bmp->header_.bitmap_size - sizeof(bw_bmp->header_))
+            : 0;
+        std::uint8_t *bitmap_data = bw_bmp->data_pointer(fbss_);
+        if ((bitmap_data_size > 0) && (!bitmap_data || !fbss_ || !fbss_->ensure_host_range_accessible(bitmap_data, bitmap_data_size))) {
+            LOG_WARN(SERVICE_WINDOW, "Unable to hash bitmap with inaccessible data pointer");
+        } else if (bitmap_data_size > 0) {
+            XXH64_update(state, bitmap_data, bitmap_data_size);
+        }
 
         hash = XXH64_digest(state);
         XXH64_freeState(state);
@@ -242,7 +470,7 @@ namespace eka2l1::epoc {
         return oldest_timestamp_idx;
     }
 
-    drivers::handle bitmap_cache::add_or_get(drivers::graphics_driver *driver, epoc::bitwise_bitmap *bmp, 
+    drivers::handle bitmap_cache::add_or_get(drivers::graphics_driver *driver, epoc::bitwise_bitmap *bmp,
         drivers::graphics_command_builder *builder, gdi_store_command *update_cmd) {
         if (!fbss_) {
             server_ptr ss = kern->get_by_name<service::server>(epoc::get_fbs_server_name_by_epocver(
@@ -287,7 +515,7 @@ namespace eka2l1::epoc {
 
             should_recreate = (bmp->header_.size_pixels != bitmap_stored_size) || (bitmap_bpp != suit_bpp);
         }
-        
+
         if (update_cmd) {
             gdi_store_command_update_texture_data &data = update_cmd->get_data_struct<gdi_store_command_update_texture_data>();
             data.destroy_handle_ = 0;
@@ -302,7 +530,7 @@ namespace eka2l1::epoc {
 
                 if (update_cmd) {
                     gdi_store_command_update_texture_data &data = update_cmd->get_data_struct<gdi_store_command_update_texture_data>();
-            
+
                     update_cmd->opcode_ = gdi_store_command_update_texture;
                     data.destroy_handle_ = driver_textures[idx];
                 }
@@ -316,7 +544,17 @@ namespace eka2l1::epoc {
             std::uint32_t raw_size = 0;
             std::size_t pixels_per_line = 0;
 
-            const std::uint32_t compressed_size = bmp->header_.bitmap_size - bmp->header_.header_len;
+            const std::uint32_t compressed_size = bmp->header_.bitmap_size > bmp->header_.header_len
+                ? bmp->header_.bitmap_size - bmp->header_.header_len
+                : 0;
+            if ((compressed_size > 0) && (!data_pointer || !fbss_->ensure_host_range_accessible(data_pointer, compressed_size))) {
+                LOG_WARN(SERVICE_WINDOW, "Skipping bitmap upload with inaccessible source data");
+                hashes[idx] = hash;
+                timestamps[idx] = crr_timestamp;
+                bitmap_sizes[idx].first = static_cast<std::uint64_t>(bmp->header_.size_pixels.x) | (static_cast<std::uint64_t>(suit_bpp) << 32);
+                bitmap_sizes[idx].second = static_cast<std::uint32_t>(bmp->header_.size_pixels.y);
+                return driver_textures[idx];
+            }
 
             if (bmp->uid_ == epoc::NVG_BITMAP_UID_REV2) {
                 // Skip the header!!
@@ -358,7 +596,7 @@ namespace eka2l1::epoc {
                         std::memset(data_pointer, 0, pixmap_size);
 
                         const std::string svg_out_content = svg_out_stream.content();
-                        //LOG_DEBUG(SERVICE_WINDOW, "{}", svg_out_content);
+                        // LOG_DEBUG(SERVICE_WINDOW, "{}", svg_out_content);
 
                         auto nvg_doc = lunasvg::Document::loadFromData(svg_out_content);
                         if (!nvg_doc) {
@@ -382,19 +620,19 @@ namespace eka2l1::epoc {
 
                     switch (comp) {
                     case bitmap_file_byte_rle_compression:
-                        eka2l1::decompress_rle_fast_route<8>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t*>(new_data_allocated), final_size);
+                        eka2l1::decompress_rle_fast_route<8>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t *>(new_data_allocated), final_size);
                         break;
 
                     case bitmap_file_twelve_bit_rle_compression:
-                        eka2l1::decompress_rle_fast_route<12>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t*>(new_data_allocated), final_size);
+                        eka2l1::decompress_rle_fast_route<12>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t *>(new_data_allocated), final_size);
                         break;
 
                     case bitmap_file_sixteen_bit_rle_compression:
-                        eka2l1::decompress_rle_fast_route<16>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t*>(new_data_allocated), final_size);
+                        eka2l1::decompress_rle_fast_route<16>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t *>(new_data_allocated), final_size);
                         break;
 
                     case bitmap_file_twenty_four_bit_rle_compression:
-                        eka2l1::decompress_rle_fast_route<24>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t*>(new_data_allocated), final_size);
+                        eka2l1::decompress_rle_fast_route<24>(reinterpret_cast<std::uint8_t *>(data_pointer), compressed_size, reinterpret_cast<std::uint8_t *>(new_data_allocated), final_size);
                         break;
 
                     default:
@@ -412,6 +650,9 @@ namespace eka2l1::epoc {
                     data_pointer = new_data_pointer;
                 }
 
+                trace_bitmap_upload("source", bmp, data_pointer, raw_size, bmp->header_.bit_per_pixels,
+                    pixels_per_line, hash, should_upload, should_recreate);
+
                 std::uint32_t bpp = bmp->header_.bit_per_pixels;
 
                 if ((bmp->header_.bit_per_pixels % 8) == 0) {
@@ -419,7 +660,7 @@ namespace eka2l1::epoc {
                 }
 
                 std::size_t raw_size_big = 0;
-                
+
                 epoc::display_mode dsp = bmp->settings_.current_display_mode();
                 if (dsp == epoc::display_mode::none) {
                     dsp = bmp->settings_.initial_display_mode();
@@ -468,6 +709,14 @@ namespace eka2l1::epoc {
                 }
             }
 
+            std::uint32_t trace_bpp = suit_bpp;
+            if (bmp->uid_ == epoc::NVG_BITMAP_UID_REV2) {
+                trace_bpp = 32;
+            }
+            trace_bitmap_upload("upload", bmp, data_pointer, raw_size, trace_bpp, pixels_per_line,
+                hash, should_upload, should_recreate);
+            bitmap_dump_write_ppm(bmp, data_pointer, raw_size, trace_bpp, pixels_per_line, hash);
+
             if (builder) {
                 builder->update_bitmap(driver_textures[idx], data_pointer, raw_size, { 0, 0 }, bmp->header_.size_pixels, pixels_per_line, false);
             }
@@ -513,7 +762,7 @@ namespace eka2l1::epoc {
                         data.do_swizz_ = true;
                         data.swizz_ = { drivers::channel_swizzle::red,
                             drivers::channel_swizzle::green,
-                            drivers::channel_swizzle::blue, 
+                            drivers::channel_swizzle::blue,
                             epoc::is_display_mode_alpha(display_mode) ? drivers::channel_swizzle::alpha : drivers::channel_swizzle::one };
                     }
                 }

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,9 +22,10 @@
 #include <system/epoc.h>
 #include <utils/err.h>
 
-#include <drivers/sensor/sensor.h>
-#include <common/cvt.h>
 #include <atomic>
+#include <common/cvt.h>
+#include <drivers/sensor/sensor.h>
+#include <limits>
 
 namespace eka2l1 {
     sensor_server::sensor_server(eka2l1::system *sys)
@@ -91,8 +92,8 @@ namespace eka2l1 {
 
     void sensor_client_session::query_channels(eka2l1::service::ipc_context *ctx) {
         std::optional<channel_info> search_cond = ctx->get_argument_data_from_descriptor<channel_info>(0);
-        channel_info *list = reinterpret_cast<channel_info*>(ctx->get_descriptor_argument_ptr(1));
-        
+        channel_info *list = reinterpret_cast<channel_info *>(ctx->get_descriptor_argument_ptr(1));
+
         if (!search_cond.has_value() || !list) {
             ctx->complete(epoc::error_argument);
             return;
@@ -167,7 +168,7 @@ namespace eka2l1 {
     void sensor_client_session::close_channel(eka2l1::service::ipc_context *ctx) {
         std::uint32_t channel_id = *(ctx->get_argument_value<std::uint32_t>(0));
         auto find_result = channels_.find(channel_id);
-        
+
         if (find_result != channels_.end()) {
             channels_.erase(find_result);
             ctx->complete(epoc::error_none);
@@ -204,7 +205,7 @@ namespace eka2l1 {
         }
 
         if (!channel->listen_for_data(params->desired_buffering_count, params->maximum_buffering_count,
-                                      params->buffering_period)) {
+                params->buffering_period)) {
             LOG_ERROR(SERVICE_SENSOR, "Failed to listen for channel data!");
             ctx->complete(epoc::error_general);
 
@@ -273,23 +274,24 @@ namespace eka2l1 {
 
         channel_data_msgs_.erase(channel_msg_ite);
 
+        constexpr std::size_t MAX_UINT32_AS_SIZE = static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max());
+
         data_count_ret_val ret_val;
-        ret_val.item_count_ = packet_sent;
+        ret_val.item_count_ = static_cast<std::uint32_t>(common::min<std::size_t>(packet_sent, MAX_UINT32_AS_SIZE));
         ret_val.lost_count_ = 0;
 
         const std::size_t max_write_bytes = context->get_argument_max_data_size(1);
         const std::size_t max_item_fill = max_write_bytes / controller->data_packet_size();
 
         if (max_item_fill < packet_sent) {
-            ret_val.lost_count_ = packet_sent - max_item_fill;
+            ret_val.lost_count_ = static_cast<std::uint32_t>(common::min<std::size_t>(packet_sent - max_item_fill, MAX_UINT32_AS_SIZE));
         }
 
         kernel_system *kern = context->msg->own_thr->get_kernel_object_owner();
         kern->lock();
 
         context->write_data_to_descriptor_argument(2, ret_val);
-        context->write_data_to_descriptor_argument(1, data.data(), common::min<std::uint32_t>(
-                static_cast<std::uint32_t>(max_write_bytes), static_cast<std::uint32_t>(data.size())));
+        context->write_data_to_descriptor_argument(1, data.data(), common::min<std::uint32_t>(static_cast<std::uint32_t>(max_write_bytes), static_cast<std::uint32_t>(data.size())));
 
         const std::uint64_t now = common::get_current_utc_time_in_microseconds_since_epoch();
         const std::uint64_t passed = (now - ask_recv_time_[channel_id]);
@@ -300,7 +302,7 @@ namespace eka2l1 {
         // for the active object to be activated. In non-SMP case, finish early may corrupt the
         // status flags and then panic 46!
         if (passed < TIME_GET_BACK_REQUEST) {
-            std::this_thread::sleep_for(std::chrono::microseconds(TIME_GET_BACK_REQUEST  - passed));
+            std::this_thread::sleep_for(std::chrono::microseconds(TIME_GET_BACK_REQUEST - passed));
         }
 
         context->complete(epoc::error_none);
@@ -358,7 +360,7 @@ namespace eka2l1 {
         std::int32_t array_index = static_cast<std::int32_t>(res_property->array_index);
 
         if (!controller->get_property(static_cast<drivers::sensor_property>(res_property->property_id),
-            res_property->item_index, array_index, data_result)) {
+                res_property->item_index, array_index, data_result)) {
             ctx->complete(epoc::error_not_found);
             return;
         }

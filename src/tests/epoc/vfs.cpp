@@ -1,4 +1,4 @@
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include <common/algorithm.h>
 #include <common/path.h>
 #include <common/types.h>

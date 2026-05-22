@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,8 +24,7 @@
 namespace eka2l1::loader::gdr {
     static void scan_coverage(const code_section &range, std::uint32_t &coverage_flags, std::uint32_t &coverage_flags_add) {
         // 0000-024F (including extended), 1E02-1EF3
-        if (((range.header_.start_ <= 0x24F) && (range.header_.end_ >= 0x00)) ||
-            ((range.header_.start_ <= 0x1EF3) && (range.header_.end_ >= 0x1E02))) {
+        if (((range.header_.start_ <= 0x24F) && (range.header_.end_ >= 0x00)) || ((range.header_.start_ <= 0x1EF3) && (range.header_.end_ >= 0x1E02))) {
             coverage_flags |= font_bitmap::COVERAGE_LATIN_SET;
         }
 
@@ -134,11 +133,7 @@ namespace eka2l1::loader::gdr {
 
         // Hangul
         // U+AC00–U+D7AF, U+1100–U+11FF, U+3130–U+318F, U+A960–U+A97F, U+D7B0–U+D7FF
-        if (((range.header_.start_ <= 0xD7AF) && (range.header_.end_ >= 0xAC00)) ||
-            ((range.header_.start_ <= 0x11FF) && (range.header_.end_ >= 0x1100)) ||
-            ((range.header_.start_ <= 0x318F) && (range.header_.end_ >= 0x3130)) ||
-            ((range.header_.start_ <= 0xA97F) && (range.header_.end_ >= 0xA960)) ||
-            ((range.header_.start_ <= 0xD7FF) && (range.header_.end_ >= 0xD7B0))) {
+        if (((range.header_.start_ <= 0xD7AF) && (range.header_.end_ >= 0xAC00)) || ((range.header_.start_ <= 0x11FF) && (range.header_.end_ >= 0x1100)) || ((range.header_.start_ <= 0x318F) && (range.header_.end_ >= 0x3130)) || ((range.header_.start_ <= 0xA97F) && (range.header_.end_ >= 0xA960)) || ((range.header_.start_ <= 0xD7FF) && (range.header_.end_ >= 0xD7B0))) {
             coverage_flags_add |= font_bitmap::COVERAGE_HANGUL_SET;
         }
 
@@ -148,10 +143,7 @@ namespace eka2l1::loader::gdr {
         // Human history has been very long!
         // U+4E00-U+9FFF (common), U+3400-U+4DBF (more rare), U+F900-U+FAFF (Duplicates)
         // U+3000-U+303F (punctations)
-        if (((range.header_.start_ <= 0x9FFF) && (range.header_.end_ >= 0x4E00)) ||
-            ((range.header_.start_ <= 0x4DBF) && (range.header_.end_ >= 0x3400)) ||
-            ((range.header_.start_ <= 0xFAFF) && (range.header_.end_ >= 0xF900)) ||
-            ((range.header_.start_ <= 0x303F) && (range.header_.end_ >= 0x3000))) {
+        if (((range.header_.start_ <= 0x9FFF) && (range.header_.end_ >= 0x4E00)) || ((range.header_.start_ <= 0x4DBF) && (range.header_.end_ >= 0x3400)) || ((range.header_.start_ <= 0xFAFF) && (range.header_.end_ >= 0xF900)) || ((range.header_.start_ <= 0x303F) && (range.header_.end_ >= 0x3000))) {
             coverage_flags_add |= font_bitmap::COVERAGE_CJK_SET;
         }
     }
@@ -253,7 +245,7 @@ namespace eka2l1::loader::gdr {
                 return false;
             }
 
-            headers.push_back(std::move(new_header));
+            headers.push_back(new_header);
             code_sections.push_back(std::move(section_header_list));
         }
 
@@ -522,7 +514,7 @@ namespace eka2l1::loader::gdr {
             store.font_bitmaps_[i].code_sections_.resize(font_bitmap_headers[i].code_section_count_);
 
             for (std::size_t j = 0; j < font_bitmap_headers[i].code_section_count_; j++) {
-                store.font_bitmaps_[i].code_sections_[j].header_ = std::move(code_section_header_list_list[i][j]);
+                store.font_bitmaps_[i].code_sections_[j].header_ = code_section_header_list_list[i][j];
 
                 if (!parse_font_code_section_comps(stream, store.font_bitmaps_[i].metrics_, store.font_bitmaps_[i].filler_metric_,
                         store.font_bitmaps_[i].code_sections_[j])) {

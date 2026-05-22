@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -37,7 +37,7 @@ namespace eka2l1::epoc::socket {
         SOCKET_MESSAGE_SIZE_UNDEFINED = 1, ///< Undefined, depends on layers
         SOCKET_MESSAGE_SIZE_NO_LIMIT = -1
     };
-    
+
     enum socket_operate_flag : std::uint32_t {
         SOCKET_FLAG_DONT_WAIT_FULL = 1 << 29
     };
@@ -59,12 +59,12 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Get an option available from current socket.
-         * 
+         *
          * @param option_id         The ID of the option.
          * @param option_family     The ID of the family that this option belongs to.
          * @param buffer            Destination to write data to.
          * @param avail_size        The total size that the destination buffer can hold.
-         * 
+         *
          * @returns size_t(-1) if there is an error or not enough sufficient size to hold, else returns the total size written.
          */
         virtual std::size_t get_option(const std::uint32_t option_id, const std::uint32_t option_family,
@@ -72,12 +72,12 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Set an option available from current socket.
-         * 
+         *
          * @param option_id         The ID of the option.
          * @param option_family     The ID of the family that this option belongs to.
          * @param buffer            Data source to set.
          * @param avail_size        The total size that the source buffer holds.
-         * 
+         *
          * @returns false on failure.
          */
         virtual bool set_option(const std::uint32_t option_id, const std::uint32_t option_family,
@@ -85,7 +85,7 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Perform asynchronous I/O control operation.
-         * 
+         *
          * @param command           The command number to execute.
          * @param complete_info     Notify info signals the completion of this control operation.
          * @param buffer            Pointer to a buffer which data can be sent/received through.
@@ -98,7 +98,7 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Perform binding this address to local desired address.
-         * 
+         *
          * @param sockaddr_buffer        Buffer containing the information about the address, different per socket implementation.
          * @param info                   Request status notify info.
          */
@@ -106,7 +106,7 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Perform binding this address to local desired address with callback.
-         * 
+         *
          * @param sockaddr_buffer        Buffer containing the information about the address, different per socket implementation.
          * @param callback               The callback to be called when binding is done. Integer argument contains error code for bind.
          */
@@ -114,7 +114,7 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Perform connect to remote address.
-         * 
+         *
          * @param addr                  Address to be connected to
          * @param info                  Request status notify info.
          */
@@ -122,30 +122,30 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Get the local address of a bounded socket.
-         * 
+         *
          * @param result            The local address on success.
          * @param result_len        The actual length of the local address struct
-         * 
+         *
          * @return std::int32_t     KErrNone on success.
          */
         virtual std::int32_t local_name(saddress &result, std::uint32_t &result_len);
-        
+
         /**
          * @brief Get the remote address of a bounded socket.
-         * 
+         *
          * @param result            The remote address on success.
          * @param result_len        The actual length of the remote address struct
-         * 
+         *
          * @return std::int32_t     KErrNone on success.
          */
         virtual std::int32_t remote_name(saddress &result, std::uint32_t &result_len);
 
         /**
          * @brief Send data to remote host, on a non-connected or connected socket.
-         * 
+         *
          * If a socket is not connected, sockaddr must not be NULL and points to a valid buffer containg
          * information about remote host address.
-         * 
+         *
          * @param   data                    Data to send to remote host.
          * @param   data_size               Size of data to send, also the size of data buffer.
          * @param   sent_size               Optional arugment that contains the amount of data sent. Can be NULL.
@@ -158,10 +158,10 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Receive data from remote client, on a non-connected or connected socket.
-         * 
+         *
          * If a socket is not connected, sockaddr must not be NULL and points to a valid buffer containg
          * information about remote address.
-         * 
+         *
          * @param   data                    Data to be received from remote.
          * @param   data_size               Size of data to be read. For stream socket, to receive the data pack available only, use the flag SOCKET_FLAG_DONT_WAIT_FULL.
          * @param   sent_size               Optional arugment that on completion contains the amount of data read. Can be NULL.
@@ -175,14 +175,14 @@ namespace eka2l1::epoc::socket {
 
         /**
          * @brief Start a listen queue for incoming connnections.
-         * 
+         *
          * @param backlog Size of the listening queue.
          */
         virtual std::int32_t listen(const std::uint32_t backlog);
 
         /**
          * @brief Accept a pending connection, or wait if there's none
-         * 
+         *
          * @param pending_sock      Pointer to the socket object to be created.
          * @param complete_info     Notify info signaled when accept process is done.
          */

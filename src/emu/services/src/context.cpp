@@ -1,25 +1,26 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <kernel/kernel.h>
 #include <kernel/server.h>
+#include <kernel/session.h>
 #include <mem/ptr.h>
 #include <system/epoc.h>
 
@@ -145,7 +146,7 @@ namespace eka2l1 {
 
                 // Avoid signal twice to cause undefined behavior
                 if (!signaled) {
-                    msg->own_thr->signal_request();
+                    msg->own_thr->signal_request(1, "ipc_context_complete");
                     signaled = true;
                 }
             }
@@ -161,6 +162,29 @@ namespace eka2l1 {
                 return true;
             }
 
+            return false;
+        }
+
+        bool ipc_context::write_handle_argument(int idx, uint32_t data) {
+            int err_code = 0;
+            const ipc_arg_type arg_type = (idx >= 0 && idx < 4) ? msg->args.get_arg_type(idx) : ipc_arg_type::unspecified;
+
+            if (write_data_to_descriptor_argument(idx, data, &err_code)) {
+                LOG_TRACE(SERVICE_TRACK, "Wrote local handle 0x{:X} to IPC arg {} descriptor, flag=0x{:X}, type={}",
+                    data, idx, msg->args.flag, static_cast<int>(arg_type));
+                return true;
+            }
+
+            if (err_code == -1) {
+                if (write_arg(idx, data)) {
+                    LOG_TRACE(SERVICE_TRACK, "Wrote local handle 0x{:X} to IPC arg {} handle slot, flag=0x{:X}, type={}",
+                        data, idx, msg->args.flag, static_cast<int>(arg_type));
+                    return true;
+                }
+            }
+
+            LOG_TRACE(SERVICE_TRACK, "Failed to write local handle 0x{:X} to IPC arg {}, flag=0x{:X}, type={}, err={}",
+                data, idx, msg->args.flag, static_cast<int>(arg_type), err_code);
             return false;
         }
 

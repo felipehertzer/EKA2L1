@@ -205,10 +205,10 @@ namespace eka2l1::common {
 #ifdef __ARM_ARCH_7S__
         isVFP4 = true;
 #endif
-        strcpy(brand_string, "Apple A", sizeof(brand_string));
+        snprintf(brand_string, sizeof(brand_string), "Apple A");
         num_cores = 2;
 #elif EKA2L1_PLATFORM(UWP)
-        strcpy(brand_string, "Unknown", sizeof(brand_string));
+        snprintf(brand_string, sizeof(brand_string), "Unknown");
         isVFP3 = true;
         isVFP4 = false;
         SYSTEM_INFO sysInfo;

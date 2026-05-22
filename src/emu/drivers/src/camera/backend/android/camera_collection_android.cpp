@@ -17,9 +17,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drivers/camera/backend/android/camera_collection_android.h>
-#include <drivers/camera/backend/android/camera_android.h>
 #include "emulator_camera_jni.h"
+#include <drivers/camera/backend/android/camera_android.h>
+#include <drivers/camera/backend/android/camera_collection_android.h>
 
 #include <common/log.h>
 
@@ -61,7 +61,7 @@ namespace eka2l1::drivers::camera {
 
     bool collection_android::reserved_wants_new_frame(int index) {
         auto ite = current_reserved_.find(index);
-        if ((ite != current_reserved_.end())  && (ite->second != nullptr)) {
+        if ((ite != current_reserved_.end()) && (ite->second != nullptr)) {
             const std::lock_guard<std::mutex> guard(ite->second->callback_lock_);
             if (ite->second->wants_new_frame_callback_) {
                 return ite->second->wants_new_frame_callback_();

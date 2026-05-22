@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2001-2009 Nokia Corporation and/or its subsidiary(-ies).
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -85,7 +85,7 @@ namespace eka2l1::epoc {
          * Grants access to protected content.
          *
          * DRM (Digital Rights Management) agents use this capability to decide whether
-         * or not an application should have access to DRM content. 
+         * or not an application should have access to DRM content.
          * Applications granted DRM are trusted to respect the rights associated
          * with the content.
          */
@@ -94,10 +94,10 @@ namespace eka2l1::epoc {
         /**
          * Grants the right to create a trusted UI session, and therefore to display
          * dialogs in a secure UI environment.
-         * 
+         *
          * Trusted UI dialogs are rare. They must be used only when confidentiality
-         * and security are critical; for example, for password dialogs. 
-         * 
+         * and security are critical; for example, for password dialogs.
+         *
          * Normal access to the user interface and the screen does not require
          * this capability.
          */
@@ -105,7 +105,7 @@ namespace eka2l1::epoc {
 
         /**
          * Grants the right to a server to register with a protected name.
-         * 
+         *
          * Currently, protected names start with a "!" character. The kernel prevents
          * servers without this capability from using such a name, and therefore
          * prevents protected servers from being impersonated.
@@ -115,17 +115,17 @@ namespace eka2l1::epoc {
         /**
          * Grants access to disk administration operations that affect more than one
          * file or one directory (or overall filesystem integrity/behaviour, etc).
-         * 
+         *
          * For examples, reformatting a disk partition.
          */
         cap_disk_admin = 9,
 
         /**
          * Grants the right to modify or access network protocol controls.
-         * 
+         *
          * Typically when an action can change the behaviour of all existing and
          * future connections, it should be protected by this capability.
-         * 
+         *
          * For example, forcing all existing connections on a specific protocol
          * to be dropped, or changing the priority of a call.
          */
@@ -134,7 +134,7 @@ namespace eka2l1::epoc {
         /**
          * Grants read access to the entire file system; grants write access to
          * the private directories of other processes.
-         * 
+         *
          * This capability is very strictly controlled and should rarely be granted.
          */
         cap_all_files = 11,
@@ -142,7 +142,7 @@ namespace eka2l1::epoc {
         /**
          * Grants the right to generate software key & pen events, and to capture any
          * of them regardless of the status of the application.
-         * 
+         *
          * Note that after obtaining the focus, normal applications do not need this
          * capability to be dispatched key and pen events.
          */
@@ -151,10 +151,10 @@ namespace eka2l1::epoc {
         /**
          * A user capability that grants access to remote services without any
          * restriction on its physical location.
-         * 
+         *
          * Typically, such a location is unknown to the phone user, and such services
          * may incur cost for the phone user.
-         * 
+         *
          * Voice calls, SMS, and internet services are good examples of
          * such network services. They are supported by GSM, CDMA and all IP transport
          * protocols including Bluetooth profiles over IP.
@@ -164,7 +164,7 @@ namespace eka2l1::epoc {
         /**
          * A user capability that grants access to remote services in the close
          * vicinity of the phone.
-         *  
+         *
          * The location of the remote service is well-known to the phone user, and in
          * most cases, such services will not incur cost for the phone user.
          */
@@ -172,20 +172,20 @@ namespace eka2l1::epoc {
 
         /**
          * A user capability that grants read access to data that is confidential to
-         * the phone user. 
-         * 
+         * the phone user.
+         *
          * This capability supports the management of the user's privacy.
-         * 
+         *
          * Typically, contacts, messages and appointments are always seen user
          * confidential data.
          */
         cap_read_user_data = 15,
 
         /**
-         * A user capability that grants write access to user data. 
-         * 
+         * A user capability that grants write access to user data.
+         *
          * This capability supports the management of the integrity of user data.
-         * 
+         *
          * Note that this capability is not symmetric with the ECapabilityReadUserData
          * capability. For example, you may want to prevent rogue applications from
          * deleting music tracks but you may not want to restrict read access to them.
@@ -194,7 +194,7 @@ namespace eka2l1::epoc {
 
         /**
          * A user capability that grants access to the location of the device.
-         * 
+         *
          * This capability supports the management of the user's privacy with regard
          * to the phone location.
          */
@@ -202,8 +202,8 @@ namespace eka2l1::epoc {
 
         /**
          * Grants access to logical device drivers that provide input information about
-         * the surroundings of the device. 
-         * 
+         * the surroundings of the device.
+         *
          * Good examples of drivers that require this capability would be GPS and biometrics
          * device drivers. For complex multimedia logical device drivers that provide both
          * input and output functions, such as Sound device driver, the  MultimediaDD
@@ -215,10 +215,10 @@ namespace eka2l1::epoc {
         /**
          * Grants access to live confidential information about the user and his/her
          * immediate environment. This capability protect the user's privacy.
-         * 
+         *
          * Examples are audio, picture and video recording, biometrics (such as blood
          * pressure) recording.
-         * 
+         *
          * Please note that the location of the device is excluded from this capability.
          * The protection of this is achieved by using the dedicated capability Location
          */
@@ -302,7 +302,7 @@ namespace eka2l1::epoc {
 
         /**
          * Check to see if the security info can pass the policy test.
-         * 
+         *
          * Any required info missing will be filled in missing struct.
          */
         bool check(const security_info &against, security_info &missing);

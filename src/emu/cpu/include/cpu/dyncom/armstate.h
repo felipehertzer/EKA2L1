@@ -228,6 +228,7 @@ public:
 
     unsigned long long NumInstrs; // The number of instructions executed
     std::uint64_t NumInstrsToExecute;
+    mutable bool code_fetch_failed = false;
 
     unsigned NresetSig; // Reset the processor
     unsigned NfiqSig;

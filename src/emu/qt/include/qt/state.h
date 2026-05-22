@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -25,6 +25,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 
 #include <common/queue.h>
@@ -76,7 +77,8 @@ namespace eka2l1::desktop {
         bool first_time;
         bool init_fullscreen;
         bool app_launch_from_command_line;
-        bool inited_graphics;
+        std::atomic<bool> inited_graphics;
+        std::atomic<bool> graphics_init_failed;
         bool stretch_to_fill_display;
 
         common::event graphics_event;
@@ -94,6 +96,10 @@ namespace eka2l1::desktop {
         int present_status;
 
         std::string launched_app_name_;
+        bool pending_command_line_launch_;
+        bool pending_command_line_launch_ngage_;
+        std::string pending_command_line_launch_token_;
+        std::string pending_command_line_launch_args_;
 
         explicit emulator();
 

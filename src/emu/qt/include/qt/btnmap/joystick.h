@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -25,11 +25,11 @@
 #include <memory>
 
 namespace eka2l1::qt::btnmap {
-    class joystick: public base {
+    class joystick : public base {
     private:
         friend class editor;
 
-        std::unique_ptr<single_touch> keys_[5];  // Up, down, left, right, Joy
+        std::unique_ptr<single_touch> keys_[5]; // Up, down, left, right, Joy
         drivers::handle base_tex_handle_;
         std::uint32_t width_;
         eka2l1::rect previous_rect_;
@@ -44,7 +44,7 @@ namespace eka2l1::qt::btnmap {
         explicit joystick(editor *editor_instance, const eka2l1::vec2 &position);
 
         void draw(drivers::graphics_driver *driver, drivers::graphics_command_builder &builder,
-                  const eka2l1::vec2f &scale_factor) override;
+            const eka2l1::vec2f &scale_factor) override;
 
         void on_key_press(const std::uint32_t code) override;
         void on_controller_button_press(const std::uint32_t code) override;

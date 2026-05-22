@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <services/bluetooth/protocols/base_inet.h>
-#include <services/bluetooth/protocols/common_inet.h>
 #include <services/bluetooth/protocols/btlink/btlink_inet.h>
-#include <services/internet/protocols/inet.h>
 #include <services/bluetooth/protocols/btmidman_inet.h>
+#include <services/bluetooth/protocols/common_inet.h>
+#include <services/internet/protocols/inet.h>
 #include <utils/err.h>
 #include <utils/reqsts.h>
 
@@ -35,24 +35,24 @@ extern "C" {
 namespace eka2l1::epoc::bt {
     btinet_socket::btinet_socket(btlink_inet_protocol *protocol, std::unique_ptr<epoc::socket::socket> &inet_socket)
         : inet_socket_(std::move(inet_socket))
-        , info_asker_(reinterpret_cast<midman_inet*>(protocol->get_midman()))
+        , info_asker_(reinterpret_cast<midman_inet *>(protocol->get_midman()))
         , scan_value_(HCI_INQUIRY_AND_PAGE_SCAN)
         , protocol_(protocol)
         , virtual_port_(0)
         , remote_calculated_(false) {
-        midman_inet *mid = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+        midman_inet *mid = reinterpret_cast<midman_inet *>(protocol_->get_midman());
         if (inet_socket_) {
             int opt_value = 1;
-            inet_socket_->set_option(internet::INET_TCP_NO_DELAY_OPT, internet::INET_TCP_SOCK_OPT_LEVEL, reinterpret_cast<std::uint8_t*>(&opt_value), 4);
-            
+            inet_socket_->set_option(internet::INET_TCP_NO_DELAY_OPT, internet::INET_TCP_SOCK_OPT_LEVEL, reinterpret_cast<std::uint8_t *>(&opt_value), 4);
+
             // These game sockets just connect and shutdown same port like it's nothing. I can't care enough if this is security risk or not... If it make things work
             // Else we have to wait until half the time TIME_WAIT passed.
             inet_socket_->set_option(internet::INET_REUSE_ADDR, internet::INET_IP_SOCK_OPT_LEVEL, reinterpret_cast<std::uint8_t *>(&opt_value), 4);
         }
 
         if (inet_socket_ && (mid->get_discovery_mode() != DISCOVERY_MODE_DIRECT_IP)) {
-            reinterpret_cast<epoc::internet::inet_socket*>(inet_socket_.get())->set_socket_accepted_hook([this](void *opaque_handle) {
-                midman_inet *mid = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+            reinterpret_cast<epoc::internet::inet_socket *>(inet_socket_.get())->set_socket_accepted_hook([this](void *opaque_handle) {
+                midman_inet *mid = reinterpret_cast<midman_inet *>(protocol_->get_midman());
 
                 sockaddr_in6 addr;
                 int addr_structlen = sizeof(sockaddr_in6);
@@ -60,10 +60,10 @@ namespace eka2l1::epoc::bt {
                 epoc::socket::saddress addr_dest;
                 std::memset(&addr_dest, 0, sizeof(epoc::socket::saddress));
 
-                uv_tcp_getpeername(reinterpret_cast<uv_tcp_t*>(opaque_handle), reinterpret_cast<sockaddr*>(&addr), &addr_structlen);                
-                uv_tcp_nodelay(reinterpret_cast<uv_tcp_t*>(opaque_handle), 1);
+                uv_tcp_getpeername(reinterpret_cast<uv_tcp_t *>(opaque_handle), reinterpret_cast<sockaddr *>(&addr), &addr_structlen);
+                uv_tcp_nodelay(reinterpret_cast<uv_tcp_t *>(opaque_handle), 1);
 
-                epoc::internet::host_sockaddr_to_guest_saddress(reinterpret_cast<const sockaddr*>(&addr), addr_dest);
+                epoc::internet::host_sockaddr_to_guest_saddress(reinterpret_cast<const sockaddr *>(&addr), addr_dest);
 
                 addr_dest.port_ = static_cast<std::uint16_t>(mid->get_server_port());
 
@@ -72,16 +72,16 @@ namespace eka2l1::epoc::bt {
             });
         }
     }
- 
+
     btinet_socket::~btinet_socket() {
-        midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+        midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
 
         if (virtual_port_ != 0) {
             midman->close_port(virtual_port_);
         }
 
         if (inet_socket_ && (midman->get_discovery_mode() != DISCOVERY_MODE_DIRECT_IP)) {
-            reinterpret_cast<epoc::internet::inet_socket*>(inet_socket_.get())->set_socket_accepted_hook(nullptr);
+            reinterpret_cast<epoc::internet::inet_socket *>(inet_socket_.get())->set_socket_accepted_hook(nullptr);
         }
     }
 
@@ -103,12 +103,12 @@ namespace eka2l1::epoc::bt {
         }
 
         // Must make it synchronous with free or ref port, else there will be port overlapped tangled problem
-    
+
         epoc::socket::saddress addr_to_bind = addr;
         epoc::notify_info info_copy = info;
 
         kernel_system *kern = info.requester->get_kernel_object_owner();
-        midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+        midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
 
         std::memset(addr_to_bind.user_data_, 0, sizeof(addr_to_bind.user_data_));
         addr_to_bind.family_ = internet::INET6_ADDRESS_FAMILY;
@@ -138,7 +138,7 @@ namespace eka2l1::epoc::bt {
                     return;
                 } else {
                     midman->ref_and_public_port(guest_port);
-                    
+
                     kernel_system *kern = info_copy.requester->get_kernel_object_owner();
                     kern->lock();
                     info_copy.complete(epoc::error_none);
@@ -154,8 +154,8 @@ namespace eka2l1::epoc::bt {
     }
 
     void btinet_socket::connect(const epoc::socket::saddress &addr, epoc::notify_info &info) {
-        midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
-  
+        midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
+
         if (addr.family_ != BTADDR_PROTOCOL_FAMILY_ID) {
             // If 0, they just want to change the port. Well, acceptable
             LOG_ERROR(SERVICE_BLUETOOTH, "Address to bind is not a Bluetooth family address!");
@@ -163,14 +163,14 @@ namespace eka2l1::epoc::bt {
             return;
         }
 
-        const socket_device_address &dvc_addr = static_cast<const socket_device_address&>(addr);
+        const socket_device_address &dvc_addr = static_cast<const socket_device_address &>(addr);
 
         // NOTE: Need real address actually T_T
         midman->get_friend_address_async(*dvc_addr.get_device_address_const(), [this, info, dvc_addr](epoc::socket::saddress *real_addr_ptr) {
             epoc::notify_info info_copy = info;
             kernel_system *kern_lock = info_copy.requester->get_kernel_object_owner();
 
-            if (!real_addr_ptr) {         
+            if (!real_addr_ptr) {
                 LOG_ERROR(SERVICE_BLUETOOTH, "Can't retrieve real INET address!");
 
                 kern_lock->lock();
@@ -205,10 +205,10 @@ namespace eka2l1::epoc::bt {
     }
 
     std::int32_t btinet_socket::local_name(epoc::socket::saddress &result, std::uint32_t &result_len) {
-        socket_device_address &addr = static_cast<socket_device_address&>(result);
+        socket_device_address &addr = static_cast<socket_device_address &>(result);
 
         device_address *addr_dvc = addr.get_device_address();
-        midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+        midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
 
         *addr_dvc = midman->local_device_address();
 
@@ -230,8 +230,8 @@ namespace eka2l1::epoc::bt {
                 LOG_ERROR(SERVICE_BLUETOOTH, "Getting bluetooth's remote name failed with code {}!", res);
                 return res;
             }
-            
-            midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+
+            midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
             std::vector<std::uint32_t> list_indicies = midman->get_friend_index_with_address(addr_real);
 
             std::uint32_t correct_index = 0;
@@ -253,7 +253,7 @@ namespace eka2l1::epoc::bt {
                     return epoc::error_general;
                 }
             }
-        
+
             if (!midman->get_friend_device_address(correct_index, *remote_addr_.get_device_address())) {
                 LOG_WARN(SERVICE_BLUETOOTH, "Failed to get bluetooth device address from friend index {}", list_indicies[0]);
                 return epoc::error_could_not_connect;
@@ -263,7 +263,7 @@ namespace eka2l1::epoc::bt {
             remote_calculated_ = true;
         }
 
-        static_cast<socket_device_address&>(result) = remote_addr_;
+        static_cast<socket_device_address &>(result) = remote_addr_;
         result_len = socket_device_address::DATA_LEN;
 
         return epoc::error_none;
@@ -276,10 +276,10 @@ namespace eka2l1::epoc::bt {
     void btinet_socket::accept(std::unique_ptr<epoc::socket::socket> *pending_sock, epoc::notify_info &complete_info) {
         *pending_sock = protocol_->make_empty_base_link_socket();
 
-        btinet_socket *casted_pending_sock_ptr = reinterpret_cast<btinet_socket*>(pending_sock->get());
+        btinet_socket *casted_pending_sock_ptr = reinterpret_cast<btinet_socket *>(pending_sock->get());
         casted_pending_sock_ptr->virtual_port_ = virtual_port_;
 
-        midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+        midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
         midman->ref_port(virtual_port_);
 
         inet_socket_->accept(&casted_pending_sock_ptr->inet_socket_, complete_info);
@@ -322,12 +322,12 @@ namespace eka2l1::epoc::bt {
             // Set the scan mode of bluetooth, either inquiry (need access code) or scan (you no need IAC)
             // Does not matter in INET mode
             case HCI_WRITE_SCAN_ENABLE:
-                scan_value_ = *reinterpret_cast<hci_scan_enable_ioctl_val*>(buffer);
+                scan_value_ = *reinterpret_cast<hci_scan_enable_ioctl_val *>(buffer);
                 complete_info.complete(epoc::error_none);
                 return;
 
             case HCI_READ_SCAN_ENABLE:
-                *reinterpret_cast<hci_scan_enable_ioctl_val*>(buffer) = scan_value_;
+                *reinterpret_cast<hci_scan_enable_ioctl_val *>(buffer) = scan_value_;
                 complete_info.complete(epoc::error_none);
                 return;
 
@@ -337,9 +337,9 @@ namespace eka2l1::epoc::bt {
                 return;
 
             case HCI_LOCAL_ADDRESS: {
-                midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+                midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
 
-                device_address *addr = reinterpret_cast<device_address*>(buffer);
+                device_address *addr = reinterpret_cast<device_address *>(buffer);
                 *addr = midman->local_device_address();
 
                 complete_info.complete(epoc::error_none);

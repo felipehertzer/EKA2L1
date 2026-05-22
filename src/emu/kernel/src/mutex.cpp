@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team / Citra Team.
- * 
+ *
  * This file is part of EKA2L1 project / Citra Emulator Project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -30,7 +30,7 @@ namespace eka2l1 {
     namespace kernel {
         mutex::mutex(kernel_system *kern, ntimer *timing, kernel::process *owner, std::string name, bool init_locked,
             kernel::access_type access)
-            : kernel_obj(kern, std::move(name), owner, access)
+            : kernel_obj(kern, name, owner, access)
             , timing(timing)
             , lock_count(0)
             , holding(nullptr)
@@ -61,7 +61,7 @@ namespace eka2l1 {
 
             timing->remove_event(mutex_event_type);
 
-            kernel::process *own = reinterpret_cast<kernel::process*>(owner);
+            kernel::process *own = reinterpret_cast<kernel::process *>(owner);
             if (own)
                 own->decrease_access_count();
 
@@ -122,7 +122,7 @@ namespace eka2l1 {
                 kern->unlock();
                 return;
             }
-            
+
             wait_for_timeout = false;
 
             if (!thread_to_wake || thread_to_wake->get_object_type() != kernel::object_type::thread) {
@@ -134,7 +134,7 @@ namespace eka2l1 {
             switch (thread_to_wake->current_state()) {
             case thread_state::hold_mutex_pending: {
                 if (thread_to_wake->pending_link.alone()) {
-                    LOG_ERROR(KERNEL, "Thread request to wake up with this mutex is not in hold pending queue"); 
+                    LOG_ERROR(KERNEL, "Thread request to wake up with this mutex is not in hold pending queue");
                     kern->unlock();
                     return;
                 }
@@ -207,7 +207,7 @@ namespace eka2l1 {
                 }
 
                 // Take it from top of the wait queue
-                kernel::thread *top_wait = std::move(waits.top());
+                kernel::thread *top_wait = waits.top();
                 waits.pop();
 
                 pendings.push(&top_wait->pending_link);
@@ -250,7 +250,7 @@ namespace eka2l1 {
                 }
 
                 // The pending queue is currently empty, we might need to kickstart it
-                kernel::thread *ready_thread = std::move(waits.top());
+                kernel::thread *ready_thread = waits.top();
                 waits.pop();
 
                 ready_thread->get_scheduler()->dewait(ready_thread);

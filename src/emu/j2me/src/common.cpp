@@ -1,35 +1,35 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <j2me/common.h>
 #include <j2me/applist.h>
+#include <j2me/common.h>
 
 #include <common/algorithm.h>
 #include <common/fileutils.h>
+#include <common/log.h>
 #include <common/path.h>
 #include <common/pystr.h>
-#include <common/log.h>
 #include <config/config.h>
 
 #include <fmt/format.h>
-#include <miniz.h>
 #include <memory>
+#include <miniz.h>
 #include <sstream>
 
 namespace eka2l1::j2me {
@@ -57,7 +57,7 @@ namespace eka2l1::j2me {
         static const char *MANIFEST_FILE_PATH = "META-INF/MANIFEST.MF";
         std::uint32_t index = 0;
         std::uint64_t fsize = 0;
-        
+
         if (!locate_file_in_zip(archive.get(), MANIFEST_FILE_PATH, index, fsize)) {
             return INSTALL_ERROR_JAR_INVALID;
         }
@@ -108,7 +108,7 @@ namespace eka2l1::j2me {
 
         std::uint32_t index = 0;
         std::uint64_t fsize = 0;
-        
+
         if (!locate_file_in_zip(archive.get(), entry.icon_path_.c_str(), index, fsize)) {
             return INSTALL_ERROR_JAR_INVALID;
         }
@@ -124,7 +124,7 @@ namespace eka2l1::j2me {
 
         return INSTALL_ERROR_JAR_SUCCESS;
     }
-    
+
     install_error get_app_entry(FILE *jar_file_handle, app_entry &entry, std::string &jad_content, int &midp_ver) {
         install_error return_err = create_jad_fake_link_from_jar(jar_file_handle, jad_content);
 

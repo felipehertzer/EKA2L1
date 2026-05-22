@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,6 +24,7 @@
 #include <common/log.h>
 #include <common/path.h>
 #include <common/platform.h>
+#include <common/time.h>
 #include <common/wildcard.h>
 
 #include <loader/rom.h>
@@ -61,8 +62,13 @@ namespace eka2l1 {
     std::size_t file::read_file(const std::uint64_t offset, void *buf, std::uint32_t size,
         std::uint32_t count) {
         const std::uint64_t last_offset = tell();
+        if (last_offset == 0xFFFFFFFFFFFFFFFFULL) {
+            return 0;
+        }
 
-        seek(offset, file_seek_mode::beg);
+        if (seek(offset, file_seek_mode::beg) == 0xFFFFFFFFFFFFFFFFULL) {
+            return 0;
+        }
         const std::size_t byte_readed = read_file(buf, size, count);
 
         seek(last_offset, file_seek_mode::beg);
@@ -188,14 +194,16 @@ namespace eka2l1 {
     };
 
     struct physical_file : public file {
-        FILE *file;
+        static constexpr std::uint64_t invalid_position = 0xFFFFFFFFFFFFFFFFULL;
+
+        FILE *file = nullptr;
 
         std::u16string input_name;
         std::u16string physical_path;
 
-        int fmode;
+        int fmode = 0;
 
-        bool closed;
+        bool closed = true;
 
         const char *translate_mode(int mode, const bool reopen = false) {
             if (mode & READ_MODE) {
@@ -305,9 +313,19 @@ namespace eka2l1 {
             return L"";
         }
 
-#define WARN_CLOSE \
-    if (closed)    \
-        LOG_WARN(VFS, "File {} closed but operation still continues", common::ucs2_to_utf8(input_name));
+        bool is_open() const {
+            return file && !closed;
+        }
+
+        bool ensure_open(const char *operation) const {
+            if (is_open()) {
+                return true;
+            }
+
+            const std::u16string &display_name = input_name.empty() ? physical_path : input_name;
+            LOG_TRACE(VFS, "File {} is not open for {}", common::ucs2_to_utf8(display_name), operation);
+            return false;
+        }
 
         physical_file(const utf16_str &vfs_path, const utf16_str &real_path, const int mode)
             : file(nullptr) {
@@ -328,98 +346,136 @@ namespace eka2l1 {
 
         void init(const utf16_str &vfs_path, const utf16_str &real_path, const int mode) {
             // Disable directory check here
-            closed = false;
-            file = common::open_c_file(common::ucs2_to_utf8(real_path).c_str(), translate_mode(mode));
-
+            closed = true;
+            input_name = vfs_path;
             physical_path = real_path;
+            fmode = mode;
+
+            file = common::open_c_file(common::ucs2_to_utf8(real_path).c_str(), translate_mode(mode));
 
             // LOG_TRACE(VFS, "Open with mode: {}", cmode);
 
             if (!file) {
-                LOG_ERROR(VFS, "Can't open file: {}", common::ucs2_to_utf8(real_path));
+                LOG_TRACE(VFS, "Can't open file: {}", common::ucs2_to_utf8(real_path));
                 return;
             }
 
-            input_name = vfs_path;
-            fmode = mode;
+            closed = false;
         }
 
         void shutdown() {
             if (file && !closed) {
                 fclose(file);
             }
+            file = nullptr;
+            closed = true;
         }
 
         size_t write_file(const void *data, uint32_t size, uint32_t count) override {
-            WARN_CLOSE
+            if (!ensure_open("write")) {
+                return 0;
+            }
 
             return fwrite(data, size, count, file) * size;
         }
 
         size_t read_file(void *data, uint32_t size, uint32_t count) override {
-            WARN_CLOSE
+            if (!ensure_open("read")) {
+                return 0;
+            }
 
             return fread(data, size, count, file) * size;
         }
 
         std::uint64_t size() const override {
-            WARN_CLOSE
+            if (!ensure_open("size")) {
+                return 0;
+            }
 
-            auto crr_pos = ftell(file);
-            fseek(file, 0, SEEK_END);
+            const long crr_pos = ftell(file);
+            if (crr_pos < 0 || fseek(file, 0, SEEK_END) != 0) {
+                return 0;
+            }
 
-            const std::uint64_t file_size = ftell(file);
+            const long file_size = ftell(file);
+            if (file_size < 0) {
+                fseek(file, crr_pos, SEEK_SET);
+                return 0;
+            }
+
             fseek(file, crr_pos, SEEK_SET);
 
-            return file_size;
+            return static_cast<std::uint64_t>(file_size);
         }
 
         bool close() override {
-            WARN_CLOSE
+            if (closed) {
+                return true;
+            }
+
+            if (!file) {
+                closed = true;
+                return true;
+            }
 
             fclose(file);
+            file = nullptr;
             closed = true;
 
             return true;
         }
 
         uint64_t tell() override {
-            WARN_CLOSE
+            if (!ensure_open("tell")) {
+                return invalid_position;
+            }
 
-            return ftell(file);
+            const long pos = ftell(file);
+            if (pos < 0) {
+                return invalid_position;
+            }
+
+            return static_cast<std::uint64_t>(pos);
         }
 
         std::uint64_t seek(std::int64_t seek_off, file_seek_mode where) override {
-            WARN_CLOSE
-
-            if (where == file_seek_mode::address) {
-                return 0xFFFFFFFFFFFFFFFF;
+            if (!ensure_open("seek")) {
+                return invalid_position;
             }
 
+            if (where == file_seek_mode::address) {
+                return invalid_position;
+            }
+
+            int seek_result = 0;
             if (where == file_seek_mode::beg) {
                 if (seek_off < 0) {
                     LOG_ERROR(VFS, "Attempting to seek set with negative offset ({})", seek_off);
-                    return 0xFFFFFFFFFFFFFFFF;
+                    return invalid_position;
                 }
 
-                fseek(file, static_cast<long>(seek_off), SEEK_SET);
+                seek_result = fseek(file, static_cast<long>(seek_off), SEEK_SET);
             } else if (where == file_seek_mode::crr) {
-                fseek(file, static_cast<long>(seek_off), SEEK_CUR);
+                seek_result = fseek(file, static_cast<long>(seek_off), SEEK_CUR);
             } else {
-                fseek(file, static_cast<long>(seek_off), SEEK_END);
+                seek_result = fseek(file, static_cast<long>(seek_off), SEEK_END);
             }
 
-            return ftell(file);
+            if (seek_result != 0) {
+                return invalid_position;
+            }
+
+            return tell();
         }
 
         std::u16string file_name() const override {
-            WARN_CLOSE
-
             return input_name;
         }
 
         bool flush() override {
-            WARN_CLOSE
+            if (!ensure_open("flush")) {
+                return true;
+            }
 
             if (!(fmode & WRITE_MODE)) {
                 // Undefined behaviour on all platforms.
@@ -432,6 +488,10 @@ namespace eka2l1 {
         }
 
         bool resize(const std::size_t new_size) override {
+            if (!ensure_open("resize")) {
+                return false;
+            }
+
             if (!(fmode & WRITE_MODE)) {
                 return false;
             }
@@ -439,6 +499,8 @@ namespace eka2l1 {
             // Temporary close the file to let resize function works.
             const std::uint64_t saved_pos = tell();
             fclose(file);
+            file = nullptr;
+            closed = true;
 
             int err_code = common::resize(common::ucs2_to_utf8(physical_path), new_size);
 
@@ -448,7 +510,11 @@ namespace eka2l1 {
 #else
             file = fopen(common::ucs2_to_utf8(physical_path).c_str(), translate_mode(fmode, true));
 #endif
+            if (!file) {
+                return false;
+            }
 
+            closed = false;
             fseek(file, static_cast<long>(saved_pos), SEEK_SET);
 
             return (err_code != 0) ? false : true;
@@ -818,7 +884,7 @@ namespace eka2l1 {
         std::unique_ptr<directory> open_directory(const std::u16string &path, epoc::uid_type type, const std::uint32_t attrib) override {
             std::u16string vir_path = path;
 
-            size_t pos_bs = vir_path.find_last_of(u"\\");
+            size_t pos_bs = vir_path.find_last_of(u'\\');
             size_t pos_fs = vir_path.find_last_of(u"//");
 
             size_t pos_check = std::string::npos;
@@ -888,10 +954,10 @@ namespace eka2l1 {
                 info.size = common::file_size(real_path_utf8);
             }
 
-            /* TODO: Recover this code with new EKA2L1's common code.
-            auto last_mod = fs::last_write_time(*real_path);
-            info.last_write = static_cast<uint64_t>(last_mod.time_since_epoch().count());
-            */
+            info.last_write = common::get_last_modifiy_since_ad(*real_path);
+            if (info.last_write == 0xFFFFFFFFFFFFFFFF) {
+                info.last_write = common::get_current_utc_time_in_microseconds_since_0ad();
+            }
 
             std::string path_utf8 = common::ucs2_to_utf8(path);
 
@@ -936,7 +1002,12 @@ namespace eka2l1 {
                 return nullptr;
             }
 
-            return std::make_unique<physical_file>(path, *real_path, mode);
+            auto result = std::make_unique<physical_file>(path, *real_path, mode);
+            if (!result->is_open()) {
+                return nullptr;
+            }
+
+            return result;
         }
 
         std::int64_t watch_directory(const std::u16string &path, common::directory_watcher_callback callback,
@@ -1053,13 +1124,13 @@ namespace eka2l1 {
         }
 
         std::unique_ptr<file> open_file(const std::u16string &path, const int mode) override {
-            if (mode & WRITE_MODE) {
-                LOG_ERROR(VFS, "Opening a read-only file (ROM + ROFS) with write mode");
+            // Don't bother getting an entry if it's not even available on host
+            if (!exists(path)) {
                 return nullptr;
             }
 
-            // Don't bother getting an entry if it's not even available on host
-            if (!exists(path)) {
+            if (mode & WRITE_MODE) {
+                LOG_TRACE(VFS, "Opening read-only ROM/ROFS file {} with write mode", common::ucs2_to_utf8(path));
                 return nullptr;
             }
 
@@ -1077,7 +1148,7 @@ namespace eka2l1 {
             auto ff = physical_file_system::open_file(new_path, mode);
 
             // Dont change order!
-            if (!entry || ((mode & PREFER_PHYSICAL) && (ff->size() != entry->size))) {
+            if (!entry || ((mode & PREFER_PHYSICAL) && ff && (ff->size() != entry->size))) {
                 return ff;
             }
 
@@ -1103,12 +1174,15 @@ namespace eka2l1 {
             info.size = entry->size;
             info.name = common::ucs2_to_utf8(entry->name);
             info.full_path = common::ucs2_to_utf8(path);
+            info.last_write = rom_cache->header.rom_base == loader::EKA1_ROM_BASE
+                ? rom_cache->header.eka1_diff0.time
+                : rom_cache->header.eka2_diff0.time;
 
             return info;
         }
 
         std::optional<std::u16string> find_entry_with_address(const std::u16string &clue, const address addr) override {
-            std::u16string the_base_path = clue;
+            const std::u16string &the_base_path = clue;
             loader::rom_dir *the_base_dir = &(rom_cache->root.root_dirs[0].dir);
 
             if (!the_base_path.empty()) {
@@ -1169,7 +1243,7 @@ namespace eka2l1 {
     }
 
     /*! \brief Remove the filesystem from the IO system
-    */
+     */
     bool io_system::remove_filesystem(const filesystem_id id) {
         const std::lock_guard<std::mutex> guard(access_lock);
 

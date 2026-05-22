@@ -1,24 +1,24 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drivers/audio/backend/cubeb/stream_cubeb.h>
 #include <drivers/audio/audio.h>
+#include <drivers/audio/backend/cubeb/stream_cubeb.h>
 
 #include <common/algorithm.h>
 #include <common/log.h>
@@ -28,21 +28,23 @@ namespace eka2l1::drivers {
     static long data_callback_redirector(cubeb_stream *stm, void *user,
         const void *input_buffer, void *output_buffer, long nframes) {
         cubeb_audio_stream_base *stream = reinterpret_cast<cubeb_audio_stream_base *>(user);
-        return static_cast<long>(stream->call_callback(input_buffer ? 
-            reinterpret_cast<std::int16_t *>(const_cast<void*>(input_buffer))
-            : reinterpret_cast<std::int16_t *>(output_buffer), nframes));
+        return static_cast<long>(stream->call_callback(input_buffer ? reinterpret_cast<std::int16_t *>(const_cast<void *>(input_buffer))
+                                                                    : reinterpret_cast<std::int16_t *>(output_buffer),
+            nframes));
     }
 
     void state_callback_redirector(cubeb_stream *stream, void *user_data, cubeb_state state) {
     }
 
     cubeb_audio_stream_base::cubeb_audio_stream_base(cubeb *context, const std::uint32_t sample_rate,
-        const std::uint8_t channels, data_callback callback, bool is_recording) 
+        const std::uint8_t channels, data_callback callback, bool is_recording)
         : stream_(nullptr)
         , callback_(callback)
         , idled_frames_(0)
         , internal_channels_(channels)
-        , in_action_(false) {
+        , is_recording_(is_recording)
+        , in_action_(false)
+        , shutting_down_(false) {
         cubeb_stream_params params;
         params.format = CUBEB_SAMPLE_S16LE;
         params.rate = sample_rate;
@@ -76,22 +78,36 @@ namespace eka2l1::drivers {
     }
 
     cubeb_audio_stream_base::~cubeb_audio_stream_base() {
+        close();
+    }
+
+    void cubeb_audio_stream_base::close() {
         if (stream_) {
+            shutting_down_.store(true, std::memory_order_release);
+            stop_impl();
             cubeb_stream_destroy(stream_);
+            stream_ = nullptr;
         }
     }
 
     std::size_t cubeb_audio_stream_base::call_callback(std::int16_t *output_buffer, const long frames) {
-        if (should_stream_idle()) {
-            std::memset(output_buffer, 0, frames * internal_channels_ * sizeof(std::int16_t));
+        if (!in_action_.load(std::memory_order_acquire) || shutting_down_.load(std::memory_order_acquire) || should_stream_idle()) {
+            if (output_buffer && !is_recording_) {
+                std::memset(output_buffer, 0, frames * internal_channels_ * sizeof(std::int16_t));
+            }
+
             idled_frames_ += static_cast<std::uint64_t>(frames);
-  
+
             return static_cast<std::size_t>(frames);
         }
 
         return callback_(output_buffer, frames);
     }
-    
+
+    bool cubeb_audio_stream_base::should_stream_idle() {
+        return true;
+    }
+
     bool cubeb_audio_stream_base::current_frame_position_impl(std::uint64_t *pos) {
         if (cubeb_stream_get_position(stream_, pos) != CUBEB_OK) {
             return false;
@@ -107,12 +123,12 @@ namespace eka2l1::drivers {
     }
 
     bool cubeb_audio_stream_base::start_impl() {
-        if (in_action_) {
+        if (in_action_.load(std::memory_order_acquire)) {
             return true;
         }
 
         if (cubeb_stream_start(stream_) == CUBEB_OK) {
-            in_action_ = true;
+            in_action_.store(true, std::memory_order_release);
             idled_frames_ = 0;
 
             return true;
@@ -122,12 +138,12 @@ namespace eka2l1::drivers {
     }
 
     bool cubeb_audio_stream_base::stop_impl() {
-        if (!in_action_) {
+        if (!in_action_.load(std::memory_order_acquire)) {
             return true;
         }
 
         if (cubeb_stream_stop(stream_) == CUBEB_OK) {
-            in_action_ = false;
+            in_action_.store(false, std::memory_order_release);
             return true;
         }
 
@@ -143,6 +159,7 @@ namespace eka2l1::drivers {
     }
 
     cubeb_audio_output_stream::~cubeb_audio_output_stream() {
+        close();
     }
 
     bool cubeb_audio_output_stream::should_stream_idle() {
@@ -172,7 +189,7 @@ namespace eka2l1::drivers {
     }
 
     bool cubeb_audio_output_stream::is_playing() {
-        return in_action_;
+        return in_action_.load(std::memory_order_acquire);
     }
 
     bool cubeb_audio_output_stream::is_pausing() {
@@ -203,7 +220,7 @@ namespace eka2l1::drivers {
     }
 
     cubeb_audio_input_stream::~cubeb_audio_input_stream() {
-
+        close();
     }
 
     bool cubeb_audio_input_stream::start() {
@@ -215,7 +232,7 @@ namespace eka2l1::drivers {
     }
 
     bool cubeb_audio_input_stream::is_recording() {
-        return in_action_;
+        return in_action_.load(std::memory_order_acquire);
     }
 
     bool cubeb_audio_input_stream::current_frame_position(std::uint64_t *pos) {

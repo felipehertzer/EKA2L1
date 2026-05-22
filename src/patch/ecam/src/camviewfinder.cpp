@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <Log.h>
 #include <camimpl.h>
 #include <dispatch.h>
-#include <Log.h>
 
 #include <fbs.h>
 #include <w32std.h>
@@ -106,7 +106,7 @@ void CCameraViewfinderBitmapObject::StartL(TSize &aSize) {
 }
 
 void CCameraViewfinderBitmapObject::HandleCompleteV1() {
-    MCameraObserver *observer = (MCameraObserver*)iObserver;
+    MCameraObserver *observer = (MCameraObserver *)iObserver;
 
     if (iStatus == KErrNone) {
         TInt imageBufferSize = 0;
@@ -116,7 +116,7 @@ void CCameraViewfinderBitmapObject::HandleCompleteV1() {
             LogOut(KCameraCat, _L("Failed to receive viewfinder frame data (image size can't be get)!"));
         } else {
             iDataBitmap->BeginDataAccess();
-            error = ECamReceiveImage(0, iDispatch, &imageBufferSize, (TUint8*)iDataBitmap->DataAddress(), EImageStackViewfinderFrame);
+            error = ECamReceiveImage(0, iDispatch, &imageBufferSize, (TUint8 *)iDataBitmap->DataAddress(), EImageStackViewfinderFrame);
             iDataBitmap->EndDataAccess();
 
             if (error != KErrNone) {
@@ -129,7 +129,7 @@ void CCameraViewfinderBitmapObject::HandleCompleteV1() {
 }
 
 void CCameraViewfinderBitmapObject::HandleCompleteV2() {
-    MCameraObserver2 *observer = (MCameraObserver2*)iObserver;
+    MCameraObserver2 *observer = (MCameraObserver2 *)iObserver;
     CCameraImageBufferImpl *buffer = NULL;
 
     // Pick a free buffers
@@ -190,32 +190,32 @@ void CCameraViewfinderBitmapObject::DoCancel() {
     ECamStopViewfinder(0, iDispatch);
 }
 
-void CCameraPlugin::StartViewFinderDirectL(RWsSession& aWs,CWsScreenDevice& aScreenDevice,RWindowBase& aWindow,TRect& aScreenRect) {
+void CCameraPlugin::StartViewFinderDirectL(RWsSession &aWs, CWsScreenDevice &aScreenDevice, RWindowBase &aWindow, TRect &aScreenRect) {
     LogOut(KCameraCat, _L("View finder functions are currently unsupported! (called StartViewFinderDirectL)"));
-    //User::Leave(KErrNotSupported);
+    // User::Leave(KErrNotSupported);
 }
 
-void CCameraPlugin::StartViewFinderDirectL(RWsSession& aWs,CWsScreenDevice& aScreenDevice,RWindowBase& aWindow,TRect& aScreenRect,TRect& aClipRect) {
+void CCameraPlugin::StartViewFinderDirectL(RWsSession &aWs, CWsScreenDevice &aScreenDevice, RWindowBase &aWindow, TRect &aScreenRect, TRect &aClipRect) {
     LogOut(KCameraCat, _L("View finder functions are currently unsupported! (called StartViewFinderDirectL with clip rect)"));
-    //User::Leave(KErrNotSupported);
+    // User::Leave(KErrNotSupported);
 }
 
-void CCameraPlugin::StartViewFinderBitmapsL(TSize& aSize) {
+void CCameraPlugin::StartViewFinderBitmapsL(TSize &aSize) {
     iViewfinderBitmapCapture.StartL(aSize);
 }
 
-void CCameraPlugin::StartViewFinderBitmapsL(TSize& aSize,TRect& aClipRect) {
+void CCameraPlugin::StartViewFinderBitmapsL(TSize &aSize, TRect &aClipRect) {
     LogOut(KCameraCat, _L("View finder bitmap with clip functions are currently routed to no clip!"));
     StartViewFinderBitmapsL(aSize);
-    //User::Leave(KErrNotSupported);
+    // User::Leave(KErrNotSupported);
 }
 
-void CCameraPlugin::StartViewFinderL(TFormat aImageFormat,TSize& aSize) {
+void CCameraPlugin::StartViewFinderL(TFormat aImageFormat, TSize &aSize) {
     LogOut(KCameraCat, _L("View finder functions are currently unsupported! (called StartViewFinderL)"));
     User::Leave(KErrNotSupported);
 }
 
-void CCameraPlugin::StartViewFinderL(TFormat aImageFormat,TSize& aSize,TRect& aClipRect) {
+void CCameraPlugin::StartViewFinderL(TFormat aImageFormat, TSize &aSize, TRect &aClipRect) {
     LogOut(KCameraCat, _L("View finder functions are currently unsupported! (called StartViewFinderL)"));
     User::Leave(KErrNotSupported);
 }

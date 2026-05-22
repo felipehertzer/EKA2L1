@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -45,7 +45,7 @@ namespace eka2l1::loader {
 
     bool mbm_file::valid() {
         return header.uids.uid1 == 0x10000041
-			|| (header.uids.uid1 == 0x10000037 && header.uids.uid2 == 0x10000042);
+            || (header.uids.uid1 == 0x10000037 && header.uids.uid2 == 0x10000042);
     }
 
     bool mbm_file::is_header_loaded(const std::size_t index) const {
@@ -328,13 +328,14 @@ namespace eka2l1::loader {
         }
 
         sbm_header &single_bm_header = sbm_headers[index];
-        
+
         std::size_t data_offset = 0;
 
         if (is_rom_version) {
             // They are usually aligned by 4, then data got padded at the end and the size increased
             data_offset = ((index == trailer.sbm_offsets.size() - 1) ? stream->size() : trailer.sbm_offsets[index + 1])
-                 - (single_bm_header.bitmap_size - single_bm_header.header_len) & (~3);
+                    - (single_bm_header.bitmap_size - single_bm_header.header_len)
+                & (~3);
         } else {
             data_offset = trailer.sbm_offsets[index] + single_bm_header.header_len;
         }

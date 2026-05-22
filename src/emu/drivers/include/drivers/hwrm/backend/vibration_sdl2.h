@@ -19,13 +19,13 @@
 
 #pragma once
 
-#include <drivers/hwrm/vibration.h>
 #include <SDL_haptic.h>
+#include <drivers/hwrm/vibration.h>
 #include <vector>
 
 namespace eka2l1::drivers::hwrm {
     class vibrator_sdl2 : public vibrator {
-        std::vector<SDL_Haptic*> haptics_;
+        std::vector<SDL_Haptic *> haptics_;
 
     public:
         explicit vibrator_sdl2();

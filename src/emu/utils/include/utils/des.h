@@ -1,22 +1,22 @@
 /*
-* Copyright (c) 2018 EKA2L1 Team.
-*
-* This file is part of EKA2L1 project
-* (see bentokun.github.com/EKA2L1).
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2018 EKA2L1 Team.
+ *
+ * This file is part of EKA2L1 project
+ * (see bentokun.github.com/EKA2L1).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #pragma once
 
@@ -41,9 +41,9 @@ namespace eka2l1 {
     }
 }
 
-/*! \brief Epoc namespace is the namespace for all morden C++ implementation of 
- *         class/function in Symbian, for EKA1, EKA2 (both ^1, ^3) 
- * 
+/*! \brief Epoc namespace is the namespace for all morden C++ implementation of
+ *         class/function in Symbian, for EKA1, EKA2 (both ^1, ^3)
+ *
  * These can help services implementation or executive calls implementation.
  */
 namespace eka2l1::epoc {
@@ -117,12 +117,12 @@ namespace eka2l1::epoc {
 
         /**
          * \brief Assign data to descriptor.
-         * 
+         *
          * \brief pr   The process which the descriptor belongs.
          * \brief data Raw data to assign to.
          * \brief size Size of binary data in bytes.
-         * 
-         * \returns des_err_not_large_enough_to_hold if the descriptor capacity is too small to 
+         *
+         * \returns des_err_not_large_enough_to_hold if the descriptor capacity is too small to
          *          hold the new data. Else returns 0.
          */
         int assign(eka2l1::kernel::process *pr, const std::uint8_t *data,

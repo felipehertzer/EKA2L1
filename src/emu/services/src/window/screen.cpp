@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,23 +24,38 @@
 #include <services/window/screen.h>
 #include <services/window/window.h>
 
+#include <common/log.h>
 #include <common/rgb.h>
 #include <common/time.h>
 #include <config/app_settings.h>
 #include <drivers/itc.h>
 
+#include <cstdlib>
 #include <kernel/kernel.h>
 #include <kernel/timing.h>
 #include <thread>
 
 namespace eka2l1::epoc {
+    namespace {
+        bool fps_diag_enabled() {
+            static const bool enabled = std::getenv("EKA2L1_FPS_DIAG") != nullptr;
+            return enabled;
+        }
+    }
+
+    static eka2l1::vecx<float, 6> default_screen_clear_color() {
+        return eka2l1::vecx<float, 6>({ 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f });
+    }
+
     struct window_drawer_walker : public window_tree_walker {
         drivers::graphics_command_builder &builder_;
         std::uint32_t total_redrawed_;
+        bool trace_;
 
         explicit window_drawer_walker(drivers::graphics_command_builder &builder)
             : builder_(builder)
-            , total_redrawed_(0) {
+            , total_redrawed_(0)
+            , trace_(std::getenv("EKA2L1_WINDOW_TRACE") != nullptr) {
         }
 
         bool do_it(window *win) {
@@ -48,16 +63,32 @@ namespace eka2l1::epoc {
                 return false;
             }
 
-            epoc::canvas_base *cv = reinterpret_cast<epoc::canvas_base*>(win);
+            epoc::canvas_base *cv = reinterpret_cast<epoc::canvas_base *>(win);
 
-            if (cv->draw(builder_))
+            const bool drawn = cv->draw(builder_);
+            if (trace_) {
+                LOG_INFO(SERVICE_WINDOW,
+                    "Window draw id={} handle={} type={} visible={} region_rects={} abs=({}, {}) {}x{} drawn={}",
+                    cv->id,
+                    cv->get_client_handle(),
+                    static_cast<int>(cv->win_type),
+                    cv->is_visible(),
+                    cv->visible_region.rects_.size(),
+                    cv->abs_rect.top.x,
+                    cv->abs_rect.top.y,
+                    cv->abs_rect.size.x,
+                    cv->abs_rect.size.y,
+                    drawn);
+            }
+
+            if (drawn)
                 total_redrawed_++;
 
             return false;
         }
     };
 
-    struct window_dsa_abort_walker: public window_tree_walker {
+    struct window_dsa_abort_walker : public window_tree_walker {
         std::int32_t reason_;
 
         explicit window_dsa_abort_walker(const std::int32_t reason)
@@ -66,9 +97,9 @@ namespace eka2l1::epoc {
 
         bool do_it(window *win) {
             if (win->type == window_kind::client) {
-                canvas_base *user = reinterpret_cast<canvas_base*>(win);
+                canvas_base *user = reinterpret_cast<canvas_base *>(win);
                 if (user->is_dsa_active()) {
-                    std::vector<dsa*> dsa_residents = user->directs_;
+                    std::vector<dsa *> dsa_residents = user->directs_;
 
                     for (std::size_t i = 0; i < dsa_residents.size(); i++) {
                         dsa_residents[i]->abort(reason_);
@@ -114,6 +145,8 @@ namespace eka2l1::epoc {
         , requested_ui_scale_factor(-1.0f)
         , screen_texture(0)
         , dsa_texture(0)
+        , dsa_texture_size(0, 0)
+        , dsa_texture_bpp(0)
         , disp_mode(display_mode::color16ma)
         , last_vsync(0)
         , last_fps_check(0)
@@ -151,10 +184,14 @@ namespace eka2l1::epoc {
             std::memmove(buffer + (line_count - y - 1) * line_pitch, pitcher, line_pitch);
         }
 
-        delete pitcher;
+        delete[] pitcher;
     }
 
     void screen::sync_screen_buffer_data(drivers::graphics_driver *driver) {
+        if (!driver || !screen_texture || !screen_buffer_chunk) {
+            return;
+        }
+
         std::uint8_t *buffer_ptr = screen_buffer_ptr();
         const config::screen_mode &crrmode = current_mode();
 
@@ -181,8 +218,7 @@ namespace eka2l1::epoc {
         builder.set_feature(eka2l1::drivers::graphics_feature::blend, false);
         builder.set_feature(eka2l1::drivers::graphics_feature::clipping, false);
 
-        builder.clear(eka2l1::vecx<float, 6>({ 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 }), drivers::draw_buffer_bit_depth_buffer
-            | drivers::draw_buffer_bit_stencil_buffer | ((flags_ & FLAG_SERVER_REDRAW_PENDING) ? drivers::draw_buffer_bit_color_buffer : 0));
+        builder.clear(default_screen_clear_color(), drivers::draw_buffer_bit_depth_buffer | drivers::draw_buffer_bit_stencil_buffer);
 
         builder.blend_formula(drivers::blend_equation::add, drivers::blend_equation::add,
             drivers::blend_factor::frag_out_alpha, drivers::blend_factor::one_minus_frag_out_alpha,
@@ -204,19 +240,31 @@ namespace eka2l1::epoc {
     }
 
     void screen::redraw(drivers::graphics_driver *driver) {
+        if (!driver) {
+            return;
+        }
+
         if (!screen_texture) {
             set_screen_mode(nullptr, driver, crr_mode);
+            if (!screen_texture) {
+                return;
+            }
         }
 
         // Make command list first, and bind our screen bitmap
         drivers::graphics_command_builder builder;
         const bool performed = redraw(builder, true);
-    
+
         eka2l1::drivers::command_list retrieved = builder.retrieve_command_list();
         driver->submit_command_list(retrieved);
 
         if (performed && sync_screen_buffer && (display_scale_factor == 1.0f)) {
             sync_screen_buffer_data(driver);
+        }
+
+        if (performed) {
+            diag_normal_redraws.fetch_add(1, std::memory_order_relaxed);
+            record_presented_frame();
         }
 
         fire_screen_redraw_callbacks(false);
@@ -229,10 +277,14 @@ namespace eka2l1::epoc {
 
             if (dsa_texture) {
                 builder.destroy_bitmap(dsa_texture);
+                dsa_texture = 0;
+                dsa_texture_size = eka2l1::vec2(0, 0);
+                dsa_texture_bpp = 0;
             }
 
             if (screen_texture) {
                 builder.destroy_bitmap(screen_texture);
+                screen_texture = 0;
             }
 
             eka2l1::drivers::command_list retrieved = builder.retrieve_command_list();
@@ -250,6 +302,10 @@ namespace eka2l1::epoc {
     }
 
     void screen::resize(drivers::graphics_driver *driver, const eka2l1::vec2 &new_size) {
+        if (!driver) {
+            return;
+        }
+
         // Make command list first, and bind our screen bitmap
         drivers::graphics_command_builder builder;
         bool need_bind = true;
@@ -259,9 +315,17 @@ namespace eka2l1::epoc {
         if (!screen_texture) {
             // Create new one!
             screen_texture = drivers::create_bitmap(driver, screen_size_scaled, 32);
+            if (!screen_texture) {
+                return;
+            }
+
+            builder.bind_bitmap(screen_texture);
+            builder.clear(default_screen_clear_color(), drivers::draw_buffer_bit_depth_buffer | drivers::draw_buffer_bit_stencil_buffer | drivers::draw_buffer_bit_color_buffer);
+            need_bind = false;
         } else {
             builder.bind_bitmap(screen_texture);
             builder.resize_bitmap(screen_texture, screen_size_scaled);
+            builder.clear(default_screen_clear_color(), drivers::draw_buffer_bit_depth_buffer | drivers::draw_buffer_bit_stencil_buffer | drivers::draw_buffer_bit_color_buffer);
 
             need_bind = false;
         }
@@ -481,7 +545,7 @@ namespace eka2l1::epoc {
             if (modeinfo_o && modeinfo_n) {
                 if (modeinfo_o->size != modeinfo_n->size) {
                     abort_all_dsas(dsa_terminate_rotation_change);
-                    
+
                     // Do it right now (when are we gonna redraw again to calculate the visible region clueless)
                     need_update_visible_regions(true);
                     recalculate_visible_regions();
@@ -490,18 +554,34 @@ namespace eka2l1::epoc {
         }
     }
 
-    void screen::vsync(ntimer *timing, std::uint64_t &next_vsync_us) {
+    void screen::query_vsync_delay(std::uint64_t &next_vsync_us) const {
+        next_vsync_us = 0;
+        diag_vsync_queries.fetch_add(1, std::memory_order_relaxed);
+
         const std::uint64_t tnow = common::get_current_utc_time_in_microseconds_since_epoch();
+        const std::uint64_t microsecs_a_frame = 1000000 / std::max<std::uint8_t>(refresh_rate, 1);
 
-        std::uint64_t delta = tnow - last_vsync;
+        if (tnow < last_vsync) {
+            next_vsync_us = last_vsync - tnow;
+            diag_vsync_waits.fetch_add(1, std::memory_order_relaxed);
+            diag_vsync_wait_us.fetch_add(next_vsync_us, std::memory_order_relaxed);
+            return;
+        }
 
-        const std::uint64_t microsecs_a_frame = 1000000 / refresh_rate;
+        const std::uint64_t delta = tnow - last_vsync;
 
         if (delta < microsecs_a_frame) {
             next_vsync_us = microsecs_a_frame - delta;
-        } else {
-            next_vsync_us = 0;
+            diag_vsync_waits.fetch_add(1, std::memory_order_relaxed);
+            diag_vsync_wait_us.fetch_add(next_vsync_us, std::memory_order_relaxed);
         }
+    }
+
+    void screen::record_presented_frame() {
+        diag_presented_frames.fetch_add(1, std::memory_order_relaxed);
+
+        const std::uint64_t tnow = common::get_current_utc_time_in_microseconds_since_epoch();
+        const std::uint64_t microsecs_a_frame = 1000000 / std::max<std::uint8_t>(refresh_rate, 1);
 
         // Skip last vsync to next frame
         last_vsync = ((tnow + microsecs_a_frame - 1) / microsecs_a_frame) * microsecs_a_frame;
@@ -511,10 +591,34 @@ namespace eka2l1::epoc {
             last_fps = frame_passed_per_sec;
             last_fps_check = tnow;
 
+            if (fps_diag_enabled()) {
+                LOG_INFO(SERVICE_WINDOW,
+                    "FPS diag screen={} status_fps={} refresh={} presented={} normal_redraws={} dsa_updates={} canvas_updates={} canvas_sleep_ms={} vsync_queries={} vsync_waits={} vsync_wait_ms={} scheduler_requests={} later_redraws_ignored={}",
+                    number,
+                    last_fps,
+                    refresh_rate,
+                    diag_presented_frames.exchange(0, std::memory_order_relaxed),
+                    diag_normal_redraws.exchange(0, std::memory_order_relaxed),
+                    diag_dsa_updates.exchange(0, std::memory_order_relaxed),
+                    diag_canvas_updates.exchange(0, std::memory_order_relaxed),
+                    diag_canvas_sleep_us.exchange(0, std::memory_order_relaxed) / 1000,
+                    diag_vsync_queries.exchange(0, std::memory_order_relaxed),
+                    diag_vsync_waits.exchange(0, std::memory_order_relaxed),
+                    diag_vsync_wait_us.exchange(0, std::memory_order_relaxed) / 1000,
+                    diag_scheduler_requests.exchange(0, std::memory_order_relaxed),
+                    diag_later_redraws_ignored.exchange(0, std::memory_order_relaxed));
+            }
+
             frame_passed_per_sec = 0;
         }
 
         frame_passed_per_sec++;
+    }
+
+    void screen::vsync(ntimer *timing, std::uint64_t &next_vsync_us) {
+        static_cast<void>(timing);
+        query_vsync_delay(next_vsync_us);
+        record_presented_frame();
     }
 
     const epoc::config::screen_mode *screen::mode_info(const int number) const {
@@ -573,7 +677,7 @@ namespace eka2l1::epoc {
         return reinterpret_cast<std::uint8_t *>(screen_buffer_chunk->host_base()) + sizeof(std::uint16_t) * WORD_PALETTE_ENTRIES_COUNT;
     }
 
-    struct window_visible_region_calc_walker: public window_tree_walker {
+    struct window_visible_region_calc_walker : public window_tree_walker {
         common::region visible_left_region_;
         bool trigger_redraw_;
 
@@ -584,7 +688,7 @@ namespace eka2l1::epoc {
 
         bool do_it(epoc::window *win) override {
             if (win->type == epoc::window_kind::client) {
-                epoc::canvas_base *winuser = reinterpret_cast<epoc::canvas_base*>(win);
+                epoc::canvas_base *winuser = reinterpret_cast<epoc::canvas_base *>(win);
                 common::region previous_region = winuser->visible_region;
 
                 winuser->visible_region.make_empty();
@@ -606,7 +710,7 @@ namespace eka2l1::epoc {
 
                 if (!previous_region.identical(winuser->visible_region)) {
                     if (winuser->is_dsa_active()) {
-                        std::vector<dsa*> dsa_residents = winuser->directs_;
+                        std::vector<dsa *> dsa_residents = winuser->directs_;
 
                         for (std::size_t i = 0; i < dsa_residents.size(); i++) {
                             dsa_residents[i]->visible_region_changed(winuser->visible_region);
@@ -616,7 +720,7 @@ namespace eka2l1::epoc {
                     winuser->report_visiblity_change();
 
                     if (trigger_redraw_) {
-                        winuser->flags |= screen::FLAG_SERVER_REDRAW_PENDING;
+                        winuser->scr->flags_ |= screen::FLAG_SERVER_REDRAW_PENDING;
                     }
                 }
             }
@@ -663,11 +767,15 @@ namespace eka2l1::epoc {
     void screen::try_change_display_rescale(drivers::graphics_driver *driver, const float new_scale_factor) {
         if (new_scale_factor != display_scale_factor) {
             // Resize the screen bitmap
-            if (screen_texture) {
+            if (driver && screen_texture) {
                 eka2l1::vec2 screen_size_scaled = current_mode().size * new_scale_factor;
                 drivers::graphics_command_builder cmd_builder;
 
+                cmd_builder.bind_bitmap(screen_texture);
                 cmd_builder.resize_bitmap(screen_texture, screen_size_scaled);
+                cmd_builder.clear(default_screen_clear_color(), drivers::draw_buffer_bit_depth_buffer | drivers::draw_buffer_bit_stencil_buffer | drivers::draw_buffer_bit_color_buffer);
+                cmd_builder.bind_bitmap(0);
+
                 drivers::command_list retrieved = cmd_builder.retrieve_command_list();
                 driver->submit_command_list(retrieved);
 

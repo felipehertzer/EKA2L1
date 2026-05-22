@@ -1225,8 +1225,8 @@ static struct op fops[] = {
     { vfp_single_fdiv, 0 },
 };
 
-#define FREG_BANK(x) ((x)&0x18)
-#define FREG_IDX(x) ((x)&7)
+#define FREG_BANK(x) ((x) & 0x18)
+#define FREG_IDX(x) ((x) & 7)
 
 std::uint32_t vfp_single_cpdo(ARMul_State *state, std::uint32_t inst, std::uint32_t fpscr) {
     std::uint32_t op = inst & FOP_MASK;
@@ -1266,7 +1266,7 @@ std::uint32_t vfp_single_cpdo(ARMul_State *state, std::uint32_t inst, std::uint3
     if (!fop->fn) {
         LOG_CRITICAL(eka2l1::CPU_DYNCOM, "could not find single op {}, inst=0x{:x}@0x{:x}",
             FEXT_TO_IDX(inst), inst, state->Reg[15]);
-        //Crash();
+        // Crash();
         goto invalid;
     }
 

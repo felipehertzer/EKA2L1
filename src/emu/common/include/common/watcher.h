@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -75,16 +75,16 @@ namespace eka2l1::common {
 
         /**
          * \brief   Watch a directory.
-         * 
+         *
          * Recurisve and non-recursive currently depends on the behaviour of the implementation :(
-         * 
+         *
          * \param   folder                The path to the folder
          * \param   callback              The callback which is invoked on folder changes.
          * \param   callback_userdata     The userdata that will be passed to the callback.
          * \param   filters               Bitmask flags to choose what changes to notify us.
-         * 
+         *
          * \returns Handle to the watch (> 0), else error code.
-         * 
+         *
          * \see     unwatch
          */
         std::int32_t watch(const std::string &folder, directory_watcher_callback callback,
@@ -92,9 +92,9 @@ namespace eka2l1::common {
 
         /**
          * \brief    Unwatch a directory.
-         * 
+         *
          * \param    watch_handle The handle that was returned from calling watch()
-         * 
+         *
          * \returns  True on success.
          */
         bool unwatch(const std::int32_t watch_handle);

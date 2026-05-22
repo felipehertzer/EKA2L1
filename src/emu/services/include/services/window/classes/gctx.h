@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -34,6 +34,7 @@
 
 namespace eka2l1 {
     struct fbsfont;
+    struct fbsbitmap;
 }
 
 namespace eka2l1::epoc {
@@ -76,6 +77,10 @@ namespace eka2l1::epoc {
         common::rgba pen_color;
 
         eka2l1::vec2 pen_size;
+        eka2l1::vec2 brush_origin;
+        eka2l1::fbsbitmap *brush_pattern;
+        epoc::bitwise_bitmap *brush_pattern_bitmap;
+
         eka2l1::rect clipping_rect;
         common::region clipping_region;
 
@@ -89,6 +94,8 @@ namespace eka2l1::epoc {
 
         void reset_context();
         bool no_building() const;
+        void release_brush_pattern();
+        bool draw_pattern_rect(const eka2l1::rect &area);
 
         void do_command_draw_text(service::ipc_context &ctx, eka2l1::vec2 top_left,
             eka2l1::vec2 bottom_right, const std::u16string &text, epoc::text_alignment align,
@@ -110,11 +117,15 @@ namespace eka2l1::epoc {
         void ws_draw_bitmap_masked(service::ipc_context &context, ws_cmd &cmd);
         void set_brush_color(service::ipc_context &context, ws_cmd &cmd);
         void set_brush_style(service::ipc_context &context, ws_cmd &cmd);
+        void set_brush_origin(service::ipc_context &context, ws_cmd &cmd);
+        void use_brush_pattern(service::ipc_context &context, ws_cmd &cmd);
+        void discard_brush_pattern(service::ipc_context &context, ws_cmd &cmd);
         void set_pen_color(service::ipc_context &context, ws_cmd &cmd);
         void set_pen_style(service::ipc_context &context, ws_cmd &cmd);
         void set_pen_size(service::ipc_context &context, ws_cmd &cmd);
         void draw_line(service::ipc_context &context, ws_cmd &cmd);
         void draw_rect(service::ipc_context &context, ws_cmd &cmd);
+        void draw_polygon(service::ipc_context &context, ws_cmd &cmd);
         void clear(service::ipc_context &context, ws_cmd &cmd);
         void clear_rect(service::ipc_context &context, ws_cmd &cmd);
         void draw_text(service::ipc_context &context, ws_cmd &cmd);

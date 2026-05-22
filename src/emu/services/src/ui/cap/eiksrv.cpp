@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -28,8 +28,24 @@
 namespace eka2l1::epoc::cap {
     enum {
         AVKON_INTERNAL_UID = 0x10207218,
-        STATUS_PANE_SYSTEM_DATA_KEY = 0x10000000
+        STATUS_PANE_SYSTEM_DATA_KEY = 0x10000000,
+        STATUS_PANE_SUBSCRIBER_DATA_KEY = 0x10000008,
+        STATUS_PANE_SUBSCRIBER_DATA_SIZE = 452
     };
+
+    static service::property *get_or_create_property(kernel_system *kern, const std::int32_t category, const std::int32_t key) {
+        service::property *prop = kern->get_prop(category, key);
+
+        if (prop) {
+            return prop;
+        }
+
+        prop = kern->create<service::property>();
+        prop->first = category;
+        prop->second = key;
+
+        return prop;
+    }
 
     akn_battery_state::akn_battery_state()
         : strength_(BATTERY_LEVEL_MAX)
@@ -67,11 +83,14 @@ namespace eka2l1::epoc::cap {
 
     eik_status_pane_maintainer::eik_status_pane_maintainer(kernel_system *kern)
         : prop_(nullptr) {
-        prop_ = kern->create<service::property>();
+        prop_ = get_or_create_property(kern, AVKON_INTERNAL_UID, STATUS_PANE_SYSTEM_DATA_KEY);
         prop_->define(service::property_type::bin_data, sizeof(akn_status_pane_data));
 
-        prop_->first = AVKON_INTERNAL_UID;
-        prop_->second = STATUS_PANE_SYSTEM_DATA_KEY;
+        service::property *subscriber_prop = get_or_create_property(kern, AVKON_INTERNAL_UID, STATUS_PANE_SUBSCRIBER_DATA_KEY);
+        subscriber_prop->define(service::property_type::bin_data, STATUS_PANE_SUBSCRIBER_DATA_SIZE);
+
+        std::array<std::uint8_t, STATUS_PANE_SUBSCRIBER_DATA_SIZE> empty_subscriber_data{};
+        subscriber_prop->set(empty_subscriber_data.data(), static_cast<std::uint32_t>(empty_subscriber_data.size()));
 
         service::property *another_prop = kern->get_prop(epoc::hwrm::power::STATE_UID,
             epoc::hwrm::power::BATTERY_LEVEL_KEY);

@@ -17,14 +17,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "emulator_camera_jni.h"
 #include <drivers/camera/backend/android/camera_android.h>
 #include <drivers/camera/backend/android/camera_collection_android.h>
-#include "emulator_camera_jni.h"
 
 #include <common/log.h>
 
 namespace eka2l1::drivers::camera {
-#define CHECK_IF_RESERVED(action_on_fail) if (managed_handle_ < 0) { LOG_ERROR(DRIVER_CAM, "Camera instance is not reserved!"); action_on_fail; }
+#define CHECK_IF_RESERVED(action_on_fail)                          \
+    if (managed_handle_ < 0) {                                     \
+        LOG_ERROR(DRIVER_CAM, "Camera instance is not reserved!"); \
+        action_on_fail;                                            \
+    }
 
     instance_android::instance_android(collection_android *collection, const int index)
         : collection_(collection)
@@ -51,20 +55,20 @@ namespace eka2l1::drivers::camera {
         CHECK_IF_RESERVED(return false);
 
         switch (key) {
-            case PARAMETER_KEY_FLASH:
-                return android::emulator_camera_set_flash_mode(managed_handle_, static_cast<int>(value));
+        case PARAMETER_KEY_FLASH:
+            return android::emulator_camera_set_flash_mode(managed_handle_, static_cast<int>(value));
 
-            case PARAMETER_KEY_EXPOSURE:
-                stub_exposure_ = value;
-                return true;
+        case PARAMETER_KEY_EXPOSURE:
+            stub_exposure_ = value;
+            return true;
 
-            case PARAMETER_KEY_DIGITAL_ZOOM:
-                stub_digital_zoom_ = value;
-                return true;
+        case PARAMETER_KEY_DIGITAL_ZOOM:
+            stub_digital_zoom_ = value;
+            return true;
 
-            default:
-                LOG_WARN(DRIVER_CAM, "Unsupported parameter key {} to set value", static_cast<int>(key));
-                break;
+        default:
+            LOG_WARN(DRIVER_CAM, "Unsupported parameter key {} to set value", static_cast<int>(key));
+            break;
         }
 
         return false;
@@ -74,21 +78,21 @@ namespace eka2l1::drivers::camera {
         CHECK_IF_RESERVED(return false);
 
         switch (key) {
-            case PARAMETER_KEY_FLASH:
-                value = static_cast<std::uint32_t>(android::emulator_camera_get_flash_mode(managed_handle_));
-                break;
+        case PARAMETER_KEY_FLASH:
+            value = static_cast<std::uint32_t>(android::emulator_camera_get_flash_mode(managed_handle_));
+            break;
 
-            case PARAMETER_KEY_EXPOSURE:
-                value = stub_exposure_;
-                break;
+        case PARAMETER_KEY_EXPOSURE:
+            value = stub_exposure_;
+            break;
 
-            case PARAMETER_KEY_DIGITAL_ZOOM:
-                value = stub_digital_zoom_;
-                break;
+        case PARAMETER_KEY_DIGITAL_ZOOM:
+            value = stub_digital_zoom_;
+            break;
 
-            default:
-                LOG_WARN(DRIVER_CAM, "Unsupported parameter key {} to get value", static_cast<int>(key));
-                return false;
+        default:
+            LOG_WARN(DRIVER_CAM, "Unsupported parameter key {} to get value", static_cast<int>(key));
+            return false;
         }
 
         return true;
@@ -133,25 +137,24 @@ namespace eka2l1::drivers::camera {
 
     info instance_android::get_info() {
         info result;
-        result.camera_direction_ = android::emulator_camera_is_facing_front(managed_handle_) ?
-                DIRECTION_FRONT : DIRECTION_BACK;
+        result.camera_direction_ = android::emulator_camera_is_facing_front(managed_handle_) ? DIRECTION_FRONT : DIRECTION_BACK;
         result.num_image_sizes_supported_ = static_cast<std::int32_t>(
-                android::emulator_camera_get_output_image_sizes(managed_handle_).size());
+            android::emulator_camera_get_output_image_sizes(managed_handle_).size());
         result.flash_modes_supported_ = FLASH_MODE_OFF | FLASH_MODE_AUTO | FLASH_MODE_FORCED | FLASH_MODE_VIDEO_LIGHT;
         result.options_supported_ = CAPTURE_OPTION_ALL;
         result.supported_image_formats_ = 0;
 
         std::vector<int> supported_frame_formats = android::emulator_camera_get_supported_image_output_formats();
         for (std::size_t i = 0; i < supported_frame_formats.size(); i++) {
-            result.supported_image_formats_ |= *reinterpret_cast<std::uint32_t*>(&supported_frame_formats[i]);
+            result.supported_image_formats_ |= *reinterpret_cast<std::uint32_t *>(&supported_frame_formats[i]);
         }
 
         return result;
     }
 
     void instance_android::receive_viewfinder_feed(const eka2l1::vec2 &size, const frame_format format,
-         camera_wants_new_frame_callback new_frame_needed_callback,
-         camera_capture_image_done_callback new_frame_come_callback) {
+        camera_wants_new_frame_callback new_frame_needed_callback,
+        camera_capture_image_done_callback new_frame_come_callback) {
         {
             const std::lock_guard<std::mutex> guard(collection_->reserve_lock_);
             if (collection_->current_reserved_[index_] != this) {
@@ -175,7 +178,7 @@ namespace eka2l1::drivers::camera {
         wants_new_frame_callback_ = new_frame_needed_callback;
 
         if (!android::emulator_camera_receive_viewfinder_feed(managed_handle_, size.x, size.y,
-            static_cast<int>(format))) {
+                static_cast<int>(format))) {
             LOG_ERROR(DRIVER_CAM, "Unable to request image capture!");
             active_frame_viewfinder_callback_(nullptr, 0, -1);
             active_frame_viewfinder_callback_ = nullptr;
@@ -200,7 +203,7 @@ namespace eka2l1::drivers::camera {
     }
 
     void instance_android::capture_image(const std::uint32_t resolution_index, const frame_format format,
-                       camera_capture_image_done_callback callback) {
+        camera_capture_image_done_callback callback) {
         if (!callback) {
             LOG_ERROR(DRIVER_CAM, "No capture image callback provided. Skipping image capture!");
             return;
@@ -224,7 +227,7 @@ namespace eka2l1::drivers::camera {
         active_capture_img_callback_ = callback;
 
         if (!android::emulator_camera_capture_image(managed_handle_, static_cast<int>(resolution_index),
-                                                    static_cast<int>(format))) {
+                static_cast<int>(format))) {
             LOG_ERROR(DRIVER_CAM, "Unable to request image capture!");
             callback(nullptr, 0, -1);
 

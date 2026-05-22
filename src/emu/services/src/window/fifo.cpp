@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -27,6 +27,32 @@
 #include <cassert>
 
 namespace eka2l1::epoc {
+    static bool is_key_up_down_event(const epoc::event_code evt) {
+        return (evt == epoc::event_code::key_down) || (evt == epoc::event_code::key_up);
+    }
+
+    static epoc::event_code matching_key_up_down_event(const epoc::event_code evt) {
+        return (evt == epoc::event_code::key_down) ? epoc::event_code::key_up : epoc::event_code::key_down;
+    }
+
+    static bool is_same_key(const epoc::event &lhs, const epoc::event &rhs) {
+        return (lhs.handle == rhs.handle) && (lhs.key_evt_.scancode == rhs.key_evt_.scancode)
+            && (lhs.key_evt_.code == rhs.key_evt_.code);
+    }
+
+    static bool is_pointer_up_down_pair(const epoc::event_type lhs, const epoc::event_type rhs) {
+        return ((lhs == epoc::event_type::button1down) && (rhs == epoc::event_type::button1up))
+            || ((lhs == epoc::event_type::button1up) && (rhs == epoc::event_type::button1down))
+            || ((lhs == epoc::event_type::button2down) && (rhs == epoc::event_type::button2up))
+            || ((lhs == epoc::event_type::button2up) && (rhs == epoc::event_type::button2down))
+            || ((lhs == epoc::event_type::button3down) && (rhs == epoc::event_type::button3up))
+            || ((lhs == epoc::event_type::button3up) && (rhs == epoc::event_type::button3down));
+    }
+
+    static bool is_same_pointer(const epoc::event &lhs, const epoc::event &rhs) {
+        return (lhs.handle == rhs.handle) && (lhs.adv_pointer_evt_.ptr_num == rhs.adv_pointer_evt_.ptr_num);
+    }
+
     bool event_fifo::is_my_priority_really_high(epoc::event_code evt) {
         switch (evt) {
         case event_code::switch_off:
@@ -46,16 +72,16 @@ namespace eka2l1::epoc {
             do_purge();
         }
 
-        if ((evt.type == epoc::event_code::touch) && ((evt.adv_pointer_evt_.evtype == epoc::event_type::drag) ||
-            (evt.adv_pointer_evt_.evtype == epoc::event_type::move))) {
+        if ((evt.type == epoc::event_code::touch) && ((evt.adv_pointer_evt_.evtype == epoc::event_type::drag) || (evt.adv_pointer_evt_.evtype == epoc::event_type::move))) {
             if (!q_.empty()) {
                 epoc::event &evt_last = q_.back().evt;
-                
+
                 // Same delivery
                 if ((evt_last.handle == evt.handle) && (evt_last.type == evt.type) && (evt_last.adv_pointer_evt_.evtype == evt.adv_pointer_evt_.evtype)
                     && (evt_last.adv_pointer_evt_.ptr_num == evt.adv_pointer_evt_.ptr_num)) {
                     evt_last = evt;
-                    return static_cast<std::uint32_t>(q_.size());;
+                    return static_cast<std::uint32_t>(q_.size());
+                    ;
                 }
             }
         }
@@ -76,24 +102,62 @@ namespace eka2l1::epoc {
     // Lone pointer ups
     // Lone focus lost/gain
     void event_fifo::do_purge() {
-        for (size_t i = 0; i < q_.size(); i++) {
+        const std::size_t original_size = q_.size();
+
+        for (size_t i = 0; i < q_.size();) {
             switch (q_[i].evt.type) {
             case epoc::event_code::event_password:
+            case epoc::event_code::switch_off:
                 break;
 
             case epoc::event_code::null:
             case epoc::event_code::key:
+            case epoc::event_code::modifier_change:
             case epoc::event_code::touch_enter:
             case epoc::event_code::touch_exit: {
                 q_.erase(q_.begin() + i);
+                continue;
+            }
+
+            case epoc::event_code::key_down:
+            case epoc::event_code::key_up: {
+                const epoc::event &key_evt = q_[i].evt;
+                const epoc::event_code matching_type = matching_key_up_down_event(key_evt.type);
+                auto matching = std::find_if(q_.begin() + i + 1, q_.end(),
+                    [&](const fifo_element &elem) {
+                        return (elem.evt.type == matching_type) && is_same_key(key_evt, elem.evt);
+                    });
+
+                if (matching != q_.end()) {
+                    q_.erase(matching);
+                    q_.erase(q_.begin() + i);
+                    continue;
+                }
+
                 break;
             }
 
             case epoc::event_code::touch: {
-                // TODO: implement logics in
-                // https://github.com/SymbianSource/oss.FCL.sf.os.graphics/blob/ff133bc50e6158bfb08cc093b0f0055321dcde99/windowing/windowserver/nga/SERVER/EVQUEUE.CPP#L630
-                // just purge it right now
-                q_.erase(q_.begin() + i);
+                const epoc::event &touch_evt = q_[i].evt;
+                auto matching = std::find_if(q_.begin() + i + 1, q_.end(),
+                    [&](const fifo_element &elem) {
+                        return (elem.evt.type == epoc::event_code::touch)
+                            && is_same_pointer(touch_evt, elem.evt)
+                            && is_pointer_up_down_pair(touch_evt.adv_pointer_evt_.evtype, elem.evt.adv_pointer_evt_.evtype);
+                    });
+
+                if (matching != q_.end()) {
+                    q_.erase(matching);
+                    q_.erase(q_.begin() + i);
+                    continue;
+                }
+
+                if ((touch_evt.adv_pointer_evt_.evtype == epoc::event_type::drag)
+                    || (touch_evt.adv_pointer_evt_.evtype == epoc::event_type::move)) {
+                    q_.erase(q_.begin() + i);
+                    continue;
+                }
+
                 break;
             }
 
@@ -102,6 +166,7 @@ namespace eka2l1::epoc {
                 if ((i + 1 < q_.size()) && ((q_[i + 1].evt.type == epoc::event_code::focus_gained) || (q_[i + 1].evt.type == epoc::event_code::focus_lost))) {
                     q_.erase(q_.begin() + i + 1);
                     q_.erase(q_.begin() + i);
+                    continue;
                 }
 
                 break;
@@ -110,17 +175,31 @@ namespace eka2l1::epoc {
             case epoc::event_code::switch_on: {
                 if (i + 1 < q_.size() && (q_[i + 1].evt.type == epoc::event_code::switch_on)) {
                     q_.erase(q_.begin() + i);
-                    break;
+                    continue;
                 }
-            }
-
-            default: {
-                LOG_ERROR(SERVICE_WINDOW, "Unhandled purge of event type: {}", static_cast<int>(q_[i].evt.type));
-                assert(false);
 
                 break;
             }
+
+            default: {
+                break;
             }
+            }
+
+            i++;
+        }
+
+        for (size_t i = 0; (q_.size() >= maximum_element) && (i < q_.size());) {
+            if (is_key_up_down_event(q_[i].evt.type)) {
+                q_.erase(q_.begin() + i);
+                continue;
+            }
+
+            i++;
+        }
+
+        if (q_.size() != original_size) {
+            LOG_TRACE(SERVICE_WINDOW, "Purged {} stale window events from FIFO", original_size - q_.size());
         }
     }
 

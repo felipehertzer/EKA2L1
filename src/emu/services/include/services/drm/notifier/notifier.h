@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -68,9 +68,9 @@ namespace eka2l1 {
 
         /**
          * @brief       Release a message from a session.
-         * 
+         *
          * This deref the message. If the reference count is 0 this message will be removed from the storage.
-         * 
+         *
          * @param       msg     The message to be released.
          * @returns     True on success.
          */
@@ -90,10 +90,10 @@ namespace eka2l1 {
     protected:
         /**
          * @brief       Check if this event message can be accepted to this session.
-         * 
+         *
          * A message can be accepted when its type and content ID is registered to be accepted in the session
          * before.
-         * 
+         *
          * @param       msg         Message to check.
          * @returns     True if this session accepts the message.
          */
@@ -107,13 +107,13 @@ namespace eka2l1 {
 
         /**
          * @brief  Listen to incoming DRM events.
-         * 
+         *
          * A session can only listen once a time. If a listen is pending, this function will not succeed.
-         * 
+         *
          * @param   info                    The notify info to be listened.
          * @param   data_to_write           On notify, the event data is written to this descriptor.
          * @param   event_type_to_write     On notify, the event type is written to this descriptor.
-         * 
+         *
          * @returns True on success.
          */
         bool listen(epoc::notify_info &info, std::uint8_t *data_to_write, epoc::des8 *event_type_to_write);
@@ -134,9 +134,9 @@ namespace eka2l1 {
 
         /**
          * @param       Try to receive a DRM event from the server.
-         * 
+         *
          * This message can only be received if its type is registered beforehand.
-         * 
+         *
          * @param       msg     Message to be received.
          * @returns     True on success.
          */
@@ -144,20 +144,20 @@ namespace eka2l1 {
 
         /**
          * @brief       Register DRM event to be accepted to notify.
-         * 
+         *
          * @param       type            The type of the event.
          * @param       uri             The content ID of the event.
-         * 
+         *
          * @returns     True on success.
          */
         bool register_event(const std::uint32_t type, const std::string uri);
 
         /**
          * @brief       Unegister DRM event to be accepted to notify.
-         * 
+         *
          * @param       type            The type of the event.
          * @param       uri             The content ID of the event.
-         * 
+         *
          * @returns     True on success.
          */
         bool unregister_event(const std::uint32_t type, const std::string uri);

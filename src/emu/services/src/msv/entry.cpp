@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <common/chunkyseri.h>
+#include <common/cvt.h>
 #include <common/log.h>
 #include <common/path.h>
 #include <common/time.h>
-#include <common/cvt.h>
 
 #include <loader/rsc.h>
 #include <services/msv/common.h>
@@ -37,7 +37,7 @@
 #include <fmt/xchar.h>
 
 namespace eka2l1::epoc::msv {
-    entry_indexer::entry_indexer(io_system *io, const std::u16string &msg_folder, const language preferred_lang)
+    entry_indexer::entry_indexer(io_system *io, const std::u16string &msg_folder, const ::language preferred_lang)
         : io_(io)
         , rom_drv_(drive_z)
         , preferred_lang_(preferred_lang)
@@ -52,7 +52,7 @@ namespace eka2l1::epoc::msv {
                 break;
             }
         }
-        
+
         root_entry_.id_ = MSV_ROOT_ID_VALUE;
         root_entry_.mtm_uid_ = MTM_SERVICE_UID_ROOT;
         root_entry_.type_uid_ = MTM_SERVICE_UID_ROOT;
@@ -115,11 +115,11 @@ namespace eka2l1::epoc::msv {
 
         const std::u16string file_path = eka2l1::add_path(msg_dir_, get_folder_name(owning_service, MSV_FOLDER_TYPE_SERVICE));
         const std::u16string hiearchy_folder = eka2l1::add_path(file_path, fmt::format(u"\\{:X}\\", id & 0xF));
-        
+
         if (!io_->exist(hiearchy_folder)) {
             io_->create_directories(hiearchy_folder);
         }
-        
+
         return hiearchy_folder;
     }
 
@@ -135,7 +135,7 @@ namespace eka2l1::epoc::msv {
         if (!base.has_value()) {
             return base;
         }
-        
+
         return eka2l1::add_path(base.value(), fmt::format(u"{:08X}", ent->id_));
     }
 
@@ -236,7 +236,7 @@ namespace eka2l1::epoc::msv {
 
         return true;
     }
-    
+
     entry *entry_indexer::add_entry(entry &ent) {
         // Provide that the proper visible folder has been found
         common::double_linked_queue_element *first = folders_.first();
@@ -267,7 +267,7 @@ namespace eka2l1::epoc::msv {
 
         return fin;
     }
-    
+
     entry *entry_indexer::get_entry(const std::uint32_t id) {
         if (id == MSV_ROOT_ID_VALUE) {
             return &root_entry_;
@@ -303,20 +303,21 @@ namespace eka2l1::epoc::msv {
         // want to relocate entry that is currently in this visible folder, so its ok
         if (ent->children_looked_up()) {
             epoc::msv::visible_folder_children_query_error err;
-            std::vector<entry*> childs = folder->get_children_by_parent(ent->id_, &err);
+            std::vector<entry *> childs = folder->get_children_by_parent(ent->id_, &err);
 
             if (err == epoc::msv::visible_folder_children_query_ok) {
-                for (auto child: childs) {
+                for (auto child : childs) {
                     epoc::msv::entry copy = *child;
                     copy.visible_id_ = new_folder_id;
+                    const auto copy_id = copy.id_;
 
                     entries.push_back(std::move(copy));
-                    grab_children_copy_relocated_ignorance_way(folder, copy.id_, new_folder_id, entries);
+                    grab_children_copy_relocated_ignorance_way(folder, copy_id, new_folder_id, entries);
                 }
             }
         }
     }
- 
+
     bool entry_indexer::change_entry(entry &ent) {
         common::double_linked_queue_element *first = folders_.first();
         common::double_linked_queue_element *end = folders_.end();
@@ -339,7 +340,7 @@ namespace eka2l1::epoc::msv {
                 } else {
                     decent_copy = *result;
                     to_cop = &decent_copy;
-                    
+
                     relocate_folder = ent.visible_id_;
 
                     // Grab any recursive children of this entry from this visible folder for relocation
@@ -458,17 +459,17 @@ namespace eka2l1::epoc::msv {
 
                     children_ids.insert(children_ids.begin(), parent_entry->children_ids_.begin(), parent_entry->children_ids_.end());
                 } else {
-                    std::vector<entry*> ents = folder->get_children_by_parent(parent_id, &error);
+                    std::vector<entry *> ents = folder->get_children_by_parent(parent_id, &error);
 
                     if (error != epoc::msv::visible_folder_children_query_ok) {
                         return false;
                     }
 
-                    for (auto ent: ents) {
+                    for (auto ent : ents) {
                         children_ids.push_back(ent->id_);
                     }
                 }
-                
+
                 return true;
             }
 
@@ -503,11 +504,11 @@ namespace eka2l1::epoc::msv {
             visible_folder *folder = E_LOFF(first, visible_folder, indexer_link_);
             if (folder->id() == ent->visible_id_) {
                 grab_children_copy_relocated_ignorance_way(folder, ent->id_, new_folder, need_relocate);
-        
+
                 for (std::size_t i = 0; i < need_relocate.size(); i++) {
                     folder->remove_entry(need_relocate[i].id_);
                 }
-                
+
                 break;
             }
 
@@ -538,7 +539,7 @@ namespace eka2l1::epoc::msv {
         return true;
     }
 
-    sql_entry_indexer::sql_entry_indexer(io_system *io, const std::u16string &msg_folder, const language preferred_lang)
+    sql_entry_indexer::sql_entry_indexer(io_system *io, const std::u16string &msg_folder, const ::language preferred_lang)
         : entry_indexer(io, msg_folder, preferred_lang)
         , database_(nullptr)
         , create_entry_stmt_(nullptr)
@@ -594,7 +595,7 @@ namespace eka2l1::epoc::msv {
     }
 
     static constexpr std::uint32_t MSV_SQL_DATABASE_VERSION = 2;
-    
+
     bool sql_entry_indexer::load_or_create_databases(bool &newly_created) {
         newly_created = false;
 
@@ -617,27 +618,27 @@ namespace eka2l1::epoc::msv {
 
         // Create some fundamental tables to store our msg entries
         const char *INDEX_ENTRY_TABLE_CREATE_STM = "CREATE TABLE IF NOT EXISTS IndexEntry("
-            "id INTEGER,"
-            "parentId INTEGER,"
-            "serviceId INTEGER,"
-            "mtmId INTEGER,"
-            "type INTEGER,"
-            "date INTEGER,"
-            "data INTEGER,"
-            "size INTEGER,"
-            "error INTEGER,"
-            "mtmData1 INTEGER,"
-            "mtmData2 INTEGER,"
-            "mtmData3 INTEGER,"
-            "relatedId INTEGER,"
-            "bioType INTEGER,"
-            "pcSyncCount INTEGER,"
-            "reserved INTEGER,"
-            "visibleParent INTEGER,"
-            "description TEXT,"
-            "details TEXT,"
-            "PRIMARY KEY (id)"
-            ");";
+                                                   "id INTEGER,"
+                                                   "parentId INTEGER,"
+                                                   "serviceId INTEGER,"
+                                                   "mtmId INTEGER,"
+                                                   "type INTEGER,"
+                                                   "date INTEGER,"
+                                                   "data INTEGER,"
+                                                   "size INTEGER,"
+                                                   "error INTEGER,"
+                                                   "mtmData1 INTEGER,"
+                                                   "mtmData2 INTEGER,"
+                                                   "mtmData3 INTEGER,"
+                                                   "relatedId INTEGER,"
+                                                   "bioType INTEGER,"
+                                                   "pcSyncCount INTEGER,"
+                                                   "reserved INTEGER,"
+                                                   "visibleParent INTEGER,"
+                                                   "description TEXT,"
+                                                   "details TEXT,"
+                                                   "PRIMARY KEY (id)"
+                                                   ");";
 
         if (sqlite3_exec(database_, INDEX_ENTRY_TABLE_CREATE_STM, nullptr, nullptr, nullptr) != SQLITE_OK) {
             LOG_ERROR(SERVICE_MSV, "Fail to create index entry table!");
@@ -647,7 +648,7 @@ namespace eka2l1::epoc::msv {
         // Follow Symbian footsteps, since there are opcodes which lurk up entries with specific parent id,
         // create an index for it
         const char *INDEX_ENTRY_CREATE_PARENT_ID_INDEX_STM = "CREATE INDEX IF NOT EXISTS IndexEntry_ParentIndex ON IndexEntry(parentId);";
-        
+
         if (sqlite3_exec(database_, INDEX_ENTRY_CREATE_PARENT_ID_INDEX_STM, nullptr, nullptr, nullptr) != SQLITE_OK) {
             LOG_WARN(SERVICE_MSV, "Fail to create index entry's parent indexing!");
         }
@@ -668,7 +669,7 @@ namespace eka2l1::epoc::msv {
         // Get the ID counter starting value. This is ID of last entry added
         const char *MAX_ID_GET_STM = "SELECT MAX(id) FROM IndexEntry;";
         sqlite3_stmt *max_id_get_stmt_obj = nullptr;
-        
+
         if (sqlite3_prepare(database_, MAX_ID_GET_STM, -1, &max_id_get_stmt_obj, nullptr) == SQLITE_OK) {
             const int res = sqlite3_step(max_id_get_stmt_obj);
             if ((res == SQLITE_ROW) || (res == SQLITE_DONE)) {
@@ -683,7 +684,7 @@ namespace eka2l1::epoc::msv {
 
         return true;
     }
-    
+
     msv_id sql_entry_indexer::get_suitable_visible_parent_id(const msv_id parent_id) {
         // Try to find the parent entry in cache first
         entry *parent_ent = entry_indexer::get_entry(parent_id);
@@ -735,26 +736,26 @@ namespace eka2l1::epoc::msv {
         if (is_add) {
             if (!create_entry_stmt_) {
                 const char *CREATE_ENTRY_STMT_STRING = "INSERT INTO IndexEntry VALUES("
-                    ":id, :parentId, :serviceId, :mtmId, :type, :date, :data, :size, :error, :mtmData1,"
-                    ":mtmData2, :mtmData3, :relatedId, :bioType, :pcSyncCount, :reserved, :visibleParent,"
-                    ":description, :details)";
+                                                       ":id, :parentId, :serviceId, :mtmId, :type, :date, :data, :size, :error, :mtmData1,"
+                                                       ":mtmData2, :mtmData3, :relatedId, :bioType, :pcSyncCount, :reserved, :visibleParent,"
+                                                       ":description, :details)";
 
                 if (sqlite3_prepare(database_, CREATE_ENTRY_STMT_STRING, -1, &create_entry_stmt_, nullptr) != SQLITE_OK) {
                     LOG_ERROR(SERVICE_MSV, "Unable to prepare index entry insert statement!");
                     return false;
                 }
             }
-            
+
             target_stmt = create_entry_stmt_;
         }
 
         if (!is_add) {
             if (!change_entry_stmt_) {
                 const char *MODIFY_ENTRY_STMT_STRING = "UPDATE IndexEntry SET "
-                    "parentId=:parentId, serviceId=:serviceId, mtmId=:mtmId, type=:type, date=:date, data=:data,"
-                    "size=:size, error=:error, mtmData1=:mtmData1, mtmData2=:mtmData2, mtmData3=:mtmData3, relatedId=:relatedId,"
-                    "bioType=:bioType, pcSyncCount=:pcSyncCount, reserved=:reserved, visibleParent=:visibleParent, description=:description, details=:details "
-                    "WHERE id=:id";
+                                                       "parentId=:parentId, serviceId=:serviceId, mtmId=:mtmId, type=:type, date=:date, data=:data,"
+                                                       "size=:size, error=:error, mtmData1=:mtmData1, mtmData2=:mtmData2, mtmData3=:mtmData3, relatedId=:relatedId,"
+                                                       "bioType=:bioType, pcSyncCount=:pcSyncCount, reserved=:reserved, visibleParent=:visibleParent, description=:description, details=:details "
+                                                       "WHERE id=:id";
 
                 if (sqlite3_prepare(database_, MODIFY_ENTRY_STMT_STRING, -1, &change_entry_stmt_, nullptr) != SQLITE_OK) {
                     LOG_ERROR(SERVICE_MSV, "Unable to prepare index entry modify statement!");
@@ -790,7 +791,7 @@ namespace eka2l1::epoc::msv {
 
         entry *ccent = get_entry(ent.id_);
         msv_id old_visible_id = 0;
-        
+
         if (ccent) {
             old_visible_id = ccent->visible_id_;
         }
@@ -880,7 +881,7 @@ namespace eka2l1::epoc::msv {
 
         return entry_indexer::change_entry(ent);
     }
-    
+
     void sql_entry_indexer::change_all_children_to_new_folder(const std::uint32_t visible_folder, const std::uint32_t parent_id, const std::uint32_t new_folder) {
         // Need to apply this changes to the children too
         // CTE seems to be limited to max 16bit, assume we don't spam thousand of messages
@@ -941,8 +942,8 @@ namespace eka2l1::epoc::msv {
         the_entry.pc_sync_count_ = static_cast<std::int32_t>(sqlite3_column_int(stmt, 13));
         the_entry.reserved_ = static_cast<std::uint32_t>(sqlite3_column_int(stmt, 14));
         the_entry.visible_id_ = static_cast<std::uint32_t>(sqlite3_column_int(stmt, 15));
-        the_entry.description_ = std::u16string(reinterpret_cast<const char16_t*>(sqlite3_column_text16(stmt, 16)));
-        the_entry.details_ = std::u16string(reinterpret_cast<const char16_t*>(sqlite3_column_text16(stmt, 17)));
+        the_entry.description_ = std::u16string(reinterpret_cast<const char16_t *>(sqlite3_column_text16(stmt, 16)));
+        the_entry.details_ = std::u16string(reinterpret_cast<const char16_t *>(sqlite3_column_text16(stmt, 17)));
 
         if (have_extra_id) {
             the_entry.id_ = static_cast<std::uint32_t>(sqlite3_column_int(stmt, 18));
@@ -956,8 +957,8 @@ namespace eka2l1::epoc::msv {
             // This time try to look in the database, see what can we gather
             if (!find_entry_stmt_) {
                 static const char *FIND_ENTRY_STR_STM = "SELECT parentId, serviceId, mtmId, type, date, data, size, error, mtmData1,"
-                    "mtmData2, mtmData3, relatedId, bioType, pcSyncCount, reserved, visibleParent,"
-                    "description, details from IndexEntry WHERE id=:id";
+                                                        "mtmData2, mtmData3, relatedId, bioType, pcSyncCount, reserved, visibleParent,"
+                                                        "description, details from IndexEntry WHERE id=:id";
 
                 if (sqlite3_prepare(database_, FIND_ENTRY_STR_STM, -1, &find_entry_stmt_, nullptr) != SQLITE_OK) {
                     LOG_ERROR(SERVICE_MSV, "Unable to prepare find entry statement!");
@@ -980,7 +981,7 @@ namespace eka2l1::epoc::msv {
             // There should be no possbility of duplicated entries. But in case, only take the first one
             entry the_entry;
             the_entry.id_ = id;
-            
+
             fill_entry_information(the_entry, find_entry_stmt_);
 
             // Add to cache and receive the temporary pointer to it.
@@ -993,8 +994,8 @@ namespace eka2l1::epoc::msv {
     bool sql_entry_indexer::collect_children_entries(const msv_id parent_id, std::vector<entry> &entries) {
         if (!query_child_entries_stmt_) {
             static const char *QUERY_CHILD_ENTRIES_STM_STR = "SELECT parentId, serviceId, mtmId, type, date, data, size, error, mtmData1,"
-                    "mtmData2, mtmData3, relatedId, bioType, pcSyncCount, reserved, visibleParent,"
-                    "description, details, id from IndexEntry WHERE parentId=:parent_id";
+                                                             "mtmData2, mtmData3, relatedId, bioType, pcSyncCount, reserved, visibleParent,"
+                                                             "description, details, id from IndexEntry WHERE parentId=:parent_id";
 
             if (sqlite3_prepare(database_, QUERY_CHILD_ENTRIES_STM_STR, -1, &query_child_entries_stmt_, nullptr) != SQLITE_OK) {
                 LOG_ERROR(SERVICE_MSV, "Can't prepare collect children IDs statement!");
@@ -1034,11 +1035,11 @@ namespace eka2l1::epoc::msv {
 
     std::vector<entry *> sql_entry_indexer::get_entries_by_parent(const std::uint32_t parent_id) {
         visible_folder_children_query_error error = visible_folder_children_query_ok;
-        std::vector<entry*> entries;
+        std::vector<entry *> entries;
 
         // Find the visible folder that parent stays in, if not complete, do db queries...
         msv_id visible_folder_id = get_suitable_visible_parent_id(parent_id);
-        
+
         common::double_linked_queue_element *first = folders_.first();
         common::double_linked_queue_element *end = folders_.end();
 
@@ -1127,7 +1128,7 @@ namespace eka2l1::epoc::msv {
 
         return entries;
     }
-    
+
     bool sql_entry_indexer::get_children_id(const std::uint32_t visible_folder, const std::uint32_t parent_id,
         std::vector<std::uint32_t> &children_ids) {
         if (entry_indexer::get_children_id(visible_folder, parent_id, children_ids)) {
@@ -1136,7 +1137,7 @@ namespace eka2l1::epoc::msv {
 
         if (!query_child_ids_stmt_) {
             static const char *QUERY_CHILD_ID_REQUIRE_VF_STMT = "SELECT id FROM IndexEntry "
-                "WHERE visibleParent=:visibleParent AND parentId=:parentId";
+                                                                "WHERE visibleParent=:visibleParent AND parentId=:parentId";
 
             if (sqlite3_prepare(database_, QUERY_CHILD_ID_REQUIRE_VF_STMT, -1, &query_child_ids_stmt_, nullptr) != SQLITE_OK) {
                 LOG_ERROR(SERVICE_MSV, "unable to prepare children ID query statement!");
@@ -1172,7 +1173,7 @@ namespace eka2l1::epoc::msv {
 
         children_ids.insert(children_ids.begin(), current_child_list.begin(), current_child_list.end());
 
-        for (const std::uint32_t id: current_child_list) {
+        for (const std::uint32_t id : current_child_list) {
             recursive_children_ids_same_folder(visible_folder, id, children_ids);
         }
     }
@@ -1201,7 +1202,7 @@ namespace eka2l1::epoc::msv {
         // Do a database set
         if (!relocate_entry_stmt_) {
             static const char *RELOCATE_ENTRY_STMT_STR = "UPDATE IndexEntry SET parentId=:parentId, visibleParent=:visibleParent "
-                "WHERE id=:id";
+                                                         "WHERE id=:id";
 
             if (sqlite3_prepare(database_, RELOCATE_ENTRY_STMT_STR, -1, &relocate_entry_stmt_, nullptr) != SQLITE_OK) {
                 LOG_ERROR(SERVICE_MSV, "Error while preparing relocate entry SQL statement!");

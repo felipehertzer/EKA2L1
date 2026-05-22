@@ -1,26 +1,26 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <services/msv/store.h>
 #include <common/buffer.h>
-#include <utils/des.h>
+#include <services/msv/store.h>
 #include <utils/cardinality.h>
+#include <utils/des.h>
 
 #include <common/log.h>
 
@@ -29,7 +29,6 @@ namespace eka2l1::epoc::msv {
     static const std::uint32_t STANDARD_HEADER_UID[4] = { STORE_FILE_UID, STORE_FILE_UID, 0, 0x008D8E4B };
 
     store::store() {
-
     }
 
     bool store::read(common::ro_stream &stream) {
@@ -59,8 +58,8 @@ namespace eka2l1::epoc::msv {
                 return false;
             }
 
-            stores_[uid_buffer].insert(stores_[uid_buffer].begin(), reinterpret_cast<std::uint8_t*>(buffer.data()),
-                reinterpret_cast<std::uint8_t*>(buffer.data() + buffer.size()));
+            stores_[uid_buffer].insert(stores_[uid_buffer].begin(), reinterpret_cast<std::uint8_t *>(buffer.data()),
+                reinterpret_cast<std::uint8_t *>(buffer.data() + buffer.size()));
         }
 
         return true;
@@ -78,7 +77,7 @@ namespace eka2l1::epoc::msv {
             return false;
         }
 
-        for (auto &[val, buffer]: stores_) {
+        for (auto &[val, buffer] : stores_) {
             if (stream.write(&val, 4) != 4) {
                 return false;
             }

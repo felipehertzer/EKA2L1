@@ -91,7 +91,7 @@ void CVibraControlImpl::HandleGainingForeground(void) {
 }
 
 void CVibraControlImpl::HandleLosingForeground(void) {
-    StopVibraL(); //never leave
+    StopVibraL(); // never leave
     Close();
 }
 

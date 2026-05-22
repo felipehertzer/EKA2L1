@@ -1,28 +1,30 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <qt/utils.h>
 
-#include <config/app_settings.h>
+#include <common/algorithm.h>
+#include <common/path.h>
 #include <common/random.h>
 #include <common/version.h>
-#include <common/path.h>
+#include <config/app_settings.h>
+#include <drivers/input/common.h>
 
 #include <kernel/kernel.h>
 #include <services/ui/cap/oom_app.h>
@@ -191,4 +193,18 @@ std::optional<std::string> get_mmc_id_from_path(const std::string &path) {
     }
 
     return std::nullopt;
+}
+
+int qt_mouse_button_to_driver(const Qt::MouseButtons buttons) {
+    const int button = eka2l1::common::find_least_significant_bit_one(static_cast<std::uint64_t>(buttons.toInt()));
+
+    if (button > eka2l1::drivers::mouse_button_10) {
+        return eka2l1::drivers::mouse_button_none;
+    }
+
+    return button;
+}
+
+int qt_mouse_button_to_driver(const Qt::MouseButton button) {
+    return qt_mouse_button_to_driver(Qt::MouseButtons(button));
 }

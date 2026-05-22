@@ -1,17 +1,17 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
  * Copyright 2018 Dolphin Emulator Project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -25,8 +25,8 @@ namespace eka2l1::drivers {
     using handle = std::uint64_t;
 
     enum class graphic_api {
-        opengl,
-        vulkan
+        vulkan,
+        native
     };
 
     class graphics_object {
@@ -84,7 +84,7 @@ namespace eka2l1::drivers {
         one_minus_constant_alpha = 14
     };
 
-    enum draw_buffer_bits : std::uint32_t  {
+    enum draw_buffer_bits : std::uint32_t {
         draw_buffer_bit_color_buffer = 1 << 0,
         draw_buffer_bit_depth_buffer = 1 << 1,
         draw_buffer_bit_stencil_buffer = 1 << 2
@@ -95,7 +95,7 @@ namespace eka2l1::drivers {
         bitmap_draw_flag_invert_mask = 1 << 1,
         bitmap_draw_flag_flip = 1 << 2,
         bitmap_draw_flag_flat_blending = 1 << 3,
-        bitmap_draw_flag_use_upscale_shader = 1 << 4        // Only apply to non-mask draw
+        bitmap_draw_flag_use_upscale_shader = 1 << 4 // Only apply to non-mask draw
     };
 
     enum pen_style : std::uint8_t {
@@ -231,15 +231,13 @@ namespace eka2l1::drivers {
         framebuffer_bind_read_draw = framebuffer_bind_read | framebuffer_bind_draw
     };
 
-    enum class window_api {
-        glfw
-    };
-
     enum class window_system_type {
         headless,
         windows,
         macOS,
+        ios,
         android,
+        vita,
         x11,
         wayland,
         fbDev,
@@ -249,26 +247,28 @@ namespace eka2l1::drivers {
     struct window_system_info {
         window_system_info() = default;
 
-        window_system_info(window_system_type type_, void* display_connection_, void* render_window_, void* render_surface_)
-            : type(type_), display_connection(display_connection_), render_window(render_window_),
-                render_surface(render_surface_) {
+        window_system_info(window_system_type type_, void *display_connection_, void *render_window_, void *render_surface_)
+            : type(type_)
+            , display_connection(display_connection_)
+            , render_window(render_window_)
+            , render_surface(render_surface_) {
         }
 
-        // Window system type. Determines which GL context or Vulkan WSI is used.
+        // Window system type. Determines which presentation path is used.
         window_system_type type = window_system_type::headless;
 
         // Connection to a display server. This is used on X11 and Wayland platforms.
-        void* display_connection = nullptr;
+        void *display_connection = nullptr;
 
         // Render window. This is a pointer to the native window handle, which depends
         // on the platform. e.g. HWND for Windows, Window for X11. If the surface is
         // set to nullptr, the video backend will run in headless mode.
-        void* render_window = nullptr;
+        void *render_window = nullptr;
 
         // Render surface. Depending on the host platform, this may differ from the window.
         // This is kept seperate as input may require a different handle to rendering, and
         // during video backend startup the surface pointer may change (MoltenVK).
-        void* render_surface = nullptr;
+        void *render_surface = nullptr;
 
         // Scale of the render surface. For hidpi systems, this will be >1.
         float render_surface_scale = 1.0f;

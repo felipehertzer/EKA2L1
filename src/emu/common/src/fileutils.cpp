@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018- EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -25,15 +25,23 @@
 #include <common/path.h>
 #include <common/platform.h>
 #include <common/time.h>
-#include <re2/re2.h>
 
 #include <fstream>
+#include <regex>
 
 #if EKA2L1_PLATFORM(WIN32)
 #include <Windows.h>
-#elif EKA2L1_PLATFORM(UNIX) || EKA2L1_PLATFORM(DARWIN)
+#elif EKA2L1_PLATFORM(POSIX)
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
+
+#if EKA2L1_PLATFORM(DARWIN) || EKA2L1_PLATFORM(VITA)
+#define EKA2L1_STAT_STRUCT stat
+#define EKA2L1_STAT_FUNC stat
+#else
+#define EKA2L1_STAT_STRUCT stat64
+#define EKA2L1_STAT_FUNC stat64
 #endif
 
 #if EKA2L1_PLATFORM(POSIX)
@@ -45,8 +53,8 @@
 #include <common/android/storage.h>
 #endif
 
-#include <stack>
 #include <cstring>
+#include <stack>
 
 #include <common/pystr.h>
 #include <common/wildcard.h>
@@ -84,8 +92,8 @@ namespace eka2l1::common {
         } else
 #endif
         {
-            struct stat64 st;
-            auto res = stat64(path.c_str(), &st);
+            struct EKA2L1_STAT_STRUCT st;
+            auto res = EKA2L1_STAT_FUNC(path.c_str(), &st);
 
             if (res == -1) {
                 return res;
@@ -150,8 +158,8 @@ namespace eka2l1::common {
         } else
 #endif
         {
-            struct stat64 st;
-            auto res = stat64(path.c_str(), &st);
+            struct EKA2L1_STAT_STRUCT st;
+            auto res = EKA2L1_STAT_FUNC(path.c_str(), &st);
 
             if (res == -1) {
                 return FILE_INVALID;
@@ -172,9 +180,9 @@ namespace eka2l1::common {
         return res == expected;
     }
 
-    struct standard_dir_iterator: public dir_iterator {
+    struct standard_dir_iterator : public dir_iterator {
     protected:
-        std::shared_ptr<RE2> match_regex;
+        std::shared_ptr<std::regex> match_regex;
 
     public:
         void *handle;
@@ -211,7 +219,8 @@ namespace eka2l1::common {
         dir_name = eka2l1::file_directory(dir_name);
 
         if (!match_pattern.empty()) {
-            match_regex = std::make_shared<RE2>(common::wildcard_to_regex_string(match_pattern, false));
+            match_regex = std::make_shared<std::regex>(common::wildcard_to_regex_string(match_pattern, false),
+                std::regex_constants::ECMAScript | std::regex_constants::icase);
         }
 
         handle = reinterpret_cast<void *>(opendir(dir_name.c_str()));
@@ -224,7 +233,7 @@ namespace eka2l1::common {
 
         struct dirent *d = reinterpret_cast<decltype(d)>(find_data);
 
-        while (d && is_valid() && match_regex && !RE2::FullMatch(d->d_name, *match_regex)) {
+        while (d && is_valid() && match_regex && !std::regex_match(d->d_name, *match_regex)) {
             cycles_to_next_entry();
             d = reinterpret_cast<decltype(d)>(find_data);
         };
@@ -320,8 +329,8 @@ namespace eka2l1::common {
         if (detail) {
             const std::string path_full = dir_name + "/" + entry.name;
 
-            struct stat64 st;
-            auto res = stat64(path_full.c_str(), &st);
+            struct EKA2L1_STAT_STRUCT st;
+            auto res = EKA2L1_STAT_FUNC(path_full.c_str(), &st);
 
             if (res != -1) {
                 entry.size = st.st_size;
@@ -332,7 +341,7 @@ namespace eka2l1::common {
         do {
             cycles_to_next_entry();
             d = reinterpret_cast<struct dirent *>(find_data);
-        } while (d && match_regex && !RE2::FullMatch(d->d_name, *match_regex));
+        } while (d && match_regex && !std::regex_match(d->d_name, *match_regex));
 #endif
 
         return 0;
@@ -360,11 +369,11 @@ namespace eka2l1::common {
     // There's sadly no direct C/C++ interface. If we follow the when needed retrieve next model,
     // IPC + Java layer will create a horrible performance cost. There are better way to do this
     // though.
-    struct content_uri_dir_iterator: public dir_iterator {
+    struct content_uri_dir_iterator : public dir_iterator {
     private:
         std::vector<std::string> file_infos_;
         std::size_t current_index_;
-        std::shared_ptr<RE2> match_regex;
+        std::shared_ptr<std::regex> match_regex;
 
     public:
         explicit content_uri_dir_iterator(const std::string &name, const std::string &filter)
@@ -374,7 +383,8 @@ namespace eka2l1::common {
             file_infos_ = android::list_content_uri(name);
 
             if (!filter.empty()) {
-                match_regex = std::make_shared<RE2>(common::wildcard_to_regex_string(filter, false));
+                match_regex = std::make_shared<std::regex>(common::wildcard_to_regex_string(filter, false),
+                    std::regex_constants::ECMAScript | std::regex_constants::icase);
             }
         }
 
@@ -390,7 +400,7 @@ namespace eka2l1::common {
                     return -2;
                 }
 
-                if (!match_regex || RE2::FullMatch(entry.name, *match_regex)) {
+                if (!match_regex || std::regex_match(entry.name, *match_regex)) {
                     return 0;
                 }
             }
@@ -409,7 +419,7 @@ namespace eka2l1::common {
 
         return std::make_unique<standard_dir_iterator>(eka2l1::add_path(path, filter));
     }
-    
+
     std::string find_case_sensitive_file_name(const std::string &folder_path, const std::string &insensitive_name, const file_type type) {
         auto ite = make_directory_iterator(folder_path, "");
         const std::u16string insensitive_name_u16 = common::utf8_to_ucs2(insensitive_name);
@@ -492,7 +502,7 @@ namespace eka2l1::common {
             return (android::remove_file(path) == android::storage_error::SUCCESS);
         } else
 #endif
-        return (::remove(path.c_str()) == 0);
+            return (::remove(path.c_str()) == 0);
 #endif
     }
 
@@ -509,7 +519,7 @@ namespace eka2l1::common {
 
             if (parent.navigate_up()) {
                 return (android::move_file(path, parent.to_string(), new_path)
-                        == android::storage_error::SUCCESS);
+                    == android::storage_error::SUCCESS);
             } else {
                 LOG_ERROR(COMMON, "Failed to navigate up parent content URI to move file!");
                 return false;
@@ -619,8 +629,8 @@ namespace eka2l1::common {
         } else
 #endif
         {
-            struct stat64 st;
-            auto res = stat64(name_utf8.c_str(), &st);
+            struct EKA2L1_STAT_STRUCT st;
+            auto res = EKA2L1_STAT_FUNC(name_utf8.c_str(), &st);
 
             if (res == -1) {
                 return 0xFFFFFFFFFFFFFFFF;
@@ -645,7 +655,7 @@ namespace eka2l1::common {
             }
         } else
 #endif
-        mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 #elif EKA2L1_PLATFORM(WIN32)
         const std::wstring wpath = common::utf8_to_wstr(path);
         CreateDirectoryW(wpath.c_str(), NULL);
@@ -727,7 +737,7 @@ namespace eka2l1::common {
             path_iterator ite;
 
             for (ite = path_iterator(path);
-                 ite; ite++) {
+                ite; ite++) {
                 crr_path = add_path(crr_path, add_path(*ite, "/"));
 
                 if (get_file_type(crr_path) != file_type::FILE_DIRECTORY) {
@@ -749,7 +759,7 @@ namespace eka2l1::common {
     bool get_current_directory(std::string &path) {
 #if EKA2L1_PLATFORM(WIN32)
         std::wstring buffer(512, L'0');
-        const DWORD written = GetCurrentDirectoryW(static_cast<DWORD>(buffer.length()), reinterpret_cast<wchar_t*>(buffer.data()));
+        const DWORD written = GetCurrentDirectoryW(static_cast<DWORD>(buffer.length()), reinterpret_cast<wchar_t *>(buffer.data()));
 
         if (written == 0) {
             return false;
@@ -958,7 +968,7 @@ namespace eka2l1::common {
                 return result;
             } else {
                 LOG_ERROR(COMMON, "Unsupported file mode {} to open content file {}", mode,
-                          target_file);
+                    target_file);
                 return nullptr;
             }
         }

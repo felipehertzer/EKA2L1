@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -116,10 +116,10 @@ namespace eka2l1 {
 
         /**
          * \brief Manage libraries and HLE functions.
-		 * 
-		 * HLE functions are stored here. Libraries and images are also cached
-		 * and load when needed.
-		*/
+         *
+         * HLE functions are stored here. Libraries and images are also cached
+         * and load when needed.
+         */
         class lib_manager {
         private:
             io_system *io_;
@@ -162,8 +162,8 @@ namespace eka2l1 {
 
             /**
              * \brief Call a HLE system call.
-			 * \param svcnum The system call ordinal.
-			*/
+             * \param svcnum The system call ordinal.
+             */
             bool call_svc(sid svcnum);
 
             /**
@@ -171,9 +171,9 @@ namespace eka2l1 {
              *
              * If the manager detects we are loading a library and a HLE module is available,
              * it will returns a HLE codeseg contains HLE export
-             * 
+             *
              * Else it will just load E32 Image or a ROM image and returns a codeseg
-            */
+             */
             codeseg_ptr load(const std::u16string &name);
 
             // Search through all drives, which will parse all existing file

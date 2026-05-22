@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -31,6 +31,7 @@
 namespace eka2l1::kernel {
     static constexpr std::uint32_t HANDLE_INDEX_MASK = 0b111111111111111;
     static constexpr std::uint32_t HANDLE_NEXT_INSTANCE_MASK = 0b1111111111111;
+    static constexpr std::uint32_t HANDLE_NO_CLOSE_FLAG = 0x8000;
 
     handle_inspect_info inspect_handle(std::uint32_t handle) {
         handle_inspect_info info;
@@ -56,7 +57,7 @@ namespace eka2l1::kernel {
             info.handle_array_kernel = false;
         }
 
-        info.no_close = handle & 0x8000;
+        info.no_close = handle & HANDLE_NO_CLOSE_FLAG;
         info.object_ix_next_instance = (handle >> 16) & 0b0001111111111111;
         info.object_ix_index = handle & 0x7FFF;
 
@@ -133,13 +134,15 @@ namespace eka2l1::kernel {
 
     kernel_obj_ptr object_ix::get_object(std::uint32_t handle) {
         handle_inspect_info info = inspect_handle(handle);
+        const std::uint32_t lookup_handle = handle & ~HANDLE_NO_CLOSE_FLAG;
 
         if (info.object_ix_index < objects.size()) {
-            if (objects[info.object_ix_index].free) {
+            const object_ix_record &record = objects[info.object_ix_index];
+            if (record.free || (record.associated_handle != lookup_handle)) {
                 return nullptr;
             }
 
-            return objects[info.object_ix_index].object;
+            return record.object;
         }
 
         LOG_WARN(KERNEL, "Can't find object with handle: 0x{:x}", handle);
@@ -152,17 +155,20 @@ namespace eka2l1::kernel {
         int ret_value = 0;
 
         if (info.object_ix_index < objects.size()) {
-            kernel_obj_ptr obj = objects[info.object_ix_index].object;
+            object_ix_record &record = objects[info.object_ix_index];
 
-            if (!obj) {
+            if (record.free || (record.associated_handle != handle) || !record.object) {
                 return -1;
             }
+
+            kernel_obj_ptr obj = record.object;
 
             ret_value = obj->decrease_access_count();
             totals--;
 
-            objects[info.object_ix_index].free = true;
-            objects[info.object_ix_index].object = nullptr;
+            record.free = true;
+            record.object = nullptr;
+            record.associated_handle = 0;
 
             // Find the handle in unclosed handle list
             auto iterator = std::find(handles.begin(), handles.end(), handle);
@@ -257,7 +263,7 @@ namespace eka2l1::kernel {
 
             if (seri.get_seri_mode() == common::SERI_MODE_READ) {
                 // TODO
-                //objects[next_slot_use].object = kern->get_kernel_obj_raw(obj_id);
+                // objects[next_slot_use].object = kern->get_kernel_obj_raw(obj_id);
                 objects[next_slot_use].free = false;
             }
         }

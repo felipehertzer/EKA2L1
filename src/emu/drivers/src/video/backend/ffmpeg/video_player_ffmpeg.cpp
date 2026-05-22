@@ -1,24 +1,25 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drivers/video/backend/ffmpeg/video_player_ffmpeg.h>
 #include <drivers/audio/audio.h>
+#include <drivers/ffmpeg_compat.h>
+#include <drivers/video/backend/ffmpeg/video_player_ffmpeg.h>
 
 #include <common/algorithm.h>
 #include <common/log.h>
@@ -26,8 +27,8 @@
 
 extern "C" {
 #include <libavutil/imgutils.h>
-#include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
+#include <libswscale/swscale.h>
 }
 
 namespace eka2l1::drivers {
@@ -152,7 +153,7 @@ namespace eka2l1::drivers {
 
                     // Create new audio stream. Don't play yet
                     stream_ = aud_driver_->new_output_stream(audio_stream->codecpar->sample_rate,
-                        audio_stream->codecpar->channels, [this](std::int16_t *output, std::size_t frames) {
+                        ffmpeg_compat::channel_count(audio_stream->codecpar), [this](std::int16_t *output, std::size_t frames) {
                             return this->video_audio_callback(output, frames);
                         });
 
@@ -222,7 +223,6 @@ namespace eka2l1::drivers {
     }
 
     void video_player_ffmpeg::pause() {
-
     }
 
     void video_player_ffmpeg::stop() {
@@ -231,7 +231,7 @@ namespace eka2l1::drivers {
         if (stream_) {
             stream_->stop();
         }
-        
+
         if (decode_thread_) {
             done_event_.set();
             decode_thread_->join();
@@ -239,8 +239,8 @@ namespace eka2l1::drivers {
             decode_thread_.reset();
         }
 
-        while (std::optional<AVPacket*> packet = audio_packets_.pop()) {
-            AVPacket *packet_unpacked = std::move(packet.value());
+        while (std::optional<AVPacket *> packet = audio_packets_.pop()) {
+            AVPacket *packet_unpacked = packet.value();
             av_packet_free(&packet_unpacked);
         }
     }
@@ -248,7 +248,7 @@ namespace eka2l1::drivers {
     std::uint32_t video_player_ffmpeg::max_volume() const {
         return 10;
     }
-    
+
     std::uint32_t video_player_ffmpeg::volume() const {
         return volume_;
     }
@@ -271,7 +271,6 @@ namespace eka2l1::drivers {
     }
 
     void video_player_ffmpeg::set_position(const std::uint64_t pos) {
-
     }
 
     void video_player_ffmpeg::set_fps(const float fps) {
@@ -307,12 +306,12 @@ namespace eka2l1::drivers {
 
         // Try to get more by decoding
         while (pending_samples_.size() < sample_total_count) {
-            std::optional<AVPacket*> packet_op = audio_packets_.pop();
+            std::optional<AVPacket *> packet_op = audio_packets_.pop();
             if (!packet_op.has_value()) {
                 break;
             }
 
-            AVPacket *packet = std::move(packet_op.value());
+            AVPacket *packet = packet_op.value();
             int result = avcodec_send_packet(audio_codec_ctx_, packet);
             if (result < 0) {
                 LOG_ERROR(DRIVER_VID, "Sending video's audio packet failed with code {}", result);
@@ -341,12 +340,14 @@ namespace eka2l1::drivers {
             av_packet_free(&packet);
 
             if (!resample_context_) {
-                const int dest_channel_type = (channel_count == 2) ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
                 AVStream *audio_stream = format_ctx_->streams[audio_stream_index_];
 
-                resample_context_ = swr_alloc_set_opts(nullptr, dest_channel_type, AV_SAMPLE_FMT_S16, stream_->get_sample_rate(),
-                    audio_stream->codecpar->channel_layout, static_cast<AVSampleFormat>(audio_stream->codecpar->format), audio_stream->codecpar->sample_rate,
-                    0, nullptr);
+                if (ffmpeg_compat::configure_swr_from_codec_parameters(&resample_context_, channel_count,
+                        AV_SAMPLE_FMT_S16, stream_->get_sample_rate(), audio_stream->codecpar)
+                    < 0) {
+                    LOG_ERROR(DRIVER_AUD, "Error allocating audio resample context!");
+                    break;
+                }
 
                 if (swr_init(resample_context_) < 0) {
                     LOG_ERROR(DRIVER_AUD, "Error initializing audio resample context!");
@@ -358,9 +359,9 @@ namespace eka2l1::drivers {
 
             std::vector<std::uint16_t> data_temp(channel_count * temp_audio_frame_->nb_samples);
 
-            std::uint8_t *data_temp_ptr = reinterpret_cast<std::uint8_t*>(data_temp.data());
-            const std::uint8_t **source = const_cast<const std::uint8_t**>(temp_audio_frame_->extended_data);
-            
+            std::uint8_t *data_temp_ptr = reinterpret_cast<std::uint8_t *>(data_temp.data());
+            const std::uint8_t **source = const_cast<const std::uint8_t **>(temp_audio_frame_->extended_data);
+
             result = swr_convert(resample_context_, &data_temp_ptr, temp_audio_frame_->nb_samples, source,
                 temp_audio_frame_->nb_samples);
 
@@ -431,7 +432,7 @@ namespace eka2l1::drivers {
 
                     break;
                 }
-                
+
                 while (result >= 0) {
                     result = avcodec_receive_frame(image_codec_ctx_, temp_frame);
                     if ((result == AVERROR(EAGAIN)) || (result == AVERROR_EOF)) {
@@ -445,22 +446,22 @@ namespace eka2l1::drivers {
                             SWS_BILINEAR, nullptr, nullptr, nullptr);
 
                         int total_bytes_buffer = av_image_get_buffer_size(AV_PIX_FMT_RGBA, image_codec_ctx_->width,
-                           image_codec_ctx_->height, 32);
+                            image_codec_ctx_->height, 32);
 
                         // I put it extra, suspect sws_scale is heap corrupting the data a bit
-                        frame_buffer = reinterpret_cast<std::uint8_t*>(av_malloc(total_bytes_buffer + (total_bytes_buffer / 2)));
+                        frame_buffer = reinterpret_cast<std::uint8_t *>(av_malloc(total_bytes_buffer + (total_bytes_buffer / 2)));
 
                         av_image_fill_arrays(scaled_frame->data, scaled_frame->linesize, frame_buffer, AV_PIX_FMT_RGBA, image_codec_ctx_->width,
                             image_codec_ctx_->height, 32);
 
                         frame_buffer_size = static_cast<std::size_t>(total_bytes_buffer);
                     }
-                    
+
                     int resres = sws_scale(scale_context, temp_frame->data, temp_frame->linesize, 0, temp_frame->height, scaled_frame->data,
                         scaled_frame->linesize);
 
                     image_frame_available_callback_(image_frame_available_callback_userdata_, frame_buffer, frame_buffer_size);
-                    
+
                     // Syncing FPS
                     const std::uint64_t current_time_us = common::get_current_utc_time_in_microseconds_since_epoch();
                     const std::uint64_t delta = current_time_us - last_update_us_;
@@ -497,7 +498,7 @@ namespace eka2l1::drivers {
 
         av_free(frame_buffer);
 
-        if (!complete_callback_called) {            
+        if (!complete_callback_called) {
             if (play_complete_callback_) {
                 play_complete_callback_(play_complete_callback_userdata_, 0);
             }

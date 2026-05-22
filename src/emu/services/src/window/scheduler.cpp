@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,16 +22,25 @@
 #include <services/window/scheduler.h>
 #include <services/window/screen.h>
 
+#include <algorithm>
 #include <cassert>
 
 namespace eka2l1::epoc {
     static void on_anim_due(std::uint64_t userdata, const int cycles_late) {
         anim_due_callback_data *callback = reinterpret_cast<anim_due_callback_data *>(userdata);
+        if (!callback || !callback->sched) {
+            return;
+        }
+
         callback->sched->invoke_due_animation(callback->driver, callback->screen_number);
     }
 
     static void on_scan_callback(std::uint64_t userdata, const int cycles_late) {
         sched_scan_callback_data *callback = reinterpret_cast<sched_scan_callback_data *>(userdata);
+        if (!callback || !callback->sched) {
+            return;
+        }
+
         callback->sched->idle_callback(callback->driver);
     }
 
@@ -89,10 +98,15 @@ namespace eka2l1::epoc {
     void animation_scheduler::schedule(drivers::graphics_driver *driver, screen *scr, const std::uint64_t time) {
         const std::lock_guard<std::mutex> guard(lock_);
 
-        // Get screen number
-        if (schedules_.size() <= scr->number) {
+        if (!scr || callback_evt_ == 0 || anim_due_evt_ == 0) {
             return;
         }
+
+        // Get screen number
+        if (scr->number < 0 || schedules_.size() <= static_cast<std::size_t>(scr->number)) {
+            return;
+        }
+        scr->diag_scheduler_requests.fetch_add(1, std::memory_order_relaxed);
 
         // Get the schedule
         anim_schedule sched;
@@ -101,8 +115,12 @@ namespace eka2l1::epoc {
         sched.scheduled = true;
 
         if (schedules_[scr->number].scheduled) {
-            // Readjust the time
-            schedules_[scr->number].time = time;
+            // Preserve the earliest pending redraw. A later request for the
+            // same screen must not push an already due frame into the future.
+            if (time > schedules_[scr->number].time) {
+                scr->diag_later_redraws_ignored.fetch_add(1, std::memory_order_relaxed);
+            }
+            schedules_[scr->number].time = std::min(schedules_[scr->number].time, time);
         } else {
             // Replace with our new sched
             schedules_[scr->number] = sched;
@@ -114,7 +132,7 @@ namespace eka2l1::epoc {
     void animation_scheduler::unschedule(const int screen_number) {
         const std::lock_guard<std::mutex> guard(lock_);
 
-        if (schedules_.size() <= screen_number) {
+        if (screen_number < 0 || schedules_.size() <= static_cast<std::size_t>(screen_number)) {
             return;
         }
 
@@ -122,7 +140,7 @@ namespace eka2l1::epoc {
     }
 
     animation_scheduler::anim_schedule *animation_scheduler::get_scheduled_screen_update(const int scr_num) {
-        if (schedules_.size() <= scr_num) {
+        if (scr_num < 0 || schedules_.size() <= static_cast<std::size_t>(scr_num)) {
             return nullptr;
         }
 
@@ -146,9 +164,13 @@ namespace eka2l1::epoc {
     }
 
     void animation_scheduler::scan_for_redraw(drivers::graphics_driver *driver, const int screen_number, const bool force_redraw) {
+        if (!driver || callback_evt_ == 0 || anim_due_evt_ == 0) {
+            return;
+        }
+
         anim_schedule *sched = get_scheduled_screen_update(screen_number);
 
-        if (sched) {
+        if (sched && sched->scr) {
             // Get screen state, check if it's active
             // This is for future, for now we are doing all sync
             screen_state &scr_state = states_[screen_number];
@@ -200,10 +222,18 @@ namespace eka2l1::epoc {
         lock_.lock();
 
         anim_schedule *sched = get_scheduled_screen_update(screen_number);
+        if (!sched || !sched->scr) {
+            lock_.unlock();
+            return;
+        }
+
+        if (!driver) {
+            states_[screen_number].flags = screen_state::inactive;
+            lock_.unlock();
+            return;
+        }
+
         epoc::screen *scr = sched->scr;
-
-        assert(sched && "The returned schedule should not be nullptr");
-
         sched->scheduled = false;
 
         lock_.unlock();
@@ -231,6 +261,11 @@ namespace eka2l1::epoc {
         lock_.lock();
         callback_scheduled_ = false;
 
+        if (!driver) {
+            lock_.unlock();
+            return;
+        }
+
         for (int screen_num = 0; screen_num < states_.size(); screen_num++) {
             scan_for_redraw(driver, screen_num, false);
         }
@@ -243,7 +278,7 @@ namespace eka2l1::epoc {
         // TODO: Maybe get rid of this function?
         static constexpr std::uint16_t scheduled_us = 500;
 
-        if (!callback_scheduled_) {
+        if (driver && callback_evt_ != 0 && !callback_scheduled_) {
             // Schedule it
             scan_callback_data_.driver = driver;
             scan_callback_data_.sched = this;

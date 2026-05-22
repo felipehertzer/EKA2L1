@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <services/socket/server.h>
 #include <services/socket/netdb.h>
+#include <services/socket/server.h>
 
-#include <utils/err.h>
 #include <system/epoc.h>
+#include <utils/err.h>
 
 namespace eka2l1::epoc::socket {
     socket_net_database::socket_net_database(socket_client_session *parent, std::unique_ptr<net_database> &net_db)
@@ -30,7 +30,7 @@ namespace eka2l1::epoc::socket {
     }
 
     void socket_net_database::query(service::ipc_context *ctx) {
-        const char *query_data = reinterpret_cast<const char*>(ctx->get_descriptor_argument_ptr(0));
+        const char *query_data = reinterpret_cast<const char *>(ctx->get_descriptor_argument_ptr(0));
         epoc::des8 *result_des = eka2l1::ptr<epoc::des8>(ctx->msg->args.args[2]).get(ctx->msg->own_thr->owning_process());
 
         std::size_t query_data_size = ctx->get_argument_data_size(0);

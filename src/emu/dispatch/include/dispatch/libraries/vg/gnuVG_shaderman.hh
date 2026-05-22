@@ -30,11 +30,11 @@ namespace gnuVG {
 
     class ShaderMan {
     private:
-        std::map<int, Shader*> shader_library;
+        std::map<int, Shader *> shader_library;
 
     public:
         ~ShaderMan();
 
-        Shader* get_shader(eka2l1::drivers::graphics_driver *drv, int caps);
+        Shader *get_shader(eka2l1::drivers::graphics_driver *drv, int caps);
     };
 }

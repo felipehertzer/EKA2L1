@@ -32,7 +32,6 @@ namespace eka2l1::android {
     static constexpr const char *graphics_driver_thread_name = "Graphics thread";
 
     static int graphics_driver_thread_initialization(emulator &state) {
-        // Halloween decoration breath of the graphics
         eka2l1::common::set_thread_name(graphics_driver_thread_name);
         eka2l1::common::set_thread_priority(eka2l1::common::thread_priority_high);
 
@@ -41,20 +40,25 @@ namespace eka2l1::android {
             drivers::emu_window_flag_maximum_size);
         state.window->set_userdata(&state);
 
-        // We got window and context ready (OpenGL, let makes stuff now)
-        // TODO: Configurable
-        state.graphics_driver = drivers::create_graphics_driver(drivers::graphic_api::opengl,
-                state.window->get_window_system_info());
-        state.symsys->set_graphics_driver(state.graphics_driver.get());
-
         drivers::emu_window_android *window = state.window.get();
-
         window->surface_change_hook = [&state](void *new_surface) {
-            state.graphics_driver->update_surface(new_surface);
+            if (state.graphics_driver) {
+                state.graphics_driver->update_surface(new_surface);
+                state.graphics_driver->update_surface_size(state.window->window_fb_size());
+            }
         };
 
+        state.graphics_init_done.set();
+        state.graphics_sema.wait();
+
+        state.graphics_driver = drivers::create_graphics_driver(drivers::graphic_api::vulkan,
+            state.window->get_window_system_info());
+        if (!state.graphics_driver) {
+            return -1;
+        }
+        state.symsys->set_graphics_driver(state.graphics_driver.get());
+
         state.graphics_driver->set_display_hook([window, &state]() {
-            window->swap_buffer();
             window->poll_events();
 
             if (state.should_graphics_pause) {
@@ -81,6 +85,7 @@ namespace eka2l1::android {
 
         if (result != 0) {
             LOG_ERROR(FRONTEND_CMDLINE, "Graphics driver initialization failed with code {}", result);
+            state.graphics_init_done.set();
             return;
         }
 
@@ -119,7 +124,7 @@ namespace eka2l1::android {
         }
 
         state.symsys.reset();
-        //state.graphics_sema.notify();
+        // state.graphics_sema.notify();
     }
 
     bool emulator_entry(emulator &state) {
@@ -130,6 +135,8 @@ namespace eka2l1::android {
         // Instantiate UI and High-level interface threads
         if (result) {
             os_thread_obj = std::make_unique<std::thread>(os_thread, std::ref(state));
+        } else {
+            return false;
         }
 
         // Run graphics driver on main entry.
@@ -142,7 +149,9 @@ namespace eka2l1::android {
 
     void init_threads(emulator &state) {
         // Continue graphics initialization
+        state.graphics_init_done.reset();
         state.graphics_sema.notify();
+        state.graphics_init_done.wait();
     }
 
     void start_threads(emulator &state) {

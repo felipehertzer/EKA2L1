@@ -10,18 +10,18 @@ namespace eka2l1::epoc {
         /*! This means that when process owned the handle died
          * and the handle hasn't been freed, the handle
          * with be freed.
-        */
+         */
         owner_process,
 
         //! Owned by thread
-        /*! This means that when thread owned the handle died 
+        /*! This means that when thread owned the handle died
          * and the handle hasn't been freed, the handle will
          * be freed.
          */
         owner_thread
     };
 
-    /*! \brief Find handle struct. 
+    /*! \brief Find handle struct.
      *
      * This struct is passed when a SVC call to find a kernel object is invoked.
      * When that operation success, the struct will be filled with kernel

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -97,7 +97,16 @@ namespace eka2l1::epoc {
         etel_close = 4,
         etel_line_enumerate_call = 34,
         etel_line_get_call_info = 35,
+        etel_line_get_caps = 36,
+        etel_line_get_hook_status = 37,
+        etel_line_get_info = 38,
         etel_line_get_status = 39,
+        etel_line_notify_call_added = 40,
+        etel_line_cancel_notify_call_added = 41,
+        etel_line_notify_hook_change = 42,
+        etel_line_cancel_notify_hook_change = 43,
+        etel_line_notify_status_change = 44,
+        etel_line_cancel_notify_status_change = 45,
         etel_phone_enumerate_lines = 46,
         etel_phone_get_line_info = 49,
         etel_enumerate_phones = 54,
@@ -132,6 +141,7 @@ namespace eka2l1::epoc {
         etel_mobile_phone_notify_battery_info_change_cancel = 20567,
         etel_mobile_phone_notify_indicator_changes_cancel = 20584,
         etel_mobile_phone_get_home_network = 22004,
+        etel_mobile_phone_get_network_name = 22009,
         etel_mobile_phone_get_phone_id = 22012,
         etel_mobile_phone_get_subscriber_id = 22017,
         etel_mobile_phone_get_current_network = 26000,
@@ -311,6 +321,8 @@ namespace eka2l1::epoc {
         std::int32_t extension_id_;
     };
 
+    constexpr std::int32_t etel_ext_multimode_v3 = 10000;
+
     struct etel_old_bsc_network_id {
         std::uint32_t mcc_;
         std::uint32_t mnc_;
@@ -343,6 +355,20 @@ namespace eka2l1::epoc {
         etel_phone_network_access_ access_;
         bool hsdpa_available_indicator;
         bool egprs_available_indicator;
+    };
+
+    struct etel_phone_network_name_v3 : etel_multimode_type {
+        epoc::buf_static<char16_t, 20> long_name_;
+        epoc::buf_static<char16_t, 10> short_name_;
+        epoc::buf_static<char16_t, 251> other_names_;
+    };
+
+    struct etel_phone_operator_plmn_v3 : etel_multimode_type {
+        epoc::buf_static<char16_t, 4> country_code_;
+        epoc::buf_static<char16_t, 8> network_id_;
+        std::uint32_t pnn_id_;
+        std::uint32_t first_location_area_code_;
+        std::uint32_t last_location_area_code_;
     };
 
     struct etel_phone_location_area : etel_multimode_type {

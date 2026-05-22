@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,6 +23,7 @@
 #include <services/ui/cap/oom_app.h>
 
 #include <QMessageBox>
+#include <Qt>
 
 namespace eka2l1 {
     class window_server;
@@ -59,3 +60,5 @@ QMessageBox::StandardButton make_dialog_with_checkbox_and_choices(const QString 
 QString get_emulator_window_title();
 QString epocver_to_symbian_readable_name(const epocver ver);
 std::optional<std::string> get_mmc_id_from_path(const std::string &path);
+int qt_mouse_button_to_driver(Qt::MouseButtons buttons);
+int qt_mouse_button_to_driver(Qt::MouseButton button);

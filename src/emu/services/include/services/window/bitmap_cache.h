@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -81,12 +81,12 @@ namespace eka2l1::epoc {
         /**
          * @brief   Add a bitmap to texture cache if not available in the cache, and get
          *          the driver's texture handle.
-         * 
-         * If the cache is full, this will find the least used bitmap (by sorting out 
+         *
+         * If the cache is full, this will find the least used bitmap (by sorting out
          * last used timestamp). Also, since bitwise bitmap modify itself by user's will
          * without a method to notify the user, this also hashes bitmap data (using xxHash),
          * and will reupload the bitmap to driver if the texture data is different.
-         * 
+         *
          * @param   driver          Pointer to graphics driver instance.
          * @param   bmp             The pointer to bitwise bitmap.
          * @param   builder         Pointer to a command builder, used for updating texture or destroying texture in sequence. NULL if not needed.

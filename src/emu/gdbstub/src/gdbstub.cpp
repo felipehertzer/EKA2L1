@@ -799,7 +799,7 @@ namespace eka2l1 {
         if (checksum_received != checksum_calculated) {
             LOG_ERROR(GDBSTUB,
                 "gdb: invalid checksum: calculated {:02x} and read {:02x} for ${}# (length: {})",
-                checksum_calculated, checksum_received, reinterpret_cast<char*>(command_buffer), command_length);
+                checksum_calculated, checksum_received, reinterpret_cast<char *>(command_buffer), command_length);
 
             command_length = 0;
 
@@ -1191,7 +1191,7 @@ namespace eka2l1 {
             return;
         }
 
-        LOG_DEBUG(GDBSTUB, "Packet: {}", reinterpret_cast<char*>(command_buffer));
+        LOG_DEBUG(GDBSTUB, "Packet: {}", reinterpret_cast<char *>(command_buffer));
 
         switch (command_buffer[0]) {
         case 'q':

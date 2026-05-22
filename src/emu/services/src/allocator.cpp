@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,7 +24,26 @@
 namespace eka2l1::epoc {
     chunk_allocator::chunk_allocator(chunk_ptr de_chunk)
         : block_allocator(reinterpret_cast<std::uint8_t *>(de_chunk->host_base()), de_chunk->committed())
-        , target_chunk(std::move(de_chunk)) {
+        , target_chunk(de_chunk) {
+    }
+
+    void *chunk_allocator::allocate(std::size_t bytes) {
+        void *result = common::block_allocator::allocate(bytes);
+
+        if (!result) {
+            return nullptr;
+        }
+
+        const std::size_t rounded_size = bytes ? common::next_power_of_two(bytes) : 0;
+        const auto offset = static_cast<std::uint32_t>(
+            reinterpret_cast<std::uint8_t *>(result) - reinterpret_cast<std::uint8_t *>(target_chunk->host_base()));
+
+        if ((rounded_size > 0) && !target_chunk->ensure_committed(offset, rounded_size)) {
+            common::block_allocator::freep(result);
+            return nullptr;
+        }
+
+        return result;
     }
 
     bool chunk_allocator::expand(std::size_t target) {

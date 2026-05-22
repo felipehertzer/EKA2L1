@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -67,7 +67,7 @@ namespace eka2l1 {
         }
 
         if (!f) {
-            LOG_WARN(SERVICE_UI, "Can't find priority set resource file for view server! Priority set to standard 0.");
+            LOG_TRACE(SERVICE_UI, "Can't find priority set resource file for view server! Priority set to standard 0.");
             return true;
         }
 
@@ -83,8 +83,8 @@ namespace eka2l1 {
     }
 
     std::optional<ui::view::view_id> view_server::active_view() {
-        for (auto &[uid, session]: sessions) {
-            view_session *ss = reinterpret_cast<view_session*>(session.get());
+        for (auto &[uid, session] : sessions) {
+            view_session *ss = reinterpret_cast<view_session *>(session.get());
             if (ss) {
                 std::optional<ui::view::view_id> id = ss->active_view();
                 if (id.has_value()) {
@@ -97,8 +97,8 @@ namespace eka2l1 {
     }
 
     view_session *view_server::active_view_session() {
-        for (auto &[uid, session]: sessions) {
-            view_session *ss = reinterpret_cast<view_session*>(session.get());
+        for (auto &[uid, session] : sessions) {
+            view_session *ss = reinterpret_cast<view_session *>(session.get());
             if (ss && ss->active_view().has_value()) {
                 return ss;
             }
@@ -108,8 +108,8 @@ namespace eka2l1 {
     }
 
     void view_server::call_activation_listener(const ui::view::view_id id) {
-        for (auto &[uid, session]: sessions) {
-            view_session *ss = reinterpret_cast<view_session*>(session.get());
+        for (auto &[uid, session] : sessions) {
+            view_session *ss = reinterpret_cast<view_session *>(session.get());
             if (ss) {
                 ss->on_view_activation(id);
             }
@@ -117,8 +117,8 @@ namespace eka2l1 {
     }
 
     void view_server::call_deactivation_listener(const ui::view::view_id id) {
-        for (auto &[uid, session]: sessions) {
-            view_session *ss = reinterpret_cast<view_session*>(session.get());
+        for (auto &[uid, session] : sessions) {
+            view_session *ss = reinterpret_cast<view_session *>(session.get());
             if (ss) {
                 ss->on_view_deactivation(id);
             }
@@ -131,8 +131,7 @@ namespace eka2l1 {
 
         if (deactivate_ss) {
             old_id = deactivate_ss->active_view();
-            deactivate_ss->queue_event({
-                ui::view::view_event::event_deactive_view, old_id.value(), active_id, 0, 0 });
+            deactivate_ss->queue_event({ ui::view::view_event::event_deactive_view, old_id.value(), active_id, 0, 0 });
             deactivate_ss->clear_active_view();
 
             call_deactivation_listener(old_id.value());
@@ -142,7 +141,8 @@ namespace eka2l1 {
 
         activator->set_active_view(active_id);
         activator->queue_event({ ui::view::view_event::event_active_view, active_id, old_id.value(),
-            msg.id_, static_cast<std::int32_t>(msg.data_.size()) }, msg);
+                                   msg.id_, static_cast<std::int32_t>(msg.data_.size()) },
+            msg);
 
         call_activation_listener(active_id);
     }
@@ -152,8 +152,7 @@ namespace eka2l1 {
 
         if (deactivate_ss) {
             std::optional<ui::view::view_id> old_id = deactivate_ss->active_view();
-            deactivate_ss->queue_event({
-                ui::view::view_event::event_deactive_view, old_id.value(), ui::view::EMPTY_VIEW_ID, 0, 0 });
+            deactivate_ss->queue_event({ ui::view::view_event::event_deactive_view, old_id.value(), ui::view::EMPTY_VIEW_ID, 0, 0 });
             deactivate_ss->clear_active_view();
 
             call_deactivation_listener(old_id.value());
@@ -244,10 +243,10 @@ namespace eka2l1 {
 
         const std::int32_t pos_of_del = static_cast<std::int32_t>(std::distance(ids_.begin(), iterator));
         if (pos_of_del == active_view_id_index_) {
-            LOG_ERROR(SERVICE_UI, "Can't remove active view!");
-            ctx->complete(epoc::error_in_use);
-
-            return;
+            // Some applications remove their active view during shutdown; model
+            // that as an implicit deactivation instead of rejecting teardown.
+            clear_active_view();
+            server<view_server>()->call_deactivation_listener(id.value());
         } else if (pos_of_del < active_view_id_index_) {
             active_view_id_index_--;
         }

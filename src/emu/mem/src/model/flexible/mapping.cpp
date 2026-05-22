@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,17 +23,28 @@
 #include <mem/model/flexible/memobj.h>
 #include <mem/model/flexible/pagearray.h>
 
-#include <common/log.h>
 #include <common/algorithm.h>
+#include <common/log.h>
 
 namespace eka2l1::mem::flexible {
     mapping::mapping(address_space *owner)
-        : owner_(owner)
+        : base_(0)
+        , owner_(owner)
+        , object_(nullptr)
+        , occupied_(0)
         , region_flags_(0)
         , off_start_in_page_quantity_(0) {
     }
 
     mapping::~mapping() {
+        if (object_) {
+            object_->detach_mapping(this);
+        }
+
+        if (!owner_) {
+            return;
+        }
+
         // Unmap all memory mapped
         unmap(0, occupied_);
 
@@ -42,9 +53,17 @@ namespace eka2l1::mem::flexible {
         if (sect) {
             sect->alloc_.deallocate(static_cast<std::uint32_t>(off_start_in_page_quantity_), occupied_);
         }
+
+        owner_->mappings_.erase(std::remove(owner_->mappings_.begin(), owner_->mappings_.end(), this),
+            owner_->mappings_.end());
+        owner_ = nullptr;
     }
 
     bool mapping::instantiate(const std::size_t page_occupied, const std::uint32_t flags, const vm_address forced) {
+        if (!owner_) {
+            return false;
+        }
+
         // Try to get linear section from our mommy first <3
         linear_section *sect = owner_->section(flags);
 
@@ -91,6 +110,10 @@ namespace eka2l1::mem::flexible {
     }
 
     bool mapping::map(memory_object *obj, const std::uint32_t index, const std::size_t count, const prot permissions) {
+        if (!owner_) {
+            return false;
+        }
+
         if (index + count > occupied_) {
             // Too far
             return false;
@@ -147,15 +170,19 @@ namespace eka2l1::mem::flexible {
     }
 
     bool mapping::unmap(const std::uint32_t index_start, const std::size_t count) {
-        if (index_start + count > occupied_) {
-            // Too far
-            return false;
+        if (!owner_) {
+            return true;
         }
 
+        if ((count == 0) || (index_start >= occupied_)) {
+            return true;
+        }
+
+        const std::size_t page_count = std::min<std::size_t>(count, occupied_ - index_start);
         control_base *control = owner_->control_;
 
         vm_address start_addr = base_ + (index_start << control->page_size_bits_);
-        const vm_address end_addr = start_addr + static_cast<vm_address>(count << control->page_size_bits_);
+        const vm_address end_addr = start_addr + static_cast<vm_address>(page_count << control->page_size_bits_);
 
         const std::size_t page_size = control->page_size();
 
@@ -219,14 +246,14 @@ namespace eka2l1::mem::flexible {
                     while (index < lim_check) {
                         prot_temp = ((prots_[i] >> (index << 2))) & 0b1111;
                         index++;
-                        
+
                         if (prot_temp == prot_val) {
                             count++;
                         }
-                        
+
                         if ((prot_temp != prot_val) || (index == lim_check)) {
                             map->map(obj, page_index_start + base + start, count, static_cast<prot>(prot_val));
-                            
+
                             count = 1;
                             start = index - 1;
                             prot_val = prot_temp;
@@ -240,8 +267,7 @@ namespace eka2l1::mem::flexible {
     void page_array::supply_mapping(memory_object *obj, mapping *map) {
         for (std::size_t i = 0; i < total_segments_; i++) {
             if (segments_[i]) {
-                segments_[i]->supply_mapping(obj, map, i, common::min<std::uint32_t>(pages_segment::TOTAL_PAGE_PER_SEGMENT,
-                    static_cast<std::uint32_t>(total_pages_ - i * pages_segment::TOTAL_PAGE_PER_SEGMENT)));
+                segments_[i]->supply_mapping(obj, map, i, common::min<std::uint32_t>(pages_segment::TOTAL_PAGE_PER_SEGMENT, static_cast<std::uint32_t>(total_pages_ - i * pages_segment::TOTAL_PAGE_PER_SEGMENT)));
             }
         }
     }

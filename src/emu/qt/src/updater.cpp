@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <QDir>
 #include <QMainWindow>
 #include <QMessageBox>
-#include <QDir>
 
 #include <QFuture>
 #include <QtConcurrent/QtConcurrent>
@@ -29,12 +29,12 @@
 #include <Windows.h>
 
 #include <common/algorithm.h>
-#include <common/pystr.h>
 #include <common/fileutils.h>
 #include <common/path.h>
+#include <common/pystr.h>
 
-#include <miniz.h>
 #include <memory>
+#include <miniz.h>
 
 #include <cstdio>
 
@@ -214,7 +214,7 @@ public:
             if (QMessageBox::question(this, tr("Update success"), tr("Update success. Relaunch the emulator?")) == QMessageBox::StandardButton::Yes) {
                 QDir current;
                 current.cdUp();
-                
+
                 QProcess *emu_process = new QProcess();
                 emu_process->setProgram("..\\eka2l1_qt.exe");
                 emu_process->setWorkingDirectory(current.absolutePath());
@@ -231,7 +231,7 @@ public:
 static void wait_for_emulator_to_close(const std::uint32_t pid) {
     HANDLE process_handle = OpenProcess(SYNCHRONIZE, FALSE, pid);
     if (!process_handle)
-      return;
+        return;
 
     WaitForSingleObject(process_handle, INFINITE);
     CloseHandle(process_handle);
@@ -240,7 +240,7 @@ static void wait_for_emulator_to_close(const std::uint32_t pid) {
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, INT nCmdShow) {
     common::pystr command_line(lpCmdLine);
     std::vector<common::pystr> args = command_line.split(" ");
-    char **arg_cstr = new char*[args.size()];
+    char **arg_cstr = new char *[args.size()];
 
     for (std::size_t i = 0; i < args.size(); i++) {
         arg_cstr[i] = args[i].cstr_mod();

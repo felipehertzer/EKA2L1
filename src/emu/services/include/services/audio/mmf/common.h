@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -53,7 +53,7 @@ namespace eka2l1::epoc {
         mmf_sample_rate_64000hz = 1 << 11
     };
 
-    inline mmf_sample_rate operator | (mmf_sample_rate a, mmf_sample_rate b) {
+    inline mmf_sample_rate operator|(mmf_sample_rate a, mmf_sample_rate b) {
         return static_cast<mmf_sample_rate>(static_cast<int>(a) | static_cast<int>(b));
     }
 
@@ -87,8 +87,8 @@ namespace eka2l1::epoc {
         std::uint32_t tone_on_length_;
         std::uint32_t tone_off_length_;
         std::uint32_t pause_length_;
-        //std::uint32_t nof_event_uid_;
-        //std::uint32_t interface_;
+        // std::uint32_t nof_event_uid_;
+        // std::uint32_t interface_;
     };
 
     struct mmf_priority_settings {
@@ -218,7 +218,7 @@ namespace eka2l1::epoc {
         std::int32_t buffer_size_; ///< Total size the audio chunk offered.
 
         mmf_dev_chunk_op chunk_op_; ///< Request that the client side should reopen the chunk handle.
-            ///< May occur due to chunk recreating
+                                    ///< May occur due to chunk recreating
     };
 
     static_assert(sizeof(mmf_dev_hw_buf_v1) == 16);
@@ -230,7 +230,7 @@ namespace eka2l1::epoc {
         std::int32_t buffer_size_; ///< Total size the audio chunk offered.
 
         mmf_dev_chunk_op chunk_op_; ///< Request that the client side should reopen the chunk handle.
-            ///< May occur due to chunk recreating
+                                    ///< May occur due to chunk recreating
     };
 
     struct mmf_event {

@@ -22,7 +22,7 @@
     <string name="screenshot">Captura de pantalla</string>
     <string name="take_screenshot_success">¡Captura de pantalla guardada en %s!</string>
     <string name="take_screenshot_fail">No se pudo tomar la captura de pantalla!</string>
-    <string name="opengl_required">Esta aplicación requiere OpenGL ES 3.0+.</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">Advertencia</string>
     <string name="scoped_storage_warning">Sus datos de usuario están almacenados en una ubicación que <b>se eliminará</b> si desinstala la aplicación:\n</string>
     <string name="install_ng_game">Instalar juego N-Gage</string>

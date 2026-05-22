@@ -7,6 +7,7 @@
 #pragma once
 
 #include <common/container.h>
+#include <common/platform.h>
 #include <vfs/vfs.h>
 
 #include <array>
@@ -15,7 +16,8 @@
 #include <map>
 #include <memory>
 
-#ifdef _WIN32
+#if EKA2L1_PLATFORM(VITA)
+#elif defined(_WIN32)
 #include <winsock2.h>
 // winsock2.h needs to be included first to prevent winsock.h being included by other includes
 #include <io.h>
@@ -94,6 +96,64 @@ namespace eka2l1 {
 
     using breakpoint_map = std::map<std::uint32_t, breakpoint>;
 
+#if EKA2L1_PLATFORM(VITA)
+    class gdbstub {
+    public:
+        explicit gdbstub() = default;
+
+        void set_server_port(const std::uint16_t) {
+        }
+
+        void toggle_server(bool) {
+        }
+
+        void init(kernel_system *, io_system *) {
+        }
+
+        void shutdown_gdb() {
+        }
+
+        bool is_server_enabled() {
+            return false;
+        }
+
+        bool is_connected() {
+            return false;
+        }
+
+        void break_exec(const bool = false) {
+        }
+
+        bool is_memory_break() {
+            return false;
+        }
+
+        void handle_packet() {
+        }
+
+        breakpoint_address get_next_breakpoint_from_addr(std::uint32_t, breakpoint_type type) {
+            return { 0, type };
+        }
+
+        bool check_breakpoint(std::uint32_t, breakpoint_type) {
+            return false;
+        }
+
+        bool get_cpu_halt_flag() {
+            return false;
+        }
+
+        bool get_cpu_step_flag() {
+            return false;
+        }
+
+        void set_cpu_step_flag(bool) {
+        }
+
+        void send_trap_gdb(kernel::thread *, int, const char * = nullptr) {
+        }
+    };
+#else
     class gdbstub {
         int gdbserver_socket = -1;
 
@@ -222,11 +282,11 @@ namespace eka2l1 {
             breakpoint_type type);
 
         /**
-        * Check if a breakpoint of the specified type exists at the given address.
-        *
-        * @param addr Address of breakpoint.
-        * @param type Type of breakpoint.
-        */
+         * Check if a breakpoint of the specified type exists at the given address.
+         *
+         * @param addr Address of breakpoint.
+         * @param type Type of breakpoint.
+         */
         bool check_breakpoint(std::uint32_t addr, breakpoint_type type);
 
         // If set to true, the CPU will halt at the beginning of the next CPU loop.
@@ -250,4 +310,5 @@ namespace eka2l1 {
          */
         void send_trap_gdb(kernel::thread *thread, int trap, const char *extra_pair = nullptr);
     };
+#endif
 }

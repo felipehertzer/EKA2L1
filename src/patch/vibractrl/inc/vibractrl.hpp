@@ -19,49 +19,52 @@
 
 #include <e32base.h>
 
-class CVibraControl: public CBase {
-  public:
+class CVibraControl : public CBase {
+public:
     enum TVibraModeState {
-      EVibraModeON=0,
-      EVibraModeOFF,
-      EVibraModeUnknown
+        EVibraModeON = 0,
+        EVibraModeOFF,
+        EVibraModeUnknown
     };
 
     enum TVibraRequestStatus {
-      EVibraRequestOK=0,
-      EVibraRequestFail,
-      EVibraRequestNotAllowed,
-      EVibraRequestStopped,
-      EVibraRequestUnableToStop,
-      EVibraRequestUnknown
+        EVibraRequestOK = 0,
+        EVibraRequestFail,
+        EVibraRequestNotAllowed,
+        EVibraRequestStopped,
+        EVibraRequestUnableToStop,
+        EVibraRequestUnknown
     };
-    
+
     enum TVibraCtrlPanic {
-      EPanicUnableToGetVibraSetting,
-      EPanicVibraGeneral
+        EPanicUnableToGetVibraSetting,
+        EPanicVibraGeneral
     };
-  public:
+
+public:
     ~CVibraControl();
-    virtual void StartVibraL(TUint16 aDuration)=0;
-    virtual void StopVibraL(void)=0;
-    virtual TVibraModeState VibraSettings(void) const=0;
-    virtual void StartVibraL(TUint16 aDuration,TInt aIntensity)=0;
-  protected:
+    virtual void StartVibraL(TUint16 aDuration) = 0;
+    virtual void StopVibraL(void) = 0;
+    virtual TVibraModeState VibraSettings(void) const = 0;
+    virtual void StartVibraL(TUint16 aDuration, TInt aIntensity) = 0;
+
+protected:
     CVibraControl();
 };
 
 class MVibraControlObserver {
-  public:
-    virtual void VibraModeStatus(CVibraControl::TVibraModeState aStatus)=0;
-    virtual void VibraRequestStatus(CVibraControl::TVibraRequestStatus aStatus)=0;
+public:
+    virtual void VibraModeStatus(CVibraControl::TVibraModeState aStatus) = 0;
+    virtual void VibraRequestStatus(CVibraControl::TVibraRequestStatus aStatus) = 0;
 };
 
 class VibraFactory {
-  public:
-    EXPORT_C static CVibraControl* NewL(void);
-    EXPORT_C static CVibraControl* NewL(MVibraControlObserver* aCallback);
-    EXPORT_C static CVibraControl* NewLC(MVibraControlObserver* aCallback);
-  private:
+public:
+    EXPORT_C static CVibraControl *NewL(void);
+    EXPORT_C static CVibraControl *NewL(MVibraControlObserver *aCallback);
+    EXPORT_C static CVibraControl *NewLC(MVibraControlObserver *aCallback);
+
+private:
     VibraFactory();
 };
 

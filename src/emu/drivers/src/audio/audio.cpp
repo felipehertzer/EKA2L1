@@ -1,26 +1,33 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <drivers/audio/audio.h>
-#include <drivers/audio/backend/cubeb/audio_cubeb.h>
 
 #include <common/platform.h>
+
+#if EKA2L1_PLATFORM(IOS)
+#include <drivers/audio/backend/ios/audio_ios.h>
+#elif EKA2L1_PLATFORM(VITA)
+#include <drivers/audio/backend/sdl2/audio_sdl2.h>
+#else
+#include <drivers/audio/backend/cubeb/audio_cubeb.h>
+#endif
 
 #if EKA2L1_PLATFORM(WIN32)
 #include <drivers/audio/backend/wmf/wmf_loader.h>
@@ -46,11 +53,10 @@ namespace eka2l1::drivers {
 
         if (!url.empty()) {
             FILE *target_file = common::open_c_file(url, "rb");
-    
+
             if (target_file) {
                 char header_magic[MIDI_HEADER_MAGIC_LENGTH];
-                if ((fread(header_magic, 1, MIDI_HEADER_MAGIC_LENGTH, target_file) == MIDI_HEADER_MAGIC_LENGTH) &&
-                    (strncmp(header_magic, MIDI_HEADER_MAGIC, MIDI_HEADER_MAGIC_LENGTH) == 0)) {
+                if ((fread(header_magic, 1, MIDI_HEADER_MAGIC_LENGTH, target_file) == MIDI_HEADER_MAGIC_LENGTH) && (strncmp(header_magic, MIDI_HEADER_MAGIC, MIDI_HEADER_MAGIC_LENGTH) == 0)) {
                     res.push_back(preferred_midi_backend_);
                 }
 
@@ -62,9 +68,15 @@ namespace eka2l1::drivers {
         if (loader::init_mf()) {
             res.push_back(player_type_wmf);
         } else
-#endif  
+#endif
         {
+#if EKA2L1_ENABLE_FFMPEG
             res.push_back(player_type_ffmpeg);
+#else
+            if (res.empty()) {
+                res.push_back(preferred_midi_backend_);
+            }
+#endif
         }
 
         return res;
@@ -94,7 +106,7 @@ namespace eka2l1::drivers {
         }
 
         midi_banks_[static_cast<int>(type)] = path;
-        for (auto &cb: bank_change_callbacks_) {
+        for (auto &cb : bank_change_callbacks_) {
             if (cb) {
                 cb(type, path);
             }
@@ -127,7 +139,7 @@ namespace eka2l1::drivers {
 
         if (value != oldval) {
             master_volume_ = value;
-            for (auto &callback: master_volume_change_callbacks_) {
+            for (auto &callback : master_volume_change_callbacks_) {
                 if (callback) {
                     callback(oldval, master_volume_);
                 }
@@ -139,7 +151,13 @@ namespace eka2l1::drivers {
         const player_type preferred_midi_backend) {
         switch (backend) {
         case audio_driver_backend::cubeb: {
+#if EKA2L1_PLATFORM(IOS)
+            return std::make_unique<ios_audio_driver>(initial_master_vol, preferred_midi_backend);
+#elif EKA2L1_PLATFORM(VITA)
+            return std::make_unique<sdl_audio_driver>(initial_master_vol, preferred_midi_backend);
+#else
             return std::make_unique<cubeb_audio_driver>(initial_master_vol, preferred_midi_backend);
+#endif
         }
 
         default:

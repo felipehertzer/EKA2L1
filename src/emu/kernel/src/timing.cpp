@@ -1,25 +1,26 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <common/algorithm.h>
 #include <common/chunkyseri.h>
+#include <common/cvt.h>
 #include <common/log.h>
 #include <common/platform.h>
 #include <common/thread.h>
@@ -27,11 +28,86 @@
 #include <kernel/timing.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace eka2l1 {
+    namespace {
+        bool ntimer_diag_enabled() {
+            static const bool enabled = (std::getenv("EKA2L1_FPS_DIAG") != nullptr)
+                || (std::getenv("EKA2L1_NTIMER_DIAG") != nullptr);
+            return enabled;
+        }
+
+        struct ntimer_event_diag_entry {
+            std::uint64_t calls = 0;
+            std::uint64_t late_us = 0;
+            std::uint64_t max_late_us = 0;
+        };
+
+        struct ntimer_diag_state {
+            std::mutex lock;
+            std::unordered_map<std::string, ntimer_event_diag_entry> by_name;
+            std::uint64_t last_report_wall_us = 0;
+        };
+
+        ntimer_diag_state &ntimer_diag() {
+            static ntimer_diag_state state;
+            return state;
+        }
+
+        void record_ntimer_event_diag(const std::string &name, const std::uint64_t late_us) {
+            if (!ntimer_diag_enabled()) {
+                return;
+            }
+
+            ntimer_diag_state &diag = ntimer_diag();
+            const std::uint64_t wall_now = common::get_current_utc_time_in_microseconds_since_epoch();
+
+            std::lock_guard<std::mutex> guard(diag.lock);
+            ntimer_event_diag_entry &entry = diag.by_name[name.empty() ? "<unnamed>" : name];
+            entry.calls++;
+            entry.late_us += late_us;
+            entry.max_late_us = std::max(entry.max_late_us, late_us);
+
+            if (diag.last_report_wall_us == 0) {
+                diag.last_report_wall_us = wall_now;
+                return;
+            }
+
+            if (wall_now - diag.last_report_wall_us < common::microsecs_per_sec) {
+                return;
+            }
+
+            std::vector<std::pair<std::string, ntimer_event_diag_entry>> rows(diag.by_name.begin(), diag.by_name.end());
+            diag.by_name.clear();
+            std::sort(rows.begin(), rows.end(), [](const auto &lhs, const auto &rhs) {
+                return lhs.second.calls > rhs.second.calls;
+            });
+
+            std::string summary;
+            for (std::size_t i = 0; i < rows.size() && i < 8; i++) {
+                const ntimer_event_diag_entry &row = rows[i].second;
+                summary += summary.empty() ? "" : "; ";
+                summary += rows[i].first;
+                summary += "=";
+                summary += common::to_string(row.calls);
+                summary += "@avg_late_us=";
+                summary += common::to_string(row.calls ? (row.late_us / row.calls) : 0);
+                summary += "/max=";
+                summary += common::to_string(row.max_late_us);
+            }
+
+            LOG_WARN(KERNEL, "NTimer event diag elapsed_ms={} events=[{}]",
+                (wall_now - diag.last_report_wall_us) / 1000, summary);
+            diag.last_report_wall_us = wall_now;
+        }
+    }
+
     ntimer::ntimer(const std::uint32_t cpu_hz) {
         CPU_HZ_ = cpu_hz;
         should_stop_ = false;
@@ -144,7 +220,7 @@ namespace eka2l1 {
         std::uint64_t global_timer = teletimer_->microseconds();
 
         while (!events_.empty() && events_.back().event_time <= global_timer) {
-            event evt = std::move(events_.back());
+            event evt = events_.back();
             events_.pop_back();
 
             std::stable_sort(events_.begin(), events_.end(), [](const event &lhs, const event &rhs) {
@@ -154,6 +230,7 @@ namespace eka2l1 {
             unq.unlock();
 
             if (event_types_[evt.event_type].callback) {
+                record_ntimer_event_diag(event_types_[evt.event_type].name, global_timer - evt.event_time);
                 event_types_[evt.event_type]
                     .callback(evt.event_user_data, static_cast<int>(global_timer - evt.event_time));
             }

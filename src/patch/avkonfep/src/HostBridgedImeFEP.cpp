@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <Dispatch.h>
 #include <HostBridgedImeFEP.h>
+#include <Log.h>
 #include <aknappui.h>
 #include <aknedsts.h>
-#include <Dispatch.h>
-#include <Log.h>
 
 CHostDialogIme::CHostDialogIme(CHostBridgedImeFEP *aHost)
     : CActive(CActive::EPriorityHigh)
@@ -39,7 +39,7 @@ TInt CHostDialogIme::Open(const TDesC *aInitialText, const TInt aMaxLength) {
     if (result != KErrNone) {
         return result;
     }
-    
+
     SetActive();
     return KErrNone;
 }
@@ -60,7 +60,6 @@ CHostBridgedImeFEP::CHostBridgedImeFEP(CCoeEnv &aConeEnvironment)
     , iHasFep(EFalse)
     , iInFEPWork(EFalse)
     , iImeDialog(this) {
-    
 }
 
 CHostBridgedImeFEP::~CHostBridgedImeFEP() {
@@ -89,7 +88,7 @@ void CHostBridgedImeFEP::HandleChangeInFocus() {
 
 void CHostBridgedImeFEP::OpenDialogInputL(const TBool aTranstractRestart) {
     MCoeFepAwareTextEditor *editor = iInputCapabilities.FepAwareTextEditor();
-    
+
     HBufC *initialText = NULL;
     TPtr initialTextPtr(0, 0);
 
@@ -115,23 +114,23 @@ void CHostBridgedImeFEP::OpenDialogInputL(const TBool aTranstractRestart) {
     }
 
     iInFEPWork = EFalse;
-    
+
     if (initialText) {
         CleanupStack::PopAndDestroy();
     }
 }
 
-CAknEdwinState* CHostBridgedImeFEP::EditorState() const {
+CAknEdwinState *CHostBridgedImeFEP::EditorState() const {
     MCoeFepAwareTextEditor *fepAvareTextEditor = iInputCapabilities.FepAwareTextEditor();
 
     if (fepAvareTextEditor && fepAvareTextEditor->Extension1()) {
-        return static_cast<CAknEdwinState*>(fepAvareTextEditor->Extension1()->State(KNullUid));
+        return static_cast<CAknEdwinState *>(fepAvareTextEditor->Extension1()->State(KNullUid));
     }
 
     return NULL;
 }
 
-void CHostBridgedImeFEP::HandleInputCapabilitiesEventL( TInt aEvent, TAny* aParams ) {
+void CHostBridgedImeFEP::HandleInputCapabilitiesEventL(TInt aEvent, TAny *aParams) {
     switch (aEvent) {
     case CAknExtendedInputCapabilities::MAknEventObserver::EActivatePenInputRequest:
         if (!iDialogPending) {
@@ -146,7 +145,7 @@ void CHostBridgedImeFEP::HandleInputCapabilitiesEventL( TInt aEvent, TAny* aPara
     }
 }
 
-void CHostBridgedImeFEP::HandleAknEdwinStateEventL(CAknEdwinState* aAknEdwinState, EAknEdwinStateEvent aEventType) {
+void CHostBridgedImeFEP::HandleAknEdwinStateEventL(CAknEdwinState *aAknEdwinState, EAknEdwinStateEvent aEventType) {
     MCoeFepAwareTextEditor *editor = iInputCapabilities.FepAwareTextEditor();
     if (editor) {
         switch (aEventType) {
@@ -170,33 +169,33 @@ void CHostBridgedImeFEP::HandleAknEdwinStateEventL(CAknEdwinState* aAknEdwinStat
 }
 
 void CHostBridgedImeFEP::RegisterObserver() {
-    MObjectProvider* mop = iInputCapabilities.ObjectProvider();
+    MObjectProvider *mop = iInputCapabilities.ObjectProvider();
 
     if (mop) {
-        CAknExtendedInputCapabilities* extendedInputCapabilities = mop->MopGetObject( extendedInputCapabilities );
+        CAknExtendedInputCapabilities *extendedInputCapabilities = mop->MopGetObject(extendedInputCapabilities);
 
         if (extendedInputCapabilities) {
-            extendedInputCapabilities->RegisterObserver( this );
+            extendedInputCapabilities->RegisterObserver(this);
         }
     }
 }
 
 void CHostBridgedImeFEP::UnregisterObserver() {
-    MObjectProvider* mop = iInputCapabilities.ObjectProvider();
+    MObjectProvider *mop = iInputCapabilities.ObjectProvider();
 
     if (mop) {
-        CAknExtendedInputCapabilities* extendedInputCapabilities = mop->MopGetObject( extendedInputCapabilities );
+        CAknExtendedInputCapabilities *extendedInputCapabilities = mop->MopGetObject(extendedInputCapabilities);
 
         if (extendedInputCapabilities) {
-            extendedInputCapabilities->UnregisterObserver( this );
+            extendedInputCapabilities->UnregisterObserver(this);
         }
     }
 }
 
 void CHostBridgedImeFEP::HandleChangeInFocusL() {
-    CCoeEnv* coeEnv = CCoeEnv::Static();
-    iInputCapabilities = static_cast<const CCoeAppUi*>(coeEnv->AppUi())->InputCapabilities();
- 
+    CCoeEnv *coeEnv = CCoeEnv::Static();
+    iInputCapabilities = static_cast<const CCoeAppUi *>(coeEnv->AppUi())->InputCapabilities();
+
     MCoeFepAwareTextEditor *editor = iInputCapabilities.FepAwareTextEditor();
 
     if (editor && !iHasFep) {
@@ -238,18 +237,18 @@ void CHostBridgedImeFEP::CommitChangedTextL() {
     }
 
     iDialogPending = EFalse;
-    
+
     TInt length = 0;
     ::EHUIGetStoredText(0, &length, NULL);
 
     TPtr textChanged(0, 0);
     HBufC *textChangedBuf = NULL;
-    
+
     if (length != 0) {
         textChangedBuf = HBufC::NewLC(length);
         textChanged.Set(textChangedBuf->Des());
         textChanged.SetLength(length);
-        
+
         ::EHUIGetStoredText(0, &length, textChangedBuf->Ptr());
     }
 
@@ -309,18 +308,17 @@ void CHostBridgedImeFEP::CancelTransaction() {
 }
 
 void CHostBridgedImeFEP::IsOnHasChangedState() {
-    
 }
 
-void CHostBridgedImeFEP::OfferKeyEventL(TEventResponse& aEventResponse, const TKeyEvent& aKeyEvent, TEventCode aEventCode) {
+void CHostBridgedImeFEP::OfferKeyEventL(TEventResponse &aEventResponse, const TKeyEvent &aKeyEvent, TEventCode aEventCode) {
     // Ignore
 }
 
-void CHostBridgedImeFEP::OfferPointerEventL(TEventResponse& aEventResponse, const TPointerEvent& aPointerEvent, const CCoeControl* aWindowOwningControl) {
+void CHostBridgedImeFEP::OfferPointerEventL(TEventResponse &aEventResponse, const TPointerEvent &aPointerEvent, const CCoeControl *aWindowOwningControl) {
     // Ignore
 }
 
-void CHostBridgedImeFEP::OfferPointerBufferReadyEventL(TEventResponse& aEventResponse, const CCoeControl* aWindowOwningControl) {
+void CHostBridgedImeFEP::OfferPointerBufferReadyEventL(TEventResponse &aEventResponse, const CCoeControl *aWindowOwningControl) {
     // Ignore
 }
 
@@ -332,20 +330,20 @@ TUid CHostBridgedImeFEP::AttributeAtIndex(TInt aIndex) const {
     return TUid::Null();
 }
 
-void CHostBridgedImeFEP::WriteAttributeDataToStreamL(TUid aAttributeUid, RWriteStream& aStream) const {
+void CHostBridgedImeFEP::WriteAttributeDataToStreamL(TUid aAttributeUid, RWriteStream &aStream) const {
     // Ignore
 }
 
-void CHostBridgedImeFEP::ReadAttributeDataFromStreamL(TUid aAttributeUid, RReadStream& aStream) {
+void CHostBridgedImeFEP::ReadAttributeDataFromStreamL(TUid aAttributeUid, RReadStream &aStream) {
     // Ignore
 }
 
-void CHostBridgedImeFEP::GetFormatOfFepInlineText(TCharFormat& aFormat, TInt& aNumberOfCharactersWithSameFormat, 
+void CHostBridgedImeFEP::GetFormatOfFepInlineText(TCharFormat &aFormat, TInt &aNumberOfCharactersWithSameFormat,
     TInt aPositionOfCharacter) const {
     // Ignore
 }
 
-void CHostBridgedImeFEP::HandlePointerEventInInlineTextL(TPointerEvent::TType aType, TUint aModifiers, 
+void CHostBridgedImeFEP::HandlePointerEventInInlineTextL(TPointerEvent::TType aType, TUint aModifiers,
     TInt aPositionInInlineText) {
     // Ignore
 }
@@ -354,25 +352,23 @@ CHostBridgedImeFEPPlugin *CHostBridgedImeFEPPlugin::NewL() {
     return new (ELeave) CHostBridgedImeFEPPlugin();
 }
 
-CCoeFep* CHostBridgedImeFEPPlugin::NewFepL(CCoeEnv& aConeEnvironment, const CCoeFepParameters& aFepParameters) {
+CCoeFep *CHostBridgedImeFEPPlugin::NewFepL(CCoeEnv &aConeEnvironment, const CCoeFepParameters &aFepParameters) {
     CHostBridgedImeFEP *fep = new (ELeave) CHostBridgedImeFEP(aConeEnvironment);
     CleanupStack::PushL(fep);
     fep->ConstructL(aFepParameters);
     CleanupStack::Pop(fep);
-    
+
     return fep;
 }
 
-void CHostBridgedImeFEPPlugin::SynchronouslyExecuteSettingsDialogL(CCoeEnv& aConeEnvironment) {
-    
+void CHostBridgedImeFEPPlugin::SynchronouslyExecuteSettingsDialogL(CCoeEnv &aConeEnvironment) {
 }
 
 const TImplementationProxy ImplementationTable[] = {
     IMPLEMENTATION_PROXY_ENTRY(0x101FD65A, CHostBridgedImeFEPPlugin::NewL)
 };
 
-EXPORT_C const TImplementationProxy* ImplementationGroupProxy(TInt& aTableCount) {
+EXPORT_C const TImplementationProxy *ImplementationGroupProxy(TInt &aTableCount) {
     aTableCount = sizeof(ImplementationTable) / sizeof(TImplementationProxy);
     return ImplementationTable;
 }
-

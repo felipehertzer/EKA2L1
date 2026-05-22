@@ -17,23 +17,23 @@
  *
  */
 
-#include <dispatch/libraries/vg/gnuVG_object.hh>
 #include <dispatch/libraries/vg/gnuVG_context.hh>
+#include <dispatch/libraries/vg/gnuVG_object.hh>
 
 #include <map>
 #include <stdlib.h>
 
 namespace gnuVG {
-	Object::Object(Context *context)
-		: context(context) {}
+    Object::Object(Context *context)
+        : context(context) {}
 
-	Object::~Object() {
-	}
+    Object::~Object() {
+    }
 
-	VGHandle Object::allocate_and_mark_properly_created(VGHandle handle) {
-		obj_handle = handle;
-		properly_created = true;
+    VGHandle Object::allocate_and_mark_properly_created(VGHandle handle) {
+        obj_handle = handle;
+        properly_created = true;
 
-		return obj_handle;
-	}
+        return obj_handle;
+    }
 };

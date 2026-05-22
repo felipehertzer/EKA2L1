@@ -1,28 +1,28 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <dispatch/libraries/egl/def.h>
-#include <dispatch/libraries/gles_shared/def.h>
-#include <dispatch/libraries/gles1/consts.h>
 #include <dispatch/def.h>
+#include <dispatch/libraries/egl/def.h>
+#include <dispatch/libraries/gles1/consts.h>
+#include <dispatch/libraries/gles_shared/def.h>
 
 #include <common/container.h>
 #include <common/vecx.h>
@@ -103,7 +103,7 @@ namespace eka2l1::dispatch {
 
         std::stack<glm::mat4> texture_mat_stack_;
         std::uint32_t binded_texture_handle_;
-        
+
         gles_vertex_attrib coord_attrib_;
         gles_texture_env_info env_info_;
 
@@ -142,7 +142,7 @@ namespace eka2l1::dispatch {
     public:
         std::stack<glm::mat4> model_view_mat_stack_;
         std::stack<glm::mat4> proj_mat_stack_;
-        std::array<glm::mat4, GLES1_EMU_MAX_PALETTE_MATRICES> palette_mats_; 
+        std::array<glm::mat4, GLES1_EMU_MAX_PALETTE_MATRICES> palette_mats_;
 
         gles1_texture_unit texture_units_[GLES1_EMU_MAX_TEXTURE_COUNT];
         std::uint32_t active_client_texture_unit_;
@@ -266,9 +266,9 @@ namespace eka2l1::dispatch {
 
     /**
      * @brief Get the extension string for ES1 layer.
-     * 
+     *
      * This also accounts the extensions that the host GPU supports.
-     * 
+     *
      * @param   driver            Graphic driver pointer.
      * @return  The extension string.
      */

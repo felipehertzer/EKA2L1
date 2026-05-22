@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -210,7 +210,7 @@ TInt CMdaAudioOutputStream::RequestStop() {
 }
 
 //==================================== AUDIO INPUT STREAM ========================================= //
-CMdaAudioInputStream* CMdaAudioInputStream::NewL(MMdaAudioInputStreamCallback& aCallBack) {
+CMdaAudioInputStream *CMdaAudioInputStream::NewL(MMdaAudioInputStreamCallback &aCallBack) {
     CMdaAudioInputStream *stream = new (ELeave) CMdaAudioInputStream();
     CleanupStack::PushL(stream);
     stream->iProperties = CMMFMdaAudioInputStream::NewL(aCallBack, 0, EMdaPriorityPreferenceTimeAndQuality);
@@ -219,8 +219,8 @@ CMdaAudioInputStream* CMdaAudioInputStream::NewL(MMdaAudioInputStreamCallback& a
     return stream;
 }
 
-CMdaAudioInputStream* CMdaAudioInputStream::NewL(MMdaAudioInputStreamCallback& aCallBack,
-    TInt aPriority,	TMdaPriorityPreference aPref) {
+CMdaAudioInputStream *CMdaAudioInputStream::NewL(MMdaAudioInputStreamCallback &aCallBack,
+    TInt aPriority, TMdaPriorityPreference aPref) {
     CMdaAudioInputStream *stream = new (ELeave) CMdaAudioInputStream();
     CleanupStack::PushL(stream);
     stream->iProperties = CMMFMdaAudioInputStream::NewL(aCallBack, aPriority, aPref);
@@ -231,7 +231,6 @@ CMdaAudioInputStream* CMdaAudioInputStream::NewL(MMdaAudioInputStreamCallback& a
 
 CMdaAudioInputStream::CMdaAudioInputStream()
     : iProperties(NULL) {
-
 }
 
 CMdaAudioInputStream::~CMdaAudioInputStream() {
@@ -247,7 +246,7 @@ void CMdaAudioInputStream::SetAudioPropertiesL(TInt aSampleRate, TInt aChannels)
     }
 }
 
-void CMdaAudioInputStream::Open(TMdaPackage* aPackage) {
+void CMdaAudioInputStream::Open(TMdaPackage *aPackage) {
     if (iProperties->HasAlreadyPlay()) {
         LogOut(KMcaCat, _L("WARN:: Stream has already been opened! This open call is ignored."));
         return;
@@ -292,7 +291,6 @@ void CMdaAudioInputStream::Open(TMdaPackage* aPackage) {
 
 void CMdaAudioInputStream::SetGain(TInt aNewGain) {
     LogOut(KMcaCat, _L("WARN:: Set input gain unimplmented!!"));
-
 }
 
 TInt CMdaAudioInputStream::Gain() const {
@@ -325,7 +323,7 @@ void CMdaAudioInputStream::SetPriority(TInt aPriority, TMdaPriorityPreference aP
     iProperties->SetPriorityUnimplNotified();
 }
 
-void CMdaAudioInputStream::ReadL(TDes8& aData) {
+void CMdaAudioInputStream::ReadL(TDes8 &aData) {
     iProperties->ReadWithQueueL(aData);
 }
 
@@ -333,7 +331,7 @@ void CMdaAudioInputStream::Stop() {
     iProperties->Stop();
 }
 
-const TTimeIntervalMicroSeconds& CMdaAudioInputStream::Position() {
+const TTimeIntervalMicroSeconds &CMdaAudioInputStream::Position() {
     return iProperties->Position();
 }
 
@@ -356,23 +354,20 @@ TFourCC CMdaAudioInputStream::DataType() const {
     return format;
 }
 
-void CMdaAudioInputStream::GetSupportedBitRatesL(RArray<TInt>& aSupportedBitRates) {
-
+void CMdaAudioInputStream::GetSupportedBitRatesL(RArray<TInt> &aSupportedBitRates) {
 }
 
 TInt CMdaAudioInputStream::BitRateL() const {
 }
 
 void CMdaAudioInputStream::SetBitRateL(TInt aBitRate) {
-
 }
 
-TAny* CMdaAudioInputStream::CustomInterface(TUid aInterfaceId) {
+TAny *CMdaAudioInputStream::CustomInterface(TUid aInterfaceId) {
     return NULL;
 }
 
 void CMdaAudioInputStream::SetSingleBufferMode(TBool aSingleMode) {
-
 }
 
 void CMdaAudioInputStream::RequestStop() {

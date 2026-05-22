@@ -1,28 +1,28 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drivers/audio/backend/minibae/player_minibae.h>
-#include <drivers/audio/backend/baeplat_impl.h>
 #include <drivers/audio/audio.h>
+#include <drivers/audio/backend/baeplat_impl.h>
+#include <drivers/audio/backend/minibae/player_minibae.h>
 
-#include <common/log.h>
 #include <common/buffer.h>
+#include <common/log.h>
 
 #include <memory>
 
@@ -57,7 +57,7 @@ namespace eka2l1::drivers {
         void handle_bank_change(const midi_bank_type type, const std::string &new_path) {
             if (type == MIDI_BANK_TYPE_HSB) {
                 BAEBankToken new_token = nullptr;
-                BAEResult result = BAEMixer_AddBankFromFile(mixer_, const_cast<char*>(new_path.data()), &new_token);
+                BAEResult result = BAEMixer_AddBankFromFile(mixer_, const_cast<char *>(new_path.data()), &new_token);
 
                 if (result != BAE_NO_ERROR) {
                     LOG_ERROR(DRIVER_AUD, "Failed to new miniBae banks!");
@@ -116,7 +116,7 @@ namespace eka2l1::drivers {
         , paused_(false) {
         BAE_SetActiveAudioDriver(driver);
     }
-    
+
     player_minibae::~player_minibae() {
         paused_ = false;
 
@@ -129,7 +129,7 @@ namespace eka2l1::drivers {
         if (callback_)
             callback_(userdata_.data());
     }
-    
+
     bool player_minibae::play() {
         if (!song_) {
             return false;
@@ -155,11 +155,11 @@ namespace eka2l1::drivers {
     }
 
     bool player_minibae::record() {
-        return false;        
+        return false;
     }
 
     bool player_minibae::crop() {
-        return false;        
+        return false;
     }
 
     bool player_minibae::stop() {
@@ -168,7 +168,7 @@ namespace eka2l1::drivers {
         }
 
         const BAEResult error = BAESong_Stop(song_, 1);
-        
+
         if (error != BAE_NO_ERROR) {
             LOG_ERROR(DRIVER_AUD, "Encounter error trying to stop MIDI: {}", static_cast<int>(error));
             return false;
@@ -183,7 +183,7 @@ namespace eka2l1::drivers {
             paused_ = true;
         }
     }
-    
+
     bool player_minibae::set_volume(const std::uint32_t vol) {
         if (!player::set_volume(vol)) {
             return false;
@@ -202,7 +202,7 @@ namespace eka2l1::drivers {
     }
 
     static void bae_song_done_callback(void *userdata) {
-        player_minibae *player = reinterpret_cast<player_minibae*>(userdata);
+        player_minibae *player = reinterpret_cast<player_minibae *>(userdata);
         player->call_song_done();
     }
 
@@ -212,8 +212,8 @@ namespace eka2l1::drivers {
             return false;
         }
 
-        BAEResult error = BAESong_LoadMidiFromFile(new_song, const_cast<char*>(url.c_str()), true);
-    
+        BAEResult error = BAESong_LoadMidiFromFile(new_song, const_cast<char *>(url.c_str()), true);
+
         if (error != BAE_NO_ERROR) {
             LOG_ERROR(DRIVER_AUD, "Encounter error trying to load MIDI song: {}", static_cast<int>(error));
             BAESong_Delete(new_song);
@@ -234,7 +234,7 @@ namespace eka2l1::drivers {
 
     bool player_minibae::open_custom(common::rw_stream *stream) {
         std::vector<std::uint8_t> data_read(stream->size());
-        
+
         std::size_t read = 0;
         std::uint64_t left = stream->size();
 
@@ -253,7 +253,7 @@ namespace eka2l1::drivers {
         }
 
         BAEResult error = BAESong_LoadMidiFromMemory(new_song, data_read.data(), static_cast<unsigned long>(data_read.size()), true);
-    
+
         if (error != BAE_NO_ERROR) {
             LOG_ERROR(DRIVER_AUD, "Encounter error trying to load MIDI song: {}", static_cast<int>(error));
             BAESong_Delete(new_song);
@@ -305,7 +305,7 @@ namespace eka2l1::drivers {
 
         BAESong_SetMicrosecondPosition(song_, static_cast<unsigned long>(pos_in_us));
     }
-    
+
     std::uint64_t player_minibae::position() const {
         if (!song_) {
             return 0;
@@ -342,6 +342,5 @@ namespace eka2l1::drivers {
     }
 
     void player_minibae::set_dest_container_format(const std::uint32_t confor) {
-        
     }
 }

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -27,14 +27,15 @@
 
 #include <services/window/classes/winuser.h>
 
-#include <common/vecx.h>
 #include <common/container.h>
+#include <common/vecx.h>
 
 #include <kernel/common.h>
 
 #include <cstdint>
-#include <memory>
 #include <map>
+#include <memory>
+#include <set>
 #include <stack>
 
 namespace eka2l1 {
@@ -570,6 +571,9 @@ namespace eka2l1::dispatch {
         std::map<kernel::uid, egl_context *> active_context_;
         std::map<kernel::uid, std::uint32_t> error_map_;
         std::map<kernel::uid, std::uint32_t> egl_error_map_;
+        std::map<kernel::uid, std::uint32_t> bound_api_map_;
+        std::set<egl_context *> swapped_contexts_;
+        std::set<egl_context *> auto_present_logged_contexts_;
 
         gles1_shaderman es1_shaderman_;
         gnuVG::ShaderMan vg_shaderman_;
@@ -605,6 +609,13 @@ namespace eka2l1::dispatch {
 
         egl_context *current_context(kernel::uid thread_id);
         egl_context *get_context(const egl_context_handle handle);
+
+        bool should_auto_present(const egl_context *context) const;
+        void mark_context_swapped(egl_context *context);
+        epoc::canvas_base *queue_present_context_surface(egl_context *context, drivers::graphics_driver *driver);
+
+        void bind_api(kernel::uid thread_id, const std::uint32_t api);
+        std::uint32_t bound_api(kernel::uid thread_id) const;
 
         void push_error(kernel::uid thread_id, const std::uint32_t error);
         std::uint32_t pop_error(kernel::uid thread_id);

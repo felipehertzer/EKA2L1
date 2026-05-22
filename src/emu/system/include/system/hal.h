@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -277,7 +277,7 @@ namespace eka2l1::epoc {
         explicit hal(eka2l1::system *sys);
 
         /**
-         * \brief Execute an HAL function. 
+         * \brief Execute an HAL function.
          *
          * \param func Function opcode.
          * \returns HAL operation result.
@@ -285,11 +285,11 @@ namespace eka2l1::epoc {
         int do_hal(uint32_t func, int *a1, int *a2, const std::uint16_t device_number);
     };
 
-    /** 
+    /**
      * \brief Initialize HAL.
      *
      * This adds all HAL category to the system.
-    */
+     */
     void init_hal(eka2l1::system *sys);
 
     /**
@@ -304,10 +304,10 @@ namespace eka2l1::epoc {
 
     /**
      * @brief Do a HAL given a data key.
-     * 
+     *
      * @param data_num      The number to identify a HAL function.
      * @param data          Pointer to HAL data to be filled.
-     * 
+     *
      * @returns Operation result.
      */
     int do_hal_by_data_num(eka2l1::system *sys, const std::uint32_t data_num, void *data);

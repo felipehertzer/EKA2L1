@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -84,7 +84,7 @@ namespace eka2l1 {
 
             //! The name of the object
             /*! Even local object will have a randomized name in here.
-            */
+             */
             std::string obj_name;
             kernel_obj *owner;
 
@@ -164,8 +164,8 @@ namespace eka2l1 {
                 return this->uid;
             }
 
-            /** 
-             * @brief Rename the kernel object. 
+            /**
+             * @brief Rename the kernel object.
              * @param new_name The new name of object.
              */
             virtual void rename(const std::string &new_name) {

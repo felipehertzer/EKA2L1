@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <common/vecx.h>
 #include <common/region.h>
+#include <common/vecx.h>
 
 #include <drivers/driver.h>
 #include <drivers/graphics/buffer.h>
@@ -46,57 +46,57 @@ namespace eka2l1::drivers {
 
     /**
      * BPP to texture format table:
-     * 
+     *
      * BPP in EKA2L1 follows exactly the order stored on Symbian. The general rules always will be:
-     * 
+     *
      * - RGB components order will be consequencely placed from high bits to low bits
      * - If the BPP supports alpha, the alpha will be on top of RGB. So the order is always ARGB
-     * 
-     * For OpenGL (format, internal format, upload data type, swizzle (optional)):
-     * 
-     * - 8bits: GL_R, GL_R8, GL_BYTE, swizzle RRRR
-     * - 12bits: GL_RGBA, GL_RGBA4, GL_UNSIGNED_SHORT_4_4_4_4, swizzle GBA1
-     * - 16bits: GL_RGB, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, swizzle RGB1
-     * - 24bits: GL_RGB, GL_RGB, GL_BYTE, swizzle BGR1
-     * - 32bits: GL_BGRA, GL_BGRA, GL_BYTE, swizzle RGBA
+     *
+     * For the graphics backend texture upload path:
+     *
+     * - 8bits: single channel, swizzle RRRR
+     * - 12bits: packed RGBA4, swizzle GBA1
+     * - 16bits: packed RGB565, swizzle RGB1
+     * - 24bits: RGB with BGR source ordering, swizzle BGR1
+     * - 32bits: BGRA source ordering, swizzle RGBA
      */
 
     using graphics_driver_dialog_callback = std::function<void(const char *)>;
 
     /** \brief Create a new bitmap in the server size.
-      *
-      * A bitmap will be created in the server side when using this function. When you bind
-      * a bitmap for rendering, a render target will be automatically created for it.
-      *
-      * \param initial_size       The initial size of the bitmap.
-      * \param bpp                Bits per pixel of the bitmap
-      * 
-      * \returns ID of the bitmap.
-      */
+     *
+     * A bitmap will be created in the server side when using this function. When you bind
+     * a bitmap for rendering, a render target will be automatically created for it.
+     *
+     * \param initial_size       The initial size of the bitmap.
+     * \param bpp                Bits per pixel of the bitmap
+     *
+     * \returns ID of the bitmap.
+     */
     drivers::handle create_bitmap(graphics_driver *driver, const eka2l1::vec2 &size, const std::uint32_t bpp);
 
     /** \brief Create a new shader module.
-      *
-      * \param driver       The driver associated with the program. 
-      * \param data         Pointer to the vertex/fragment shader code.
-      * \param size         Size of vertex/fragment shader code in bytes.
-      * \param type         The type of the shader module.
-      * \param compile_log  Pointer to an optional string object, that hold compile log. It may be important on compile failure.
-      *
-      * \returns Handle to the program.
-      */
+     *
+     * \param driver       The driver associated with the program.
+     * \param data         Pointer to the vertex/fragment shader code.
+     * \param size         Size of vertex/fragment shader code in bytes.
+     * \param type         The type of the shader module.
+     * \param compile_log  Pointer to an optional string object, that hold compile log. It may be important on compile failure.
+     *
+     * \returns Handle to the program.
+     */
     drivers::handle create_shader_module(graphics_driver *driver, const char *data, const std::size_t size,
         drivers::shader_module_type type, std::string *compile_log = nullptr);
 
     /**
      * @brief Create a shader program from existing shader modules.
-     * 
-     * @param driver            The driver associated with the program. 
+     *
+     * @param driver            The driver associated with the program.
      * @param vertex_module     Handle to the vertex shader module created.
      * @param fragment_module   Handle to the fragment shader module created.
      * @param metadata          If this is not null, the metadata object is filled with this shader program's metadata.
      * @param link_log          If this is not null, on return the log is filled with linking info.
-     * 
+     *
      * @return A valid handle on success.
      */
     drivers::handle create_shader_program(graphics_driver *driver, drivers::handle vertex_module,
@@ -124,14 +124,14 @@ namespace eka2l1::drivers {
 
     /**
      * @brief Create a new renderbuffer.
-     * 
+     *
      * This is a surface that does not allow direct upload from the client, used for framebuffer. Depends on implementation,
      * this may simply be a texture.
-     * 
+     *
      * @param driver                The driver associated with this renderbuffer.
      * @param size                  The dimension of the renderbuffer.
      * @param internal_format       The internal format used to store the surface data.
-     * 
+     *
      * @returns Handle to the renderbuffer. 0 on failure.
      */
     drivers::handle create_renderbuffer(graphics_driver *driver, const eka2l1::vec2 &size, const drivers::texture_format internal_format);
@@ -150,7 +150,7 @@ namespace eka2l1::drivers {
 
     /**
      * @brief Create input layout descriptors for input vertex data.
-     * 
+     *
      * @brief driver            The driver associated with the input descriptor.
      * @brief descriptors       The layout infos.
      * @brief count             Number of descriptor provided.
@@ -159,9 +159,9 @@ namespace eka2l1::drivers {
 
     /**
      * @brief Create a framebuffer object.
-     * 
+     *
      * If the framebuffer to use DEPTH24_STENCIL8, let the depth and stencil buffer point to the same handle.
-     * 
+     *
      * @param driver                 The driver associated with the framebuffer.
      * @param color_buffers          An array containing list of color buffers that will be attached to this framebuffer.
      * @param color_face_indicies    An array specify the index of the face (in case the drawable is a cube map) of the texture to render to.
@@ -170,7 +170,7 @@ namespace eka2l1::drivers {
      * @param depth_face_index       The index of the face in texture to render the depth buffer to.
      * @param stencil_buffer         Handle to the stencil buffer (texture/renderbuffer).
      * @param stencil_face_index       The index of the face in texture to render the depth buffer to.
-     * 
+     *
      * @return Non-zero handle on success.
      */
     drivers::handle create_framebuffer(graphics_driver *driver, const drivers::handle *color_buffers, const int *color_face_indicies,
@@ -179,16 +179,16 @@ namespace eka2l1::drivers {
 
     /**
      * @brief Read bitmap data from a region into memory buffer.
-     * 
+     *
      * The data will also be word-aligned each line pitch.
-     * 
+     *
      * @param h             Handle to the bitmap.
      * @param pos           The position to start clipping bitmap data from.
      * @param size          The size of the clipped bitmap region.
      * @param bpp           The target BPP that will be written to the memory.
      * @param buffer_ptr    The buffer to read the data into.
      * @param buffer_size   Size of the buffer to read the data to.
-     * 
+     *
      * @returns False on error (either the buffer size is inefficient or some errors happen during the read).
      */
     bool read_bitmap(graphics_driver *driver, drivers::handle h, const eka2l1::point &pos, const eka2l1::object_size &size,
@@ -196,9 +196,9 @@ namespace eka2l1::drivers {
 
     /**
      * @brief   Read framebuffer data from a region into memory buffer.
-     * 
+     *
      * The data will also be word-aligned each line pitch.
-     * 
+     *
      * @param h             Handle to the bitmap.
      * @param pos           The position to start clipping framebuffer data from.
      * @param size          The size of the clipped framebuffer region.
@@ -211,7 +211,7 @@ namespace eka2l1::drivers {
     static constexpr std::size_t MAX_THRESHOLD_TO_FLUSH = 12000;
     static constexpr std::size_t MAX_CAP_COMMAND_COUNT = 12800;
 
-    #define PACK_2U32_TO_U64(a, b) (static_cast<std::uint64_t>(b) << 32) | static_cast<std::uint32_t>(a)
+#define PACK_2U32_TO_U64(a, b) (static_cast<std::uint64_t>(b) << 32) | static_cast<std::uint32_t>(a)
 
     template <typename T, typename R>
     void unpack_u64_to_2u32(const std::uint64_t source, T &a, R &b) {
@@ -294,7 +294,7 @@ namespace eka2l1::drivers {
          * \brief Set scissor rectangle, allow redraw only in specified area if clipping is enabled.
          *
          * Use in drawing window rect or invalidate a specific region of an window.
-         * 
+         *
          * If the height is negative, the clip will use left-hand coordinates.
          */
         void clip_rect(const eka2l1::rect &rect);
@@ -303,9 +303,9 @@ namespace eka2l1::drivers {
         void clip_bitmap_region(const common::region &region, const float scale_factor = 1.0f);
 
         /**
-          * \brief Clear the binding bitmap with color.
-          * \params clear_parameters The first four float is color buffer value, the next two floats are depth and stencil.
-          */
+         * \brief Clear the binding bitmap with color.
+         * \params clear_parameters The first four float is color buffer value, the next two floats are depth and stencil.
+         */
         void clear(vecx<float, 6> clear_parameters, const std::uint8_t clear_bitarr);
 
         /**
@@ -333,7 +333,7 @@ namespace eka2l1::drivers {
          * \param offset            The offset of the bitmap (pixels).
          * \param dim               The dimensions of bitmap (pixels).
          * \param pixels_per_line   Number of pixels per row. Use 0 for default.
-         * 
+         *
          * \returns Handle to the texture.
          */
         void update_bitmap(drivers::handle h, const char *data, const std::size_t size,
@@ -342,10 +342,10 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Update a texture data region.
-         * 
+         *
          * It's recommended to match data format and data type to the arguments passed in
          * texture creation.
-         * 
+         *
          * @param h                 The handle to existing bitmap.
          * @param data              Pointer to bitmap data.
          * @param size              Size of bitmap data.
@@ -354,7 +354,7 @@ namespace eka2l1::drivers {
          * @param offset            The offset of the bitmap (pixels).
          * @param dim               The dimensions of bitmap (pixels).
          * @param pixels_per_line   Number of pixels per row. Use 0 for default.
-         * 
+         *
          * @returns Handle to the texture.
          */
         void update_texture(drivers::handle h, const char *data, const std::size_t size,
@@ -366,7 +366,7 @@ namespace eka2l1::drivers {
          * \brief Draw a bitmap to currently binded bitmap.
          *
          * The only limitation is origin is hard-coded to the center of the bitmap for rotation purpose.
-         * 
+         *
          * \param h            The handle of the bitmap to blit.
          * \param maskh        The handle of the mask to apply to this bitmap. Use 0 for none.
          * \param dest_rect    The destination rectangle of the bitmap on the screen.
@@ -381,7 +381,7 @@ namespace eka2l1::drivers {
 
         /**
          * \brief Draw a rectangle with brush color.
-         * 
+         *
          * \param target_rect The destination rectangle.
          */
         void draw_rectangle(const eka2l1::rect &target_rect);
@@ -393,15 +393,14 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set the standalone uniform value for the current active program.
-         * 
+         *
          * These uniforms are declared globally, and do not belong in any buffer objects in the linked program.
-         * Note that for now only a number of backends support this (OpenGL and OpenGLES). Preferred option
-         * is to store uniform data inside a buffer block.
-         * 
+         * Preferred option is to store uniform data inside a buffer block.
+         *
          * Backend that does not support this will either ignore or additionally prints out some warning log
          * in the console. Some backends may emulate this. A shader program may support dynamic uniforms if
          * metadata is attached.
-         * 
+         *
          * @param binding       The identifier of the variable in the linked program.
          * @param var_type      The variable type for uploading data.
          * @param data          The data to set to the uniform variable.
@@ -420,10 +419,10 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set which texture in a slot that the specified active shader module will use.
-         * 
+         *
          * Note for some backends, the binding might be shared between programs, making the module specification
          * useless.
-         * 
+         *
          * @param texture_slot          Texture slot to bind to shader.
          * @param shader_binding        The target binding of the shader variable.
          * @param module                The module that the texture variable is active on.
@@ -439,12 +438,13 @@ namespace eka2l1::drivers {
          * \param count                 The number of buffers to set.
          */
         void set_vertex_buffers(drivers::handle *h, const std::uint32_t starting_slots, const std::uint32_t count);
+        void set_vertex_buffers(drivers::handle *h, const std::size_t *offsets, const std::uint32_t starting_slots, const std::uint32_t count);
 
         void set_index_buffer(drivers::handle h);
 
         /**
          * @brief Draw array of vertices.
-         * 
+         *
          * @param prim_mode         The primitive mode used to draw the vertices data.
          * @param first             The starting index of the vertices data.
          * @param count             Number of vertices to be drawn.
@@ -481,7 +481,7 @@ namespace eka2l1::drivers {
 
         /**
          * \brief Set current viewport.
-         * 
+         *
          * \param viewport_rect     The rectangle to set viewport to
          */
         void set_viewport(const eka2l1::rect &viewport_rect);
@@ -498,7 +498,7 @@ namespace eka2l1::drivers {
          * Color that will be written to buffer will be calculated using the following formulas:
          *   dest.rgb = rgb_blend_equation(frag_out.rgb * rgb_frag_out_factor + current.rgb * rgb_current_factor)
          *   dest.a = a_blend_equation(frag_out.a * a_frag_out_factor + a.rgb * a_current_factor)
-         * 
+         *
          * \param rgb_equation              Equation for calculating blended RGB.
          * \param a_equation                Equation for calculating blended Alpha.
          * \param rgb_frag_output_factor    The factor with RGB fragment output.
@@ -512,7 +512,7 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set action to the write for a pixel to stencil buffer on circumstances.
-         * 
+         *
          * @param face_operate_on                   The face to base the actions on.
          * @param on_stencil_fail                   Action to take on stencil test fails.
          * @param on_stencil_pass_depth_fail        Action to take on stencil test passes but depth test fails.
@@ -523,7 +523,7 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set stencil pass condition.
-         * 
+         *
          * @param face_operate_on           The face to set the pass condition on.
          * @param cond_func                 The function used to determine the pass.
          * @param cond_func_ref_value       The value argument to be used in the function.
@@ -534,7 +534,7 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set the value to AND with each value be written to stencil buffer.
-         * 
+         *
          * @param face_operate_on       The face to set this mask to
          * @param mask                  The mask to set.
          */
@@ -577,10 +577,10 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set the size of the display in ortho matrix.
-         * 
+         *
          * By default the size of swapchain is used for the ortho matrix, everytime the swapchain size
          * is set. This overrides that.
-         * 
+         *
          * @param osize     Size to set in the ortho matrix.
          */
         void set_ortho_size(const eka2l1::vec2 &osize);
@@ -598,9 +598,9 @@ namespace eka2l1::drivers {
 
         /**
          * \brief Set channel swizzlings of an image.
-         * 
+         *
          * \param h Handle to the object (texture/bitmap).
-         * 
+         *
          * \param r Swizzling of first channel.
          * \param g Swizzling of second channel.
          * \param b Swizzling of third channel.
@@ -611,7 +611,7 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set the size of line drawn.
-         * 
+         *
          * @param value     New point size.
          */
         void set_point_size(const std::uint8_t value);
@@ -624,12 +624,12 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Draw a line.
-         * 
+         *
          * If you want to draw multiple lines that are connected together, consider using draw_polygon.
-         * 
+         *
          * This function is optimized for drawing a single line, so it's also advised to use this function
          * when draw_polygon only contains two points.
-         * 
+         *
          * @param start The starting position of the line in screen coordinate.
          * @param end The end position of the line in screen coordinate.
          */
@@ -637,9 +637,9 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Draw a polygon.
-         * 
+         *
          * If the polygon point count is 2, consider using draw_line.
-         * 
+         *
          * @param point_list    Pointer to the list of point belongs to the polygon
          * @param point_count   The number of points in the polygon, must be >= 2, else behaviour is relied on the backend.
          */
@@ -647,26 +647,26 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set the face to be culled.
-         * 
+         *
          * Default face to be culled depends on the backend, which usually is back. In addition, culling is off by default, and
          * only applies when it's enabled through set_cull_mode.
-         * 
+         *
          * @param face The face to be culled.
          */
         void set_cull_face(const rendering_face face);
 
         /**
          * @brief Set the rule of vertices direction to determine which face is in the front and which face is the back.
-         * 
+         *
          * @param rule The rule to set.
          */
         void set_front_face_rule(const rendering_face_determine_rule rule);
 
         /**
          * @brief Recreate an existing texture.
-         * 
+         *
          * No failure is reported to the client.
-         * 
+         *
          * @param h                 Handle to the existing texture.
          * @param dim               Total dimensions of this texture.
          * @param mip_levels        Total mips that the data contains.
@@ -684,8 +684,8 @@ namespace eka2l1::drivers {
             const std::uint32_t unpack_alignment = 4);
 
         /**
-         * @brief Recreate an existing buffer. 
-         * 
+         * @brief Recreate an existing buffer.
+         *
          * @param h                 Handle to an existing buffer.
          * @param initial_data      The initial data of the buffer. This is copied in this function.
          * @param initial_size      The size of the initial data.
@@ -696,7 +696,7 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Update the existing input descriptors.
-         * 
+         *
          * @param h                 Handle to an existing input descriptors.
          * @brief descriptors       The layout infos.
          * @brief count             Number of descriptor provided.
@@ -707,7 +707,7 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Set the mask for color outputted in the fragment shader stage.
-         * 
+         *
          * @param mask 8-bit integer with the first 4 least significant bits, each bit set represnenting which color component can be written.
          */
         void set_color_mask(const std::uint8_t mask);

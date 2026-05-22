@@ -1,30 +1,32 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/drm/rights/db.h>
 #include <kernel/server.h>
+#include <services/drm/rights/db.h>
 #include <services/framework.h>
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace eka2l1 {
     // See DRMEngineClientServer.h in omadrm/drmengine/server/inc
@@ -33,7 +35,10 @@ namespace eka2l1 {
         rights_opcode_none,
         rights_opcode_get_entry_list = 3,
         rights_opcode_get_key = 7,
+        rights_opcode_check_rights = 8,
+        rights_opcode_count = 9,
         rights_opcode_consume = 11,
+        rights_opcode_get_prepared_data = 16,
         rights_opcode_initialize_key = 22,
         rights_opcode_decrypt = 24,
         rights_opcode_check_consume = 27
@@ -45,9 +50,9 @@ namespace eka2l1 {
         rights_crediental_checked_and_denied
     };
 
-    static constexpr std::uint32_t ERROR_CA_NO_RIGHTS = -17452;
-    static constexpr std::uint32_t ERROR_CA_PENDING_RIGHTS = -17455;
-    static constexpr const char* RIGHTS_SERVER_NAME = "!RightsServer";
+    static constexpr std::int32_t ERROR_CA_NO_RIGHTS = -17452;
+    static constexpr std::int32_t ERROR_CA_PENDING_RIGHTS = -17455;
+    static constexpr const char *RIGHTS_SERVER_NAME = "!RightsServer";
 
     class rights_server : public service::typical_server {
     private:
@@ -60,7 +65,7 @@ namespace eka2l1 {
         explicit rights_server(eka2l1::system *sys);
         void connect(service::ipc_context &context) override;
         bool import_ng2l(const std::string &content, std::vector<std::string> &success_game_name,
-                         std::vector<std::string> &failed_game_name);
+            std::vector<std::string> &failed_game_name);
 
         epoc::drm::rights_database &database() {
             return *database_;
@@ -72,6 +77,7 @@ namespace eka2l1 {
     struct rights_client_session : public service::typical_session {
     private:
         std::string current_key_;
+        std::vector<std::uint8_t> prepared_data_;
         rights_crediental_check_status check_status_;
 
         void verify_crediental(kernel::process *client, const std::string &cid, const epoc::drm::rights_intent intent);
@@ -81,9 +87,12 @@ namespace eka2l1 {
 
         void fetch(service::ipc_context *ctx) override;
         void get_entry_list(service::ipc_context *ctx);
+        void get_prepared_data(service::ipc_context *ctx);
         void init_key(service::ipc_context *ctx);
         void get_key(service::ipc_context *ctx);
+        void check_rights(service::ipc_context *ctx);
         void consume(service::ipc_context *ctx);
         void check_consume(service::ipc_context *ctx);
+        void count(service::ipc_context *ctx);
     };
 }

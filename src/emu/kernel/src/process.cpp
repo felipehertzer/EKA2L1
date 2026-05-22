@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -81,7 +81,7 @@ namespace eka2l1::kernel {
             return;
         }
 
-        codeseg = std::move(arg_codeseg);
+        codeseg = arg_codeseg;
         uids = codeseg->get_uids();
 
         // Attach this codeseg to our process
@@ -264,7 +264,7 @@ namespace eka2l1::kernel {
         args[slot].used = true;
 
         if (is_handle) {
-            args[slot].obj = kern->get_kernel_obj_raw(*reinterpret_cast<kernel::handle*>(data), kern->crr_thread());
+            args[slot].obj = kern->get_kernel_obj_raw(*reinterpret_cast<kernel::handle *>(data), kern->crr_thread());
             args[slot].obj->increase_access_count();
         } else {
             args[slot].obj = nullptr;
@@ -319,7 +319,7 @@ namespace eka2l1::kernel {
     void process::set_uid_type(const process_uid_type &type) {
         process_uid_type old_type = uids;
 
-        uids = std::move(type);
+        uids = type;
         generation_ = refresh_generation();
 
         reload_compat_setting();
@@ -457,7 +457,7 @@ namespace eka2l1::kernel {
     void process::logon(eka2l1::ptr<epoc::request_status> logon_request, bool rendezvous) {
         if (!thread_count) {
             (logon_request.get(kern->crr_process()))->set(exit_reason, kern->is_eka1());
-            kern->crr_thread()->signal_request();
+            kern->crr_thread()->signal_request(1, "process_logon_immediate");
 
             return;
         }
@@ -513,7 +513,7 @@ namespace eka2l1::kernel {
         logon_requests.clear();
         rendezvous_requests.clear();
 
-        for (auto &req: logon_requests_emu) {
+        for (auto &req : logon_requests_emu) {
             req(this);
         }
     }

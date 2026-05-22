@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -26,6 +26,7 @@
 #include <services/window/classes/config.h>
 #include <services/window/common.h>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -54,6 +55,7 @@ namespace eka2l1::drivers {
 namespace eka2l1::epoc {
     const std::uint32_t WORD_PALETTE_ENTRIES_COUNT = 16;
 
+    struct canvas_base;
     struct window;
     struct window_group;
     struct screen;
@@ -82,7 +84,9 @@ namespace eka2l1::epoc {
         // Draw order will be child in front of parent, newer in front of older.
         std::unique_ptr<epoc::window> root;
         drivers::handle screen_texture; ///< Server handle to texture of the screen
-        drivers::handle dsa_texture;    ///< Texture use for temporary DSA transfer
+        drivers::handle dsa_texture; ///< Texture use for temporary DSA transfer
+        eka2l1::vec2 dsa_texture_size;
+        std::uint8_t dsa_texture_bpp;
 
         epoc::display_mode disp_mode;
 
@@ -90,6 +94,17 @@ namespace eka2l1::epoc {
         std::uint64_t last_fps_check;
         std::uint64_t last_fps;
         std::uint64_t frame_passed_per_sec;
+
+        mutable std::atomic_uint64_t diag_vsync_queries{ 0 };
+        mutable std::atomic_uint64_t diag_vsync_waits{ 0 };
+        mutable std::atomic_uint64_t diag_vsync_wait_us{ 0 };
+        std::atomic_uint64_t diag_presented_frames{ 0 };
+        std::atomic_uint64_t diag_normal_redraws{ 0 };
+        std::atomic_uint64_t diag_dsa_updates{ 0 };
+        std::atomic_uint64_t diag_canvas_updates{ 0 };
+        std::atomic_uint64_t diag_canvas_sleep_us{ 0 };
+        std::atomic_uint64_t diag_scheduler_requests{ 0 };
+        std::atomic_uint64_t diag_later_redraws_ignored{ 0 };
 
         epoc::config::screen scr_config; ///< All mode of this screen
         std::uint8_t crr_mode; ///< The current mode being used by the screen.
@@ -108,6 +123,7 @@ namespace eka2l1::epoc {
 
         std::map<std::int32_t, eka2l1::rect> pointer_areas_;
         eka2l1::vec2 pointer_cursor_pos_;
+        canvas_base *pointer_grabber_ = nullptr;
 
         std::uint32_t flags_ = 0;
         std::int32_t active_dsa_count_ = 0;
@@ -145,6 +161,8 @@ namespace eka2l1::epoc {
         std::size_t add_screen_mode_change_callback(void *userdata, screen_mode_change_callback_handler handler);
         bool remove_screen_mode_change_callback(const std::size_t cb);
 
+        void query_vsync_delay(std::uint64_t &next_vsync_us) const;
+        void record_presented_frame();
         void vsync(ntimer *timing, std::uint64_t &next_vsync_us);
 
         explicit screen(const int number, epoc::config::screen &scr_conf);
@@ -198,21 +216,21 @@ namespace eka2l1::epoc {
 
         /**
          * \brief Resize the screen.
-         * 
+         *
          * This resize the screen. Which means all pixel will be lose, and redraw will happens, if
          * GPU renderer is enabled.
-         * 
+         *
          * DSA (Direct Screen Access) will also be lost too, it will not be saved.
          * Note: For now DSA will be lost, yes. But I'm thinking we could alloc a buffer and let user
          * edit pixel there. Well read can kind of be hard though. At the end, upload DSA texture
          * and draw it over all windows.
-         * 
+         *
          * Does this apply to rotation though? TODO. But most likely we should...
-         * 
+         *
          * This function also creates the screen bitmap from server side if there is currently none.
-         * 
+         *
          * WARNING: Don't call this from outside of this struct. Nguy hiểm
-         * 
+         *
          * \param driver     The graphics driver associated with the screen.
          * \param new_size   Size of the screen.
          */
@@ -255,7 +273,7 @@ namespace eka2l1::epoc {
         void set_client_draw_pending() {
             flags_ |= FLAG_CLIENT_REDRAW_PENDING;
         }
-        
+
         void set_is_screenplay_architecture(bool is_screenplay) {
             if (!is_screenplay) {
                 flags_ &= ~FLAG_IS_SCREENPLAY;

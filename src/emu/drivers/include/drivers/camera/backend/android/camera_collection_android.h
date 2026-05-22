@@ -33,7 +33,7 @@ namespace eka2l1::drivers::camera {
     private:
         friend class instance_android;
 
-        std::map<int, instance_android*> current_reserved_;
+        std::map<int, instance_android *> current_reserved_;
         std::mutex reserve_lock_;
 
     public:

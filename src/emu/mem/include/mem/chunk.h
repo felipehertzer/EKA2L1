@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -65,9 +65,9 @@ namespace eka2l1::mem {
         /**
          * \brief Find uncommitted region in the disconnected chunk with the specified size,
          *        and commit them.
-         * 
+         *
          * \param size The size to find and commit. Round to page size.
-         * 
+         *
          * \returns Offset to the region in bytes. Negative will contain the error code.
          */
         virtual std::int32_t allocate(const std::size_t size) = 0;
@@ -86,14 +86,14 @@ namespace eka2l1::mem {
 
         /**
          * \brief Unmap the committed chunk region from the CPU.
-         * 
+         *
          * This is support for some JIT's context switching.
          */
         virtual void unmap_from_cpu(mem_model_process *process, mmu_base *mmu) = 0;
 
         /**
          * \brief Map the committed region to CPU.
-         * 
+         *
          * This is support for some JIT's context switching.
          */
         virtual void map_to_cpu(mem_model_process *process, mmu_base *mmu) = 0;

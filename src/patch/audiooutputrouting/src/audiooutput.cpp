@@ -10,64 +10,59 @@ class CAudioOutputStub : public CAudioOutput {
         return EPublic;
     }
 
-    virtual void RegisterObserverL( MAudioOutputObserver& aObserver ) {
-
+    virtual void RegisterObserverL(MAudioOutputObserver &aObserver) {
     }
 
     virtual TBool SecureOutput() {
         return ETrue;
     }
 
-    virtual void SetAudioOutputL( TAudioOutputPreference aAudioOutput = ENoPreference ) {
-
+    virtual void SetAudioOutputL(TAudioOutputPreference aAudioOutput = ENoPreference) {
     }
 
-    virtual void SetSecureOutputL( TBool aSecure = EFalse ) {
-
+    virtual void SetSecureOutputL(TBool aSecure = EFalse) {
     }
 
-    virtual void UnregisterObserver( MAudioOutputObserver& aObserver ) {
-
+    virtual void UnregisterObserver(MAudioOutputObserver &aObserver) {
     }
 };
 
-
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CMdaAudioPlayerUtility& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CMdaAudioPlayerUtility &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CMdaAudioRecorderUtility& aUtility, TBool aRecordStream) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CMdaAudioRecorderUtility &aUtility, TBool aRecordStream) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CMdaAudioOutputStream& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CMdaAudioOutputStream &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CMdaAudioToneUtility& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CMdaAudioToneUtility &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CMMFDevSound& aDevSound) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CMMFDevSound &aDevSound) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(MCustomInterface& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(MCustomInterface &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(MCustomCommand& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(MCustomCommand &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CMidiClientUtility& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CMidiClientUtility &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CDrmPlayerUtility& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CDrmPlayerUtility &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }
 
-EXPORT_C CAudioOutput* CAudioOutput::NewL(CVideoPlayerUtility& aUtility) {
+EXPORT_C CAudioOutput *CAudioOutput::NewL(CVideoPlayerUtility &aUtility) {
     return new (ELeave) CAudioOutputStub;
 }

@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -34,6 +34,8 @@
 #include <common/thread.h>
 #include <common/vecx.h>
 
+#include <optional>
+
 #include <utils/cppabi.h>
 #include <utils/err.h>
 
@@ -41,7 +43,88 @@
 
 #include <config/config.h>
 
+#include <cstdlib>
+
 namespace eka2l1 {
+    static bool trace_fbs() {
+        return std::getenv("EKA2L1_FBS_TRACE") != nullptr;
+    }
+
+    static const char *fbs_opcode_name(const int opcode) {
+        switch (opcode) {
+        case fbs_init:
+            return "init";
+        case fbs_shutdown:
+            return "shutdown";
+        case fbs_close:
+            return "close";
+        case fbs_resource_count:
+            return "resource_count";
+        case fbs_num_typefaces:
+            return "num_typefaces";
+        case fbs_typeface_support:
+            return "typeface_support";
+        case fbs_font_height_in_twips:
+            return "font_height_in_twips";
+        case fbs_font_height_in_pixels:
+            return "font_height_in_pixels";
+        case fbs_add_font_store_file:
+            return "add_font_store_file";
+        case fbs_install_font_store_file:
+            return "install_font_store_file";
+        case fbs_remove_font_store_file:
+            return "remove_font_store_file";
+        case fbs_set_pixel_size_in_twips:
+            return "set_pixel_size_in_twips";
+        case fbs_get_font_by_id:
+            return "get_font_by_id";
+        case fbs_font_dup:
+            return "font_dup";
+        case fbs_bitmap_create:
+            return "bitmap_create";
+        case fbs_bitmap_resize:
+            return "bitmap_resize";
+        case fbs_bitmap_dup:
+            return "bitmap_dup";
+        case fbs_bitmap_load:
+            return "bitmap_load";
+        case fbs_bitmap_load_fast:
+            return "bitmap_load_fast";
+        case fbs_bitmap_clean:
+            return "bitmap_clean";
+        case fbs_bitmap_notify_dirty:
+            return "bitmap_notify_dirty";
+        case fbs_bitmap_cancel_notify_dirty:
+            return "bitmap_cancel_notify_dirty";
+        case fbs_bitmap_compress:
+            return "bitmap_compress";
+        case fbs_bitmap_bg_compress:
+            return "bitmap_bg_compress";
+        case fbs_rasterize:
+            return "rasterize";
+        case fbs_face_attrib:
+            return "face_attrib";
+        case fbs_has_character:
+            return "has_character";
+        case fbs_set_default_glyph_bitmap_type:
+            return "set_default_glyph_bitmap_type";
+        case fbs_get_default_glyph_bitmap_type:
+            return "get_default_glyph_bitmap_type";
+        case fbs_shape_text:
+            return "shape_text";
+        case fbs_shape_delete:
+            return "shape_delete";
+        case fbs_get_font_table:
+            return "get_font_table";
+        case fbs_release_font_table:
+            return "release_font_table";
+        case fbs_fetch_linked_typeface:
+            return "fetch_linked_typeface";
+        default:
+            return "unknown";
+        }
+    }
+
     namespace epoc {
         bool does_client_use_pointer_instead_of_offset(fbscli *cli) {
             const epocver current_sys_ver = cli->server<fbs_server>()->get_system()->get_symbian_version_use();
@@ -58,7 +141,7 @@ namespace eka2l1 {
 
         void query_fbs_feature_support(fbs_server *fbss, bool &support_current_display_mode, bool &support_dirty_bitmap) {
             support_dirty_bitmap = true;
-            
+
             if (fbss->legacy_level() >= FBS_LEGACY_LEVEL_KERNEL_TRANSITION) {
                 if (fbss->legacy_level() == FBS_LEGACY_LEVEL_KERNEL_TRANSITION)
                     support_current_display_mode = true;
@@ -124,6 +207,12 @@ namespace eka2l1 {
                 // On EKA1 load = fast
                 ctx->msg->function = fbs_bitmap_load_fast;
             }
+        }
+
+        if (trace_fbs()) {
+            LOG_INFO(SERVICE_FBS, "FBS opcode={} (0x{:X}) client_version={}.{}.{} legacy={}",
+                fbs_opcode_name(ctx->msg->function), ctx->msg->function, ver_.major, ver_.minor, ver_.build,
+                server<fbs_server>()->legacy_level());
         }
 
         switch (ctx->msg->function) {
@@ -233,8 +322,8 @@ namespace eka2l1 {
         }
 
         case fbs_bitmap_bg_compress: {
-            //LOG_WARN(SERVICE_FBS, "BitmapBgCompress stubbed with 0");
-            //ctx->complete(epoc::error_none);
+            // LOG_WARN(SERVICE_FBS, "BitmapBgCompress stubbed with 0");
+            // ctx->complete(epoc::error_none);
             background_compress_bitmap(ctx);
             break;
         }
@@ -456,6 +545,43 @@ namespace eka2l1 {
         return ++connection_id_counter;
     }
 
+    bool fbs_server::ensure_host_range_accessible(const void *ptr, std::size_t size) {
+        if (size == 0) {
+            return true;
+        }
+
+        if (!ptr) {
+            return false;
+        }
+
+        auto ensure_in_chunk = [ptr, size](chunk_ptr chunk, std::uint8_t *base) -> std::optional<bool> {
+            if (!chunk || !base) {
+                return std::nullopt;
+            }
+
+            const auto begin = reinterpret_cast<std::uintptr_t>(ptr);
+            const auto chunk_begin = reinterpret_cast<std::uintptr_t>(base);
+            const auto chunk_end = chunk_begin + chunk->max_size();
+            const auto end = begin + size;
+
+            if ((begin < chunk_begin) || (end < begin) || (end > chunk_end)) {
+                return std::nullopt;
+            }
+
+            return chunk->ensure_committed(static_cast<std::uint32_t>(begin - chunk_begin), size);
+        };
+
+        if (auto result = ensure_in_chunk(shared_chunk, base_shared_chunk)) {
+            return *result;
+        }
+
+        if (auto result = ensure_in_chunk(large_chunk, base_large_chunk)) {
+            return *result;
+        }
+
+        return true;
+    }
+
     void *fbs_server::allocate_general_data_impl(const std::size_t s) {
         if (!shared_chunk || !shared_chunk_allocator) {
             LOG_CRITICAL(SERVICE_FBS, "FBS server hasn't initialized yet");
@@ -525,7 +651,7 @@ namespace eka2l1 {
         }
 
         if (kern->is_eka1()) {
-            return reinterpret_cast<kernel::legacy::mutex*>(large_bitmap_access_mutex)->count() <= 0;
+            return reinterpret_cast<kernel::legacy::mutex *>(large_bitmap_access_mutex)->count() <= 0;
         }
 
         return large_bitmap_access_mutex->count() <= 0;
@@ -539,7 +665,7 @@ namespace eka2l1 {
         std::uint32_t current = 0;
         while (current < max_times) {
             if (kern->is_eka1()) {
-                if (reinterpret_cast<kernel::legacy::mutex*>(large_bitmap_access_mutex)->count() > 0)
+                if (reinterpret_cast<kernel::legacy::mutex *>(large_bitmap_access_mutex)->count() > 0)
                     break;
             } else {
                 if (large_bitmap_access_mutex->count() >= 0)

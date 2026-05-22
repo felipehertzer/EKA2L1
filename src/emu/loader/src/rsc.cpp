@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -54,16 +54,16 @@ namespace eka2l1::loader {
         Normal:
             - 0 size = 12: 3 UID
             - 12 size = 4: UID?
-            - 16 Size = 1: Flags 
+            - 16 Size = 1: Flags
               + 0x80: third uid = offset
               + 0x40: RSS signature is generated for first resource.
               + 0x20: First resource is a bit array containing information telling us if a specific resource
                       has Unicode compressed in its data or not.
             - 17 Size = 2: size of largest resource when decompress
-            - 19: 
+            - 19:
                * Compressed: size = 2: resource data offset
                * Potentially contains Unicode compressed: Unicode bit array
-            
+
             - 21:
               If the first resource not containing the bits array that indicates the appearance of Unicode compressed data in other resource,
                 the next *number_of_resource* buts will contain a bit array.
@@ -71,7 +71,7 @@ namespace eka2l1::loader {
               + Use that to calculate the beginning of index section. Each entry of index section will be 2 bytes, so
                 calculate the number of resources in the file should be easy, by (subtracting EOF offset and the resource index begin offset) div 2
               + 8 unicode bit for 8 resource will be packed into one byte. Bit 1 = Contains unicode, Bit 0 = Not contains unicode.
-              + To see if the resource section actually contains Unicode, with the resource index given (0, 1 for e.g), get the byte that the 
+              + To see if the resource section actually contains Unicode, with the resource index given (0, 1 for e.g), get the byte that the
                 Unicode bit for this resource index is belonged in. Getting this should be easy by dividing the resource index by 8
 
                 (Note that we are counting from the lowest bytes)
@@ -85,15 +85,15 @@ namespace eka2l1::loader {
                 11101010 & 00000100 = 0 => Not containing unicode
               + Sure these engineers who design this format are genius well ;)
 
-      - Section layout: 
+      - Section layout:
         Normal RSC file (Not calypso):
             * Dictionary data
             * Dictionary index. Last 2 bytes of it seems to be the whole size of dict section
             * Resource data
             * Resource index. Last 2 bytes of it seems to be the whole size of resource data section
-        
+
         Each entry of both index sections is 2 bytes, so it should give you something. They give information
-        about 
+        about
             * If dictionary compressed: the offset of the dict/resource entry from the dictionary/resource data
             * If the RSC not compressed, each index will points to offset of resource entry based on offset 0
 
@@ -152,7 +152,7 @@ namespace eka2l1::loader {
 
             // I don't use any cache though
             common::dictcomp comp_stream(&res_data[0], begin_bits, end_bits, num_of_bits_use_for_dict_token);
-            streams.push(std::move(comp_stream));
+            streams.push(comp_stream);
         };
 
         append_dictcomp_stream(res_index);
@@ -165,7 +165,7 @@ namespace eka2l1::loader {
                 break;
             }
 
-            common::dictcomp comp_stream = std::move(streams.top());
+            common::dictcomp comp_stream = streams.top();
             streams.pop();
 
             for (;;) {
@@ -249,8 +249,8 @@ namespace eka2l1::loader {
                 buf->read(res_index_offset, &resource_offsets[0], 2 * num_res);
 
                 // "+2" because the first entry in the dictionary-index in this file format
-                //is the number of bits from the start of the dictionary data to the start
-                //of the first dictionary entry which is always zero, and thus unnecessary
+                // is the number of bits from the start of the dictionary data to the start
+                // of the first dictionary entry which is always zero, and thus unnecessary
                 dict_index_offset = 4 + 7 + 2;
 
                 // Duplicate by 2 because each index has size of 2

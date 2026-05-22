@@ -208,8 +208,8 @@ namespace eka2l1::common::armgen {
                 ADD(rd, rs, operand2((std::uint8_t)(val >> 8), 12)); // rotation right by 12*2 == rotation left by 8
                 ADD(rd, rd, operand2((std::uint8_t)(val), 0));
                 return true;
-            } else if ((((std::uint32_t) - (std::int32_t)val) & 0xFFFF0000) == 0) {
-                val = (std::uint32_t) - (std::int32_t)val;
+            } else if ((((std::uint32_t)-(std::int32_t)val) & 0xFFFF0000) == 0) {
+                val = (std::uint32_t)-(std::int32_t)val;
                 SUB(rd, rs, operand2((std::uint8_t)(val >> 8), 12));
                 SUB(rd, rd, operand2((std::uint8_t)(val), 0));
                 return true;
@@ -228,7 +228,7 @@ namespace eka2l1::common::armgen {
 
     bool armx_emitter::TrySUBI2R(arm_reg rd, arm_reg rs, std::uint32_t val) {
         // Just add a negative.
-        return TryADDI2R(rd, rs, (std::uint32_t) - (std::int32_t)val);
+        return TryADDI2R(rd, rs, (std::uint32_t)-(std::int32_t)val);
     }
 
     void armx_emitter::ANDI2R(arm_reg rd, arm_reg rs, std::uint32_t val, arm_reg scratch) {
@@ -619,7 +619,7 @@ namespace eka2l1::common::armgen {
 
     void armx_emitter::reserve_codespace(std::uint32_t bytes) {
         for (std::uint32_t i = 0; i < bytes / 4; i++)
-            write32(0xE1200070); //bkpt 0
+            write32(0xE1200070); // bkpt 0
     }
 
     const std::uint8_t *armx_emitter::align_code16() {
@@ -665,7 +665,7 @@ namespace eka2l1::common::armgen {
     }
 
     void armx_emitter::SETEND(bool BE) {
-        //SETEND is non-conditional
+        // SETEND is non-conditional
         write32(0xF1010000 | (BE << 9));
     }
     void armx_emitter::BKPT(std::uint16_t arg) {
@@ -680,7 +680,7 @@ namespace eka2l1::common::armgen {
         branch.type = 0; // Zero for B
         branch.ptr = code;
         branch.condition = condition;
-        //We'll write NOP here for now.
+        // We'll write NOP here for now.
         write32(condition | 0x01A00000);
         return branch;
     }
@@ -690,7 +690,7 @@ namespace eka2l1::common::armgen {
 
         branch.ptr = code;
         branch.condition = condition;
-        //We'll write NOP here for now.
+        // We'll write NOP here for now.
         write32(condition | 0x01A00000);
         return branch;
     }
@@ -700,7 +700,7 @@ namespace eka2l1::common::armgen {
         branch.type = 0; // Zero for B
         branch.ptr = code;
         branch.condition = Cond << 28;
-        //We'll write NOP here for now.
+        // We'll write NOP here for now.
         write32(condition | 0x01A00000);
         return branch;
     }
@@ -716,7 +716,7 @@ namespace eka2l1::common::armgen {
         branch.type = 1; // Zero for B
         branch.ptr = code;
         branch.condition = Cond << 28;
-        //We'll write NOP here for now.
+        // We'll write NOP here for now.
         write32(condition | 0x01A00000);
         return branch;
     }
@@ -752,7 +752,7 @@ namespace eka2l1::common::armgen {
 
     void armx_emitter::BL(const void *fnptr) {
         ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-        LOG_ERROR_IF(COMMON, (distance <= -0x2000000) || (distance >= 0x2000000), "BL out of range ({} calls {})", 
+        LOG_ERROR_IF(COMMON, (distance <= -0x2000000) || (distance >= 0x2000000), "BL out of range ({} calls {})",
             fmt::ptr(code), fmt::ptr(fnptr));
         write32(condition | 0x0B000000 | ((distance >> 2) & 0x00FFFFFF));
     }
@@ -1851,10 +1851,10 @@ namespace eka2l1::common::armgen {
             else {
                 if (single_to_double) {
                     write32(condition | (0x1D << 23) | ((Dest & 0x10) << 18) | (0x3 << 20) | (0x7 << 16)
-                            | ((Dest & 0xF) << 12) | (0x2B << 6) | ((Source & 0x1) << 5) | (Source >> 1));
+                        | ((Dest & 0xF) << 12) | (0x2B << 6) | ((Source & 0x1) << 5) | (Source >> 1));
                 } else {
                     write32(condition | (0x1D << 23) | ((Dest & 0x1) << 22) | (0x3 << 20) | (0x7 << 16)
-                            | ((Dest & 0x1E) << 11) | (0x2F << 6) | ((Source & 0x10) << 1) | (Source & 0xF));
+                        | ((Dest & 0x1E) << 11) | (0x2F << 6) | ((Source & 0x10) << 1) | (Source & 0xF));
                 }
             }
         } else if (single_reg) {
@@ -2320,9 +2320,9 @@ namespace eka2l1::common::armgen {
             write32((0xF2 << 24) | (register_quad << 24) | (1 << 23) | (2 << 20) | EncodeVn(Vn) | encode_vd(Vd) | (0x14 << 4) | EncodeVm(Vm));
         else
             LOG_ERROR_IF(COMMON, !(false), "VMLA_scalar only supports float atm");
-        //else
+        // else
         //	write32((0xF2 << 24) | (1 << 23) | (encodedSize(Size) << 20) | EncodeVn(Vn) | encode_vd(Vd) | (0x90 << 4) | (1 << 6) | EncodeVm(Vm));
-        // Unsigned support missing
+        //  Unsigned support missing
     }
     void armx_emitter::VMUL_scalar(std::uint32_t Size, arm_reg Vd, arm_reg Vn, arm_reg Vm) {
         LOG_ERROR_IF(COMMON, !(Vd >= D0), "Pass invalid register to %s");

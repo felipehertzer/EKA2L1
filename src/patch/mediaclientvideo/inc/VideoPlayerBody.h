@@ -18,14 +18,14 @@ private:
 
 public:
     CVideoPlayerFeedbackHandler(MVideoPlayerUtilityObserver &aObserver);
-    
+
     void OpenComplete(const TInt aError);
     void PrepareComplete(const TInt aError);
     void PlayComplete(const TInt aError);
 
     void Play();
     void Pause();
-    
+
     const TVideoPlayerState CurrentState() const {
         return iCurrentState;
     }
@@ -50,7 +50,7 @@ private:
     TInt iAudioBitRate;
     TInt iCurrentVolume;
     TVideoRotation iCurrentRotation;
-    
+
     CIdle *iCompleteIdle;
     TInt iVersion;
 
@@ -58,7 +58,7 @@ private:
 
     void ConstructL(RWsSession &aWsSession, RWindowBase &aWindow, const TRect &aClipRect);
     void Construct2L();
-    
+
 public:
     static CBody *NewL(MVideoPlayerUtilityObserver &aObserver, RWsSession &aWsSession, RWindowBase &aWindow, const TRect &aClipRect);
     static CBody *New2L(MVideoPlayerUtilityObserver &aObserver);
@@ -76,29 +76,29 @@ public:
     void Close();
 
     void Prepare();
-    
+
     void Play(const TTimeIntervalMicroSeconds *aInterval);
-    
+
     void Pause();
     void Stop();
-    
+
     void SetPositionL(const TTimeIntervalMicroSeconds &aWhere);
     TTimeIntervalMicroSeconds PositionL() const;
     TTimeIntervalMicroSeconds DurationL() const;
-    
+
     void SetFpsL(const TReal32 aFps);
     TReal32 Fps();
-    
+
     TInt VideoBitRate();
     TInt AudioBitRate();
-    
+
     void SetVolumeL(TInt aVolume);
     TInt Volume();
     TInt MaxVolume() const;
 
     void SetRotationL(TVideoRotation aRotation);
     TVideoRotation Rotation() const;
- 
+
     virtual void RunL();
     virtual void DoCancel();
 

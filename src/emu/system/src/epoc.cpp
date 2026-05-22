@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -29,6 +29,7 @@
 #include <common/path.h>
 #include <common/platform.h>
 #include <common/random.h>
+#include <common/time.h>
 
 #include <disasm/disasm.h>
 
@@ -38,13 +39,14 @@
 
 #include <utils/panic.h>
 
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
 #include <scripting/manager.h>
 #endif
 
 #include <services/applist/applist.h>
 
 #include <atomic>
+#include <cstdlib>
 #include <fstream>
 #include <string>
 
@@ -56,8 +58,8 @@
 #include <mem/mem.h>
 #include <mem/ptr.h>
 
-#include <dispatch/libraries/register.h>
 #include <dispatch/dispatcher.h>
+#include <dispatch/libraries/register.h>
 #include <j2me/applist.h>
 #include <kernel/libmanager.h>
 #include <kernel/timing.h>
@@ -90,12 +92,114 @@ namespace eka2l1 {
         return str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0;
     }
 
+    bool system_loop_diag_enabled() {
+        static const bool enabled = (std::getenv("EKA2L1_FPS_DIAG") != nullptr)
+            || (std::getenv("EKA2L1_SYSTEM_LOOP_DIAG") != nullptr);
+        return enabled;
+    }
+
+    struct system_loop_diag_state {
+        std::atomic_uint64_t last_report_us{ 0 };
+        std::atomic_uint64_t loops{ 0 };
+        std::atomic_uint64_t runnable_loops{ 0 };
+        std::atomic_uint64_t idle_loops{ 0 };
+        std::atomic_uint64_t cpu_us{ 0 };
+        std::atomic_uint64_t max_cpu_us{ 0 };
+        std::atomic_uint64_t reschedule_us{ 0 };
+        std::atomic_uint64_t max_reschedule_us{ 0 };
+        std::atomic_uint64_t executed_instructions{ 0 };
+        std::atomic_uint64_t requested_ticks{ 0 };
+        std::atomic_uint64_t zero_instruction_loops{ 0 };
+    };
+
+    system_loop_diag_state &system_loop_diag() {
+        static system_loop_diag_state state;
+        return state;
+    }
+
+    void system_loop_diag_update_max(std::atomic_uint64_t &target, const std::uint64_t value) {
+        std::uint64_t observed = target.load(std::memory_order_relaxed);
+        while ((observed < value) && !target.compare_exchange_weak(observed, value, std::memory_order_relaxed)) {
+        }
+    }
+
+    void record_system_loop_diag(const bool had_thread, const std::uint64_t ticks_requested,
+        const std::uint64_t cpu_slice_us, const std::uint64_t executed_instructions,
+        const std::uint64_t reschedule_us) {
+        if (!system_loop_diag_enabled()) {
+            return;
+        }
+
+        system_loop_diag_state &diag = system_loop_diag();
+        diag.loops.fetch_add(1, std::memory_order_relaxed);
+        diag.reschedule_us.fetch_add(reschedule_us, std::memory_order_relaxed);
+        system_loop_diag_update_max(diag.max_reschedule_us, reschedule_us);
+
+        if (had_thread) {
+            diag.runnable_loops.fetch_add(1, std::memory_order_relaxed);
+            diag.cpu_us.fetch_add(cpu_slice_us, std::memory_order_relaxed);
+            diag.executed_instructions.fetch_add(executed_instructions, std::memory_order_relaxed);
+            diag.requested_ticks.fetch_add(ticks_requested, std::memory_order_relaxed);
+            system_loop_diag_update_max(diag.max_cpu_us, cpu_slice_us);
+
+            if (executed_instructions == 0) {
+                diag.zero_instruction_loops.fetch_add(1, std::memory_order_relaxed);
+            }
+        } else {
+            diag.idle_loops.fetch_add(1, std::memory_order_relaxed);
+        }
+
+        const std::uint64_t wall_now = common::get_current_utc_time_in_microseconds_since_epoch();
+        std::uint64_t last_wall = diag.last_report_us.load(std::memory_order_relaxed);
+
+        if (last_wall == 0) {
+            diag.last_report_us.compare_exchange_strong(last_wall, wall_now, std::memory_order_relaxed);
+            return;
+        }
+
+        if (wall_now - last_wall < common::microsecs_per_sec) {
+            return;
+        }
+
+        if (!diag.last_report_us.compare_exchange_strong(last_wall, wall_now, std::memory_order_relaxed)) {
+            return;
+        }
+
+        const std::uint64_t loops = diag.loops.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t runnable = diag.runnable_loops.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t idle = diag.idle_loops.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t cpu = diag.cpu_us.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t max_cpu = diag.max_cpu_us.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t reschedule = diag.reschedule_us.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t max_reschedule = diag.max_reschedule_us.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t instructions = diag.executed_instructions.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t requested = diag.requested_ticks.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t zero_instruction = diag.zero_instruction_loops.exchange(0, std::memory_order_relaxed);
+
+        LOG_WARN(SYSTEM,
+            "System loop diag wall_ms={} loops={} runnable={} idle={} cpu_ms={} avg_cpu_us={} max_cpu_us={} reschedule_ms={} avg_reschedule_us={} max_reschedule_us={} instr={} avg_instr={} requested_ticks={} zero_instr_loops={}",
+            (wall_now - last_wall) / 1000,
+            loops,
+            runnable,
+            idle,
+            cpu / 1000,
+            runnable ? (cpu / runnable) : 0,
+            max_cpu,
+            reschedule / 1000,
+            loops ? (reschedule / loops) : 0,
+            max_reschedule,
+            instructions,
+            runnable ? (instructions / runnable) : 0,
+            requested,
+            zero_instruction);
+    }
+
 #define HAL_ENTRY(generic_name, display_name, num, num_old) hal_entry_##generic_name = num,
 
     enum hal_entry {
 #include <kernel/hal.def>
     };
-    
+
     static const char *PATCH_FOLDER_PATH = ".//patch//";
 
     system_create_components::system_create_components()
@@ -311,7 +415,7 @@ namespace eka2l1 {
 
             return preset::SYSTEM_CPU_HZ_S60V5;
         }
-        
+
         bool is_s80_device_active() {
             device *crr = dvcmngr_->get_current();
             if (crr && crr->is_s80()) {
@@ -443,7 +547,7 @@ namespace eka2l1 {
         }
 
         void invoke_system_reset_callbacks() {
-            for (auto cb : reset_callbacks_) {
+            for (const auto &cb : reset_callbacks_) {
                 cb(parent_);
             }
         }
@@ -616,8 +720,10 @@ namespace eka2l1 {
         , exit(false) {
 #if EKA2L1_ARCH(ARM)
         cpu_type = arm_emulator_type::r12l1;
+#elif EKA2L1_ENABLE_DYNARMIC
+        cpu_type = arm::string_to_arm_emulator_type(conf_->cpu_backend);
 #else
-        cpu_type = /*arm::string_to_arm_emulator_type(conf_->cpu_backend);*/ arm_emulator_type::dynarmic;
+        cpu_type = arm_emulator_type::dyncom;
 #endif
         dvcmngr_ = std::make_unique<device_manager>(conf_);
 
@@ -694,7 +800,7 @@ namespace eka2l1 {
 
         kernel::thread *to_run = kern_->crr_thread();
 
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
         manager::scripts *scripter = get_scripts();
 #endif
 
@@ -709,7 +815,7 @@ namespace eka2l1 {
                 }
             }
         } else {
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
             if (scripter->last_breakpoint_hit(to_run)) {
                 // About to run this thread, so reset the hit
                 script_hits_the_feels = true;
@@ -723,22 +829,57 @@ namespace eka2l1 {
         }
 
         if (to_run != nullptr) {
+            const bool diagnose_loop = system_loop_diag_enabled();
+            const std::uint64_t requested_ticks = to_run->get_remaining_screenticks();
+            const std::uint64_t cpu_slice_start_us = diagnose_loop
+                ? common::get_current_utc_time_in_microseconds_since_epoch()
+                : 0;
+
             if (!should_step) {
-                cpu->run(to_run->get_remaining_screenticks());
+                cpu->run(requested_ticks);
             } else {
                 cpu->step();
 
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
                 if (script_hits_the_feels)
                     scripter->reset_breakpoint_hit(cpu.get(), to_run);
 #endif
             }
 
-            to_run->add_ticks(cpu->get_num_instruction_executed());
+            const std::uint32_t instructions_executed = cpu->get_num_instruction_executed();
+            const std::uint64_t cpu_slice_us = diagnose_loop
+                ? (common::get_current_utc_time_in_microseconds_since_epoch() - cpu_slice_start_us)
+                : 0;
+
+            to_run->add_ticks(instructions_executed);
+
+            if (!kern_->should_terminate()) {
+                const std::uint64_t reschedule_start_us = diagnose_loop
+                    ? common::get_current_utc_time_in_microseconds_since_epoch()
+                    : 0;
+                kern_->reschedule();
+                const std::uint64_t reschedule_us = diagnose_loop
+                    ? (common::get_current_utc_time_in_microseconds_since_epoch() - reschedule_start_us)
+                    : 0;
+                record_system_loop_diag(true, requested_ticks, cpu_slice_us, instructions_executed, reschedule_us);
+            } else {
+                exit = true;
+                return 0;
+            }
+
+            return 1;
         }
 
         if (!kern_->should_terminate()) {
+            const bool diagnose_loop = system_loop_diag_enabled();
+            const std::uint64_t reschedule_start_us = diagnose_loop
+                ? common::get_current_utc_time_in_microseconds_since_epoch()
+                : 0;
             kern_->reschedule();
+            const std::uint64_t reschedule_us = diagnose_loop
+                ? (common::get_current_utc_time_in_microseconds_since_epoch() - reschedule_start_us)
+                : 0;
+            record_system_loop_diag(false, 0, 0, 0, reschedule_us);
         } else {
             exit = true;
             return 0;
@@ -960,8 +1101,8 @@ namespace eka2l1 {
 
         common::ro_std_file_stream aif_file_stream(aif_file, true);
 
-        if (!eka2l1::read_registeration_info_aif(reinterpret_cast<common::ro_stream*>(&aif_file_stream), result,
-                                            drive_e, get_system_language())) {
+        if (!eka2l1::read_registeration_info_aif(reinterpret_cast<common::ro_stream *>(&aif_file_stream), result,
+                drive_e, get_system_language())) {
             return ngage_game_card_registeration_corrupted;
         }
 
@@ -1083,7 +1224,7 @@ namespace eka2l1 {
 
         std::uint32_t copied_count = 0;
 
-        common::copy_folder(folder_path, drive_e_path_root, common::is_platform_case_sensitive() ? common::FOLDER_COPY_FLAG_LOWERCASE_NAME : 0, 
+        common::copy_folder(folder_path, drive_e_path_root, common::is_platform_case_sensitive() ? common::FOLDER_COPY_FLAG_LOWERCASE_NAME : 0,
             [&](const std::size_t copied, const std::size_t total) {
                 if (progress_cb)
                     progress_cb(copied * 100 / total, total_percentage);
@@ -1091,8 +1232,7 @@ namespace eka2l1 {
 
         // Remove the app registeration file of the original
         if (!specific_app_2.empty()) {
-            const std::string real_aif_remove = eka2l1::add_path(drive_e_path, eka2l1::add_path(
-                    "\\apps\\", eka2l1::add_path(specific_app, specific_app + ".aif")));
+            const std::string real_aif_remove = eka2l1::add_path(drive_e_path, eka2l1::add_path("\\apps\\", eka2l1::add_path(specific_app, specific_app + ".aif")));
             common::remove(real_aif_remove);
         }
 
@@ -1110,20 +1250,20 @@ namespace eka2l1 {
 
             if (!explicit_lib_copy.empty()) {
                 common::copy_folder(eka2l1::add_path(system_folder_path, explicit_lib_copy + "\\"), app_folder_dest,
-                                    flags_copy, [&](const std::size_t copied, const std::size_t total) {
-                    if (progress_cb)
-                        progress_cb(current_perct + (copied * percentage_per_explicit_copy / total), total_percentage);
-                });
+                    flags_copy, [&](const std::size_t copied, const std::size_t total) {
+                        if (progress_cb)
+                            progress_cb(current_perct + (copied * percentage_per_explicit_copy / total), total_percentage);
+                    });
 
                 current_perct += percentage_per_explicit_copy;
             }
 
             if (!explicit_program_copy.empty()) {
                 common::copy_folder(eka2l1::add_path(system_folder_path, explicit_program_copy + "\\"), app_folder_dest,
-                                    flags_copy, [&](const std::size_t copied, const std::size_t total) {
-                    if (progress_cb)
-                        progress_cb(current_perct + (copied * percentage_per_explicit_copy / total), total_percentage);
-                });
+                    flags_copy, [&](const std::size_t copied, const std::size_t total) {
+                        if (progress_cb)
+                            progress_cb(current_perct + (copied * percentage_per_explicit_copy / total), total_percentage);
+                    });
 
                 current_perct += percentage_per_explicit_copy;
             }
@@ -1141,7 +1281,7 @@ namespace eka2l1 {
 
         service::init_services_post_bootup(parent_);
 
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
         scripting_->import_all_modules();
 #endif
 
@@ -1169,7 +1309,7 @@ namespace eka2l1 {
 
         exit = false;
 
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
         if (scripting_) {
             scripting_.reset();
         }
@@ -1216,6 +1356,8 @@ namespace eka2l1 {
             conf_->serialize(false);
         }
 
+        set_system_language(static_cast<language>(conf_->language));
+
         io_->set_product_code(dvc->firmware_code);
         set_symbian_version_use(dvc->ver);
 
@@ -1232,7 +1374,7 @@ namespace eka2l1 {
             return false;
         }
 
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
         scripting_ = std::make_unique<manager::scripts>(parent_);
 #endif
 

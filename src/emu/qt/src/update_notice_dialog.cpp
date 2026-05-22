@@ -1,5 +1,5 @@
-#include <qt/update_notice_dialog.h>
 #include "ui_update_notice_dialog.h"
+#include <qt/update_notice_dialog.h>
 
 #include <QSettings>
 

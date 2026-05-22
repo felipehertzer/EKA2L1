@@ -23,12 +23,11 @@ import static com.github.eka2l1.emu.Constants.PREF_STORAGE_WARNING_SHOWN;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Toast;
 
@@ -72,10 +71,9 @@ public class MainActivity extends BaseActivity {
     }
 
     private void initialize() {
-        ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ConfigurationInfo configurationInfo = activityManager.getDeviceConfigurationInfo();
-        if (configurationInfo.reqGlEsVersion < 0x30000) {
-            showOpenGLDialog();
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N ||
+                !getPackageManager().hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL)) {
+            showVulkanDialog();
             return;
         }
 
@@ -100,11 +98,11 @@ public class MainActivity extends BaseActivity {
                 .replace(R.id.container, appsListFragment).commitNowAllowingStateLoss();
     }
 
-    private void showOpenGLDialog() {
+    private void showVulkanDialog() {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.error)
                 .setCancelable(false)
-                .setMessage(R.string.opengl_required)
+                .setMessage(R.string.vulkan_required)
                 .setPositiveButton(android.R.string.ok, (d, w) -> finish())
                 .show();
     }

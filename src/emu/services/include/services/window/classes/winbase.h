@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -65,7 +65,7 @@ namespace eka2l1::epoc {
         // The priority of the window.
         std::int32_t priority{ 0 };
         std::uint32_t client_handle{ 0 };
-        
+
         ws::uid focus_group_change_event_handle{ 0 };
 
         window_kind type;
@@ -87,8 +87,8 @@ namespace eka2l1::epoc {
             flag_winmode_fixed = 1 << 13,
             flag_visiblity_event_report = 1 << 14,
             flag_content_changed = 1 << 16,
-            flag_shape_region = 1 << 17,            // Only support region and square on the emulator, others are too complicated
-            flag_fix_native_orientation = 1 << 18   // Surface created by EGL will retain width and height of the screen when the phone is in its normal orientation
+            flag_shape_region = 1 << 17, // Only support region and square on the emulator, others are too complicated
+            flag_fix_native_orientation = 1 << 18 // Guest-created surfaces retain width and height when the phone is in its normal orientation
         };
 
         std::uint32_t flags;
@@ -111,9 +111,9 @@ namespace eka2l1::epoc {
 
         /**
          * \brief   Get the ordinal position of the window.
-         * 
+         *
          * \param   full Enable traversing to siblings with same priority, then find the position there.
-         * 
+         *
          * \returns The ordinal position of this window.
          */
         int ordinal_position(const bool full);
@@ -123,15 +123,15 @@ namespace eka2l1::epoc {
         bool execute_command_for_general_node(eka2l1::service::ipc_context &ctx, eka2l1::ws_cmd &cmd);
 
         /*! \brief Generic event queueing
-        */
+         */
         virtual void queue_event(const epoc::event &evt);
 
         /**
          * \brief Walk through window tree, with the root from the current window.
-         * 
+         *
          * The function walks through the tree in order from front to back:
          * - Child windows will be in front of parent windows.
-         * 
+         *
          * \param walker The class hooking the walk.
          * \param style  Walk style.
          */
@@ -143,7 +143,7 @@ namespace eka2l1::epoc {
 
         /**
          * \brief Set position of the window.
-         * 
+         *
          * \param new_pos      New position of the window.
          */
         void set_position(const int new_pos);
@@ -151,18 +151,18 @@ namespace eka2l1::epoc {
         /**
          * \brief Check if the current priority and the given window position will requires
          *        window order change.
-         * 
+         *
          * With sibling windows, a window is consider "older" when it has greater priority then
          * other siblings. If multiple windows have the same priority, the one that go first will
          * be drawn.
-         * 
+         *
          * This function first check:
          * - Does the priority of the window feels weird? Should it be reorder?
          * - Then... Does the position of the window feels weird? Like it should be at the front
          *   of other window with same priority.
-         * 
+         *
          * \param new_pos The new position of the window, compares to other siblings with same priority.
-         * 
+         *
          * \returns True if the window needs to be reordered.
          */
         bool check_order_change(const int new_pos);

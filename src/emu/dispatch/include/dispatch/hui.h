@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -29,6 +29,7 @@ namespace eka2l1::dispatch {
     private:
         std::u16string result_;
         epoc::notify_info info_;
+
     public:
         void on_input_view_complete(const std::u16string &result_text);
         void set_notify_info(epoc::notify_info info);
@@ -40,7 +41,7 @@ namespace eka2l1::dispatch {
         std::size_t result_text_length() const {
             return result_.length();
         }
-        
+
         bool is_another_input_dialog_active() const {
             return !info_.empty();
         }

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -38,6 +38,10 @@ namespace eka2l1::mem::flexible {
         std::unique_ptr<address_space> addr_space_;
         std::vector<flexible_mem_model_chunk_attach_info> attachs_;
 
+    private:
+        bool is_managed_chunk(const flexible_mem_model_chunk *chunk) const;
+        bool detach_mapping_if_managed(flexible_mem_model_chunk *chunk, mapping *map) const;
+
     public:
         explicit flexible_mem_model_process(control_base *control);
         ~flexible_mem_model_process() override;
@@ -47,6 +51,8 @@ namespace eka2l1::mem::flexible {
         void delete_chunk(mem_model_chunk *chunk) override;
 
         void *get_pointer(const vm_address addr) override;
+        bool adjust_chunk(const vm_address base, const vm_address top) override;
+        bool adjust_chunk_to_include(const vm_address addr) override;
 
         bool attach_chunk(mem_model_chunk *chunk) override;
         bool detach_chunk(mem_model_chunk *chunk) override;

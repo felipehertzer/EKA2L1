@@ -18,15 +18,15 @@
  */
 
 #include "ui_btnet_dialog.h"
-#include <qt/btnet_dialog.h>
-#include <config/config.h>
 #include <common/random.h>
+#include <config/config.h>
+#include <qt/btnet_dialog.h>
 
 #include <common/algorithm.h>
 #include <services/bluetooth/protocols/btmidman_inet.h>
 
-#include <QMessageBox>
 #include <QCloseEvent>
+#include <QMessageBox>
 
 static constexpr std::uint32_t MAX_PASSWORD_LENGTH = 16;
 
@@ -39,7 +39,7 @@ btnet_dialog::btnet_dialog(QWidget *parent, eka2l1::config::state &conf)
     setAttribute(Qt::WA_DeleteOnClose);
     ui_->setupUi(this);
 
-    int correct_mode = eka2l1::common::min<int>(conf.btnet_discovery_mode,ui_->mode_combo_box->count());
+    int correct_mode = eka2l1::common::min<int>(conf.btnet_discovery_mode, ui_->mode_combo_box->count());
     ui_->mode_combo_box->setCurrentIndex(correct_mode);
     show_opts_accord_to_index(correct_mode);
 

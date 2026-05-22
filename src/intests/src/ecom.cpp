@@ -15,7 +15,7 @@
 
 /**
  * \brief Get all OpenFont rasterizer plugin through ECom
- * 
+ *
  * This test case assumes that no other plugins are installed on other drive, which means this
  * only count plugins on ROM.
  */
@@ -43,7 +43,7 @@ void EComGetFontRasterizerPluginInfosL() {
 
 /**
  * \brief Get all OpenFont TrueType plugin through ECom.
- * 
+ *
  * This test case assumes that no other plugins are installed on other drive, which means this
  * only count plugins on ROM.
  */

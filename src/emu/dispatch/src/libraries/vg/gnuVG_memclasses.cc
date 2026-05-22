@@ -19,55 +19,55 @@
 
 #include <dispatch/libraries/vg/gnuVG_memclasses.hh>
 
-//#define __DO_GNUVG_DEBUG
+// #define __DO_GNUVG_DEBUG
 #include <dispatch/libraries/vg/gnuVG_debug.hh>
 
 namespace gnuVG {
-	std::map<void*, GvgArray*> GvgAllocator::active_arrays;
-	std::vector<GvgArray*> GvgAllocator::unused_arrays;
+    std::map<void *, GvgArray *> GvgAllocator::active_arrays;
+    std::vector<GvgArray *> GvgAllocator::unused_arrays;
 
-	void* GvgAllocator::gvg_alloc(void* /*ignored*/, unsigned int size) {
-		GvgArray* gvga;
-		if(unused_arrays.size() == 0) {
-			gvga = new GvgArray(size);
-			GNUVG_DEBUG("Created new GvgArray(), %p\n", fmt::ptr(gvga));
-		} else {
-			gvga = unused_arrays.back();
-			unused_arrays.pop_back();
-			gvga->resize(size);
-		}
-		active_arrays[gvga->data] = gvga;
-		return gvga->data;
-	}
-
-	void* GvgAllocator::gvg_realloc(void* /*ignored*/, void* ptr, unsigned int new_size) {
-		auto i = active_arrays.find(ptr);
-
-		if(i != active_arrays.end()) {
-			auto gvga = (*i).second;
-			gvga->resize(new_size);
-			if(gvga->data != (*i).first) {
-				GNUVG_DEBUG("GvgArray() %p was actually resized.\n", fmt::ptr(gvga));
-				// ptr changed - update map
-				active_arrays.erase(i);
-				active_arrays[gvga->data] = gvga;
-			}
-
-			return gvga->data;
-		}
-		return NULL;
-	}
-
-	void GvgAllocator::gvg_free(void* /*ignored*/, void* ptr) {
-		auto i = active_arrays.find(ptr);
-
-		if(i != active_arrays.end()) {
-			auto gvga = (*i).second;
-			active_arrays.erase(i);
-			unused_arrays.push_back(gvga);
-		} else {
-			GNUVG_DEBUG("WTF");
+    void *GvgAllocator::gvg_alloc(void * /*ignored*/, unsigned int size) {
+        GvgArray *gvga;
+        if (unused_arrays.size() == 0) {
+            gvga = new GvgArray(size);
+            GNUVG_DEBUG("Created new GvgArray(), %p\n", fmt::ptr(gvga));
+        } else {
+            gvga = unused_arrays.back();
+            unused_arrays.pop_back();
+            gvga->resize(size);
         }
-	}
+        active_arrays[gvga->data] = gvga;
+        return gvga->data;
+    }
+
+    void *GvgAllocator::gvg_realloc(void * /*ignored*/, void *ptr, unsigned int new_size) {
+        auto i = active_arrays.find(ptr);
+
+        if (i != active_arrays.end()) {
+            auto gvga = (*i).second;
+            gvga->resize(new_size);
+            if (gvga->data != (*i).first) {
+                GNUVG_DEBUG("GvgArray() %p was actually resized.\n", fmt::ptr(gvga));
+                // ptr changed - update map
+                active_arrays.erase(i);
+                active_arrays[gvga->data] = gvga;
+            }
+
+            return gvga->data;
+        }
+        return NULL;
+    }
+
+    void GvgAllocator::gvg_free(void * /*ignored*/, void *ptr) {
+        auto i = active_arrays.find(ptr);
+
+        if (i != active_arrays.end()) {
+            auto gvga = (*i).second;
+            active_arrays.erase(i);
+            unused_arrays.push_back(gvga);
+        } else {
+            GNUVG_DEBUG("WTF");
+        }
+    }
 
 };

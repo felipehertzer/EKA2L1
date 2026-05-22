@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -72,24 +72,24 @@ namespace eka2l1::epoc {
 
     /**
      * @brief   Get categories of an Unicode character.
-     * 
+     *
      * These categories are built up from the uchar_category enum.
-     * 
+     *
      * @param   c       The Unicode character.
      * @param   ln      The locale to check for categories from.
-     * 
+     *
      * @returns Categories of the character.
      */
     std::uint32_t get_uchar_category(const uchar c, std::locale &ln);
 
     /**
      * @brief   Uppercase an Unicode character.
-     * 
+     *
      * If the character is already uppercased, the passed character is returned.
-     * 
+     *
      * @param   c      Character to uppercase.
      * @param   ln     The locale to base this uppercase on.
-     * 
+     *
      * @returns Uppercased character
      * @see     lowercase_uchar
      */
@@ -97,12 +97,12 @@ namespace eka2l1::epoc {
 
     /**
      * @brief   Lowercase an Unicode character.
-     * 
+     *
      * If the character is already lowercased, the passed character is returned.
-     * 
+     *
      * @param   c      Character to lowercase.
      * @param   ln     The locale to base this lowercase on.
-     * 
+     *
      * @returns Lowercased character
      * @see     uppercase_uchar
      */
@@ -110,12 +110,12 @@ namespace eka2l1::epoc {
 
     /**
      * @brief   Fold an Unicode character.
-     * 
+     *
      * An Unicode character when folded can be used in comparision that do not care about things such as case and accents.
-     * 
+     *
      * @param   c      Character to fold.
      * @param   ln     The locale to base this fold on.
-     * 
+     *
      * @returns Folded character
      */
     const uchar fold_uchar(const uchar c, std::locale &ln);

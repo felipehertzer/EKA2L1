@@ -24,6 +24,5 @@ namespace eka2l1::drivers::hwrm {
     }
 
     void vibrator_null::stop_vibrate() {
-
     }
 }

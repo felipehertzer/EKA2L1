@@ -44,7 +44,7 @@ CITriedAppView *CITriedAppView::NewLC(const TRect &aRect) {
 //
 void CITriedAppView::ConstructL(const TRect &aRect) {
     RDebug::Printf("Starting construct app view!");
-    
+
     // Create a window for this application view
     CreateWindowL();
 
@@ -53,7 +53,7 @@ void CITriedAppView::ConstructL(const TRect &aRect) {
 
     // Activate the window, which makes it ready to be drawn
     ActivateL();
-    
+
     RDebug::Printf("Successfully construct app view!");
 }
 
@@ -81,8 +81,8 @@ CITriedAppView::~CITriedAppView() {
 // -----------------------------------------------------------------------------
 //
 void CITriedAppView::Draw(const TRect & /*aRect*/) const {
-	RDebug::Printf("Drawing view");
-	
+    RDebug::Printf("Drawing view");
+
     // Get the standard graphics context
     CWindowGc &gc = SystemGc();
 
@@ -91,8 +91,8 @@ void CITriedAppView::Draw(const TRect & /*aRect*/) const {
 
     // Clears the screen
     gc.Clear(drawRect);
-    
-    RDebug::Printf("Done drawing view");	
+
+    RDebug::Printf("Done drawing view");
 }
 
 // -----------------------------------------------------------------------------
@@ -101,7 +101,7 @@ void CITriedAppView::Draw(const TRect & /*aRect*/) const {
 // -----------------------------------------------------------------------------
 //
 void CITriedAppView::SizeChanged() {
-	RDebug::Printf("App view size changed");
+    RDebug::Printf("App view size changed");
     DrawNow();
 }
 

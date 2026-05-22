@@ -1,28 +1,28 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <services/bluetooth/protocols/sdp/sdp_inet.h>
-#include <services/bluetooth/protocols/btmidman_inet.h>
-#include <common/log.h>
 #include <common/bytes.h>
-#include <kernel/thread.h>
+#include <common/log.h>
 #include <kernel/kernel.h>
+#include <kernel/thread.h>
+#include <services/bluetooth/protocols/btmidman_inet.h>
+#include <services/bluetooth/protocols/sdp/sdp_inet.h>
 #include <utils/err.h>
 
 extern "C" {
@@ -42,7 +42,7 @@ namespace eka2l1::epoc::bt {
     sdp_inet_net_database::sdp_inet_net_database(sdp_inet_protocol *protocol, internet::inet_bridged_protocol *inet_pro)
         : inet_pro_(inet_pro)
         , protocol_(protocol)
-        , bt_port_asker_(reinterpret_cast<midman_inet*>(protocol->get_midman()))
+        , bt_port_asker_(reinterpret_cast<midman_inet *>(protocol->get_midman()))
         , sdp_connect_(nullptr)
         , connected_(false)
         , provided_result_(nullptr)
@@ -97,7 +97,7 @@ namespace eka2l1::epoc::bt {
                 return;
             }
 
-            provided_result_->assign(own_pr, reinterpret_cast<const std::uint8_t*>(&param_len), 4);
+            provided_result_->assign(own_pr, reinterpret_cast<const std::uint8_t *>(&param_len), 4);
         } else {
             if (current_len < param_len) {
                 LOG_WARN(SERVICE_BLUETOOTH, "Provided result buffer size is smaller then total query result length!");
@@ -130,7 +130,7 @@ namespace eka2l1::epoc::bt {
             // Drop the invalid packet
             return;
         }
-        
+
         std::uint8_t pdu_id = static_cast<std::uint8_t>(buffer[0]);
         std::uint16_t trans_id = 0;
         std::uint16_t param_len = 0;
@@ -179,7 +179,7 @@ namespace eka2l1::epoc::bt {
 
         case SDP_PDU_SERVICE_ATTRIBUTE_RESPONSE:
         case SDP_PDU_SERVICE_SEARCH_RESPONSE:
-            handle_normal_query_complete(reinterpret_cast<const std::uint8_t*>(buffer + pdu_builder::PDU_HEADER_SIZE), param_len);
+            handle_normal_query_complete(reinterpret_cast<const std::uint8_t *>(buffer + pdu_builder::PDU_HEADER_SIZE), param_len);
             return;
 
         default:
@@ -224,8 +224,8 @@ namespace eka2l1::epoc::bt {
     }
 
     void sdp_inet_net_database::handle_connect_query(const char *record_buf, const std::uint32_t record_size) {
-        const sdp_connect_query *query = reinterpret_cast<const sdp_connect_query*>(record_buf);
-        midman_inet *midman = reinterpret_cast<midman_inet*>(protocol_->get_midman());
+        const sdp_connect_query *query = reinterpret_cast<const sdp_connect_query *>(record_buf);
+        midman_inet *midman = reinterpret_cast<midman_inet *>(protocol_->get_midman());
 
         epoc::socket::saddress friend_addr_real;
         if (!midman->get_friend_address(query->addr_, friend_addr_real)) {
@@ -258,7 +258,7 @@ namespace eka2l1::epoc::bt {
                 sdp_connect_->on<uvw::connect_event>([this](const uvw::connect_event &event, uvw::tcp_handle &handle) {
                     handle_connect_done(0);
                 });
-                
+
                 sdp_connect_->on<uvw::error_event>([this](const uvw::error_event &event, uvw::tcp_handle &handle) {
                     handle_connect_done(event.code());
                 });
@@ -302,7 +302,7 @@ namespace eka2l1::epoc::bt {
                     handle_send_done(0);
                 });
 
-                sdp_connect_->write(const_cast<char*>(target_pdu_buffer_), target_pdu_buffer_size_);
+                sdp_connect_->write(const_cast<char *>(target_pdu_buffer_), target_pdu_buffer_size_);
             });
         }
 
@@ -312,9 +312,9 @@ namespace eka2l1::epoc::bt {
     void sdp_inet_net_database::handle_service_query(const char *record_buf, const std::uint32_t record_size) {
         pdu_packet_builder_.new_packet();
         pdu_packet_builder_.set_pdu_id(SDP_PDU_SERVICE_SEARCH_REQUEST);
-        pdu_packet_builder_.put_byte(de_header(6, 5));      // DES header
+        pdu_packet_builder_.put_byte(de_header(6, 5)); // DES header
 
-        const sdp_service_query *query_base_all = reinterpret_cast<const sdp_service_query*>(record_buf);
+        const sdp_service_query *query_base_all = reinterpret_cast<const sdp_service_query *>(record_buf);
         std::uint32_t shortest_size = 0;
         std::uint8_t sz_index = 0;
 
@@ -327,16 +327,16 @@ namespace eka2l1::epoc::bt {
 
         pdu_packet_builder_.put_byte(static_cast<std::uint8_t>(shortest_size + 1));
         pdu_packet_builder_.put_byte(de_header(3, sz_index));
-        pdu_packet_builder_.put_data(reinterpret_cast<const char*>(shortest_data_ptr), shortest_size);
+        pdu_packet_builder_.put_data(reinterpret_cast<const char *>(shortest_data_ptr), shortest_size);
         pdu_packet_builder_.put_be16(query_base_all->max_record_return_count_);
 
-        if (record_size == sizeof(sdp_service_query_new)) {   
-            const sdp_service_query_new *query_base_all_new = reinterpret_cast<const sdp_service_query_new*>(record_buf);
+        if (record_size == sizeof(sdp_service_query_new)) {
+            const sdp_service_query_new *query_base_all_new = reinterpret_cast<const sdp_service_query_new *>(record_buf);
             pdu_packet_builder_.put_byte(static_cast<std::uint8_t>(query_base_all_new->state_length_));
-            pdu_packet_builder_.put_data(reinterpret_cast<const char*>(query_base_all_new->continuation_state_), query_base_all_new->state_length_);
+            pdu_packet_builder_.put_data(reinterpret_cast<const char *>(query_base_all_new->continuation_state_), query_base_all_new->state_length_);
         } else {
             pdu_packet_builder_.put_byte(static_cast<std::uint8_t>(query_base_all->state_length_));
-            pdu_packet_builder_.put_data(reinterpret_cast<const char*>(query_base_all->continuation_state_), query_base_all->state_length_);
+            pdu_packet_builder_.put_data(reinterpret_cast<const char *>(query_base_all->continuation_state_), query_base_all->state_length_);
         }
 
         std::uint32_t total_packet_size = 0;
@@ -344,11 +344,11 @@ namespace eka2l1::epoc::bt {
 
         send_pdu_packet(packet, total_packet_size);
     }
-    
+
     void sdp_inet_net_database::handle_encoded_query(const char *record_buf, const std::uint32_t record_size) {
         pdu_packet_builder_.new_packet();
 
-        const sdp_encoded_query *query_base_all = reinterpret_cast<const sdp_encoded_query*>(record_buf);
+        const sdp_encoded_query *query_base_all = reinterpret_cast<const sdp_encoded_query *>(record_buf);
         pdu_packet_builder_.set_pdu_id(query_base_all->pdu_id_);
         pdu_packet_builder_.put_data(record_buf + sizeof(sdp_encoded_query), record_size - sizeof(sdp_encoded_query));
 
@@ -366,7 +366,7 @@ namespace eka2l1::epoc::bt {
             return;
         }
 
-        provided_result_->assign(current_query_notify_.requester->owning_process(), reinterpret_cast<std::uint8_t*>(stored_query_buffer_.data()), 
+        provided_result_->assign(current_query_notify_.requester->owning_process(), reinterpret_cast<std::uint8_t *>(stored_query_buffer_.data()),
             static_cast<std::uint32_t>(stored_query_buffer_.size()));
 
         provided_result_ = nullptr;
@@ -387,7 +387,7 @@ namespace eka2l1::epoc::bt {
         current_query_notify_ = complete_info;
         provided_result_ = result_buffer;
 
-        const std::uint32_t pdu_id = *reinterpret_cast<const std::uint32_t*>(query_data);
+        const std::uint32_t pdu_id = *reinterpret_cast<const std::uint32_t *>(query_data);
         store_to_temp_buffer_ = (pdu_id & SDP_QUERY_STORE_TO_NETDB_BUFFER_FIRST_FLAG);
 
         switch (pdu_id & SDP_QUERY_TYPE_MASK) {

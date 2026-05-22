@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -107,17 +107,17 @@ namespace eka2l1::drivers {
         axis_active.set_int(0, 1);
         properties_datas_.push_back(axis_active);
 
-        axis_active.set_int(0, 2);        
+        axis_active.set_int(0, 2);
         properties_datas_.push_back(axis_active);
 
-        axis_active.set_int(0, 3);        
+        axis_active.set_int(0, 3);
         properties_datas_.push_back(axis_active);
 
         // Measure range
         sensor_property_data measure_range;
         measure_range.property_id_ = SENSOR_PROPERTY_MEASURE_RANGE;
         measure_range.set_double(50.0f);
-        measure_range.array_index_ = -2;            // Required by NGage 2.0?
+        measure_range.array_index_ = -2; // Required by NGage 2.0?
 
         properties_datas_.push_back(measure_range);
 
@@ -144,7 +144,7 @@ namespace eka2l1::drivers {
         info.vendor_ = "Dog";
 
         stubbed_infos_.push_back(info);
-        
+
         // Ambient light
         info.data_type_ = drivers::SENSOR_DATA_TYPE_AMBIENT_LIGHT;
         info.quantity_ = drivers::SENSOR_DATA_QUANTITY_NOT_USED;
@@ -154,7 +154,7 @@ namespace eka2l1::drivers {
         info.vendor_ = "Lamp";
 
         stubbed_infos_.push_back(info);
-        
+
         // Angle between Z and pole
         info.data_type_ = drivers::SENSOR_DATA_TYPE_MAGNECTIC_NORTH_ANGLE;
         info.quantity_ = drivers::SENSOR_DATA_QUANTITY_ANGLE;
@@ -220,7 +220,7 @@ namespace eka2l1::drivers {
             if (search_info.type_ && (search_info.type_ != stubbed_infos_[i].type_)) {
                 continue;
             }
-            
+
             if (!search_info.name_.empty() && (search_info.name_ != stubbed_infos_[i].name_)) {
                 continue;
             }

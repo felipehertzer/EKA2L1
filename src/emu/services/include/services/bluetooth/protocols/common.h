@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/socket/common.h>
 #include <cstdint>
 #include <cstring>
+#include <services/socket/common.h>
 
 namespace eka2l1::epoc::bt {
     enum hci_scan_enable_ioctl_val {
@@ -80,8 +80,8 @@ namespace eka2l1::epoc::bt {
         std::uint8_t addr_[6];
         std::uint16_t padding_;
 
-        bool operator < (const device_address &rhs) const {
-            return strncmp(reinterpret_cast<const char*>(addr_), reinterpret_cast<const char*>(rhs.addr_), 6) == -1;
+        bool operator<(const device_address &rhs) const {
+            return strncmp(reinterpret_cast<const char *>(addr_), reinterpret_cast<const char *>(rhs.addr_), 6) == -1;
         }
     };
 
@@ -103,15 +103,15 @@ namespace eka2l1::epoc::bt {
         static constexpr std::uint32_t DATA_LEN = 8 + sizeof(service_security);
 
         service_security *get_service_security() {
-            return reinterpret_cast<service_security*>(user_data_ + sizeof(device_address));
+            return reinterpret_cast<service_security *>(user_data_ + sizeof(device_address));
         }
 
         device_address *get_device_address() {
-            return reinterpret_cast<device_address*>(user_data_);
+            return reinterpret_cast<device_address *>(user_data_);
         }
 
         const device_address *get_device_address_const() const {
-            return reinterpret_cast<const device_address*>(user_data_);
+            return reinterpret_cast<const device_address *>(user_data_);
         }
     };
 
@@ -165,10 +165,10 @@ namespace eka2l1::epoc::bt {
         std::int8_t rssi_;
     };
 #pragma pack(pop)
-    
+
     struct inquiry_socket_address : public socket::saddress {
         inquiry_info *get_inquiry_info() {
-            return reinterpret_cast<inquiry_info*>(user_data_);
+            return reinterpret_cast<inquiry_info *>(user_data_);
         }
     };
 

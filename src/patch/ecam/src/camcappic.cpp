@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <Log.h>
 #include <camimpl.h>
 #include <dispatch.h>
-#include <Log.h>
 
 #include <e32err.h>
 #include <e32std.h>
@@ -67,10 +67,10 @@ TDesC8 *CCameraImageBufferImpl::DataL(TInt aFrameIndex) {
 TUint8 *CCameraImageBufferImpl::DataPtr() {
     if (iDataBitmap) {
         iDataBitmap->BeginDataAccess();
-        return (TUint8*)iDataBitmap->DataAddress();
+        return (TUint8 *)iDataBitmap->DataAddress();
     }
 
-    return (TUint8*)iDataBuffer->Ptr();
+    return (TUint8 *)iDataBuffer->Ptr();
 }
 
 void CCameraImageBufferImpl::EndDataAccess() {
@@ -79,14 +79,14 @@ void CCameraImageBufferImpl::EndDataAccess() {
     }
 }
 
-CFbsBitmap& CCameraImageBufferImpl::BitmapL(TInt aFrameIndex) {
+CFbsBitmap &CCameraImageBufferImpl::BitmapL(TInt aFrameIndex) {
     if (!iDataBitmap)
         User::Leave(KErrNotSupported);
 
     return *iDataBitmap;
 }
 
-RChunk& CCameraImageBufferImpl::ChunkL() {
+RChunk &CCameraImageBufferImpl::ChunkL() {
     User::Leave(KErrNotSupported);
 }
 
@@ -131,7 +131,7 @@ CCameraImageCaptureObject::~CCameraImageCaptureObject() {
     if (!iDataBitmap) {
         delete iDataBitmap;
     }
-    
+
     for (TInt i = 0; i < iImageBuffers.Count(); i++) {
         delete iImageBuffers[i];
     }
@@ -177,9 +177,7 @@ TBool CCameraImageCaptureObject::StartCapture(TInt aIndex, CCamera::TFormat aFor
 }
 
 inline TDisplayMode GetDisplayModeBitmapFromCamFormat(TInt aFormat) {
-    return (aFormat == CCamera::EFormatFbsBitmapColor4K) ? EColor4K :
-        ((aFormat == CCamera::EFormatFbsBitmapColor64K) ? EColor64K :
-         ((aFormat == CCamera::EFormatFbsBitmapColor16M) ? EColor16M : ENone));
+    return (aFormat == CCamera::EFormatFbsBitmapColor4K) ? EColor4K : ((aFormat == CCamera::EFormatFbsBitmapColor64K) ? EColor64K : ((aFormat == CCamera::EFormatFbsBitmapColor16M) ? EColor16M : ENone));
 }
 
 void CCameraImageCaptureObject::PrepareImageCaptureL(TInt aIndex, CCamera::TFormat aFormat, TInt aVersion) {
@@ -190,35 +188,35 @@ void CCameraImageCaptureObject::PrepareImageCaptureL(TInt aIndex, CCamera::TForm
     iBitmapDisplayMode = GetDisplayModeBitmapFromCamFormat((TInt)aFormat);
     if (aVersion == 1) {
         switch (aFormat) {
-            case CCamera::EFormatFbsBitmapColor4K:
-            case CCamera::EFormatFbsBitmapColor64K:
-            case CCamera::EFormatFbsBitmapColor16M: {
-                iDataBitmap = new (ELeave) CFbsBitmap;
-                User::LeaveIfError(iDataBitmap->Create(targetImageSize, (TDisplayMode)iBitmapDisplayMode));
+        case CCamera::EFormatFbsBitmapColor4K:
+        case CCamera::EFormatFbsBitmapColor64K:
+        case CCamera::EFormatFbsBitmapColor16M: {
+            iDataBitmap = new (ELeave) CFbsBitmap;
+            User::LeaveIfError(iDataBitmap->Create(targetImageSize, (TDisplayMode)iBitmapDisplayMode));
 
-                if (iDataBuffer) {
-                    delete iDataBuffer;
-                    iDataBuffer = NULL;
-                }
-
-                break;
-            }
-
-            default: {
-                if (iDataBitmap) {
-                    delete iDataBitmap;
-                    iDataBitmap = NULL;
-                }
-
+            if (iDataBuffer) {
+                delete iDataBuffer;
                 iDataBuffer = NULL;
-                break;
             }
+
+            break;
+        }
+
+        default: {
+            if (iDataBitmap) {
+                delete iDataBitmap;
+                iDataBitmap = NULL;
+            }
+
+            iDataBuffer = NULL;
+            break;
+        }
         }
     }
 }
 
 void CCameraImageCaptureObject::HandleCompleteV1() {
-    MCameraObserver *observer = (MCameraObserver*)iObserver;
+    MCameraObserver *observer = (MCameraObserver *)iObserver;
 
     if (iStatus != KErrNone) {
         observer->ImageReady(NULL, NULL, iStatus.Int());
@@ -240,14 +238,14 @@ void CCameraImageCaptureObject::HandleCompleteV1() {
                 error = ECamReceiveImage(0, iDispatch, &imageBufferSize, iDataBuffer->Ptr(), EImageStackCaptureImage);
             } else {
                 iDataBitmap->BeginDataAccess();
-                error = ECamReceiveImage(0, iDispatch, &imageBufferSize, (TUint8*)iDataBitmap->DataAddress(), EImageStackCaptureImage);
+                error = ECamReceiveImage(0, iDispatch, &imageBufferSize, (TUint8 *)iDataBitmap->DataAddress(), EImageStackCaptureImage);
                 iDataBitmap->EndDataAccess();
             }
 
             if (error != KErrNone) {
                 LogOut(KCameraCat, _L("Failed to receive image data!"));
                 observer->ImageReady(NULL, NULL, error);
-            } else {  
+            } else {
                 observer->ImageReady(iDataBitmap, iDataBitmap ? NULL : iDataBuffer, KErrNone);
             }
         }
@@ -255,7 +253,7 @@ void CCameraImageCaptureObject::HandleCompleteV1() {
 }
 
 void CCameraImageCaptureObject::HandleCompleteV2() {
-	MCameraObserver2 *observer = (MCameraObserver2*)iObserver;
+    MCameraObserver2 *observer = (MCameraObserver2 *)iObserver;
     CCameraImageBufferImpl *buffer = NULL;
 
     // Pick a free buffers
@@ -297,7 +295,7 @@ void CCameraImageCaptureObject::HandleCompleteV2() {
         if (error != KErrNone) {
             LogOut(KCameraCat, _L("Failed to receive image data!"));
             observer->ImageBufferReady(*buffer, error);
-        } else {  
+        } else {
             observer->ImageBufferReady(*buffer, KErrNone);
         }
     }
@@ -314,12 +312,12 @@ void CCameraImageCaptureObject::RunL() {
 void CCameraImageCaptureObject::DoCancel() {
     if (ECamCancelTakeImage(0, iDispatch) != KErrNone) {
         // Manually cancel it...
-    	TRequestStatus *status = &iStatus;
+        TRequestStatus *status = &iStatus;
         User::RequestComplete(status, KErrCancel);
     }
 }
 
-void CCameraPlugin::PrepareImageCaptureL(TFormat aImageFormat,TInt aSizeIndex) {
+void CCameraPlugin::PrepareImageCaptureL(TFormat aImageFormat, TInt aSizeIndex) {
     if (iImageCapture.IsActive()) {
         User::Leave(KErrInUse);
     }
@@ -339,7 +337,7 @@ void CCameraPlugin::PrepareImageCaptureL(TFormat aImageFormat,TInt aSizeIndex) {
     iImageCaptureFormat = aImageFormat;
 }
 
-void CCameraPlugin::PrepareImageCaptureL(TFormat aImageFormat,TInt aSizeIndex,const TRect& aClipRect) {
+void CCameraPlugin::PrepareImageCaptureL(TFormat aImageFormat, TInt aSizeIndex, const TRect &aClipRect) {
     PrepareImageCaptureL(aImageFormat, aSizeIndex);
 
     iImageCaptureNeedClip = ETrue;
@@ -351,7 +349,7 @@ void CCameraPlugin::CaptureImage() {
         LogOut(KCameraCat, _L("Please prepare image capture first before calling capture!"));
         return;
     }
-    
+
     if (iImageCapture.IsActive()) {
         LogOut(KCameraCat, _L("Another image capture is taking place in this camera instance, please wait before calling capture again!"));
         return;
@@ -368,7 +366,7 @@ void CCameraPlugin::CancelCaptureImage() {
     }
 }
 
-void CCameraPlugin::EnumerateCaptureSizes(TSize& aSize,TInt aSizeIndex,CCamera::TFormat aFormat) const {
+void CCameraPlugin::EnumerateCaptureSizes(TSize &aSize, TInt aSizeIndex, CCamera::TFormat aFormat) const {
     if (ECamQueryStillImageSize(0, iDispatchInstance, aFormat, aSizeIndex, aSize) != KErrNone) {
         LogOut(KCameraCat, _L("Failed to query image capture size!"));
     }

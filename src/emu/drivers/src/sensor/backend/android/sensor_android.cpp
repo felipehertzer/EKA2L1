@@ -18,9 +18,9 @@
  */
 
 #include "sensor_android.h"
+#include <common/android/jniutils.h>
 #include <common/log.h>
 #include <common/time.h>
-#include <common/android/jniutils.h>
 #include <thread>
 
 namespace eka2l1::drivers {
@@ -30,10 +30,10 @@ namespace eka2l1::drivers {
     static constexpr std::int32_t ACCELEROMETER_SCALE_RANGE_MAX = 127;
     static constexpr std::int32_t ACCELEROMETER_SCALE_RANGE_MIN = -128;
     static const double ACCELEROMETER_MEASURE_RANGE_AVAILABLE[] = {
-            19.62, 78.48
+        19.62, 78.48
     };
     static const std::int32_t SAMPLING_RATE_AVAILABLE[] = {
-            10, 40, 50
+        10, 40, 50
     };
     static const std::int32_t ACCELEROMETER_MEASURE_RANGE_MAX_OPTION = sizeof(ACCELEROMETER_MEASURE_RANGE_AVAILABLE) / sizeof(double);
     static const std::int32_t SAMPLING_RATE_MAX_OPTION = sizeof(SAMPLING_RATE_AVAILABLE) / sizeof(std::int32_t);
@@ -49,13 +49,11 @@ namespace eka2l1::drivers {
         , active_accel_measure_range_(0)
         , active_sampling_rate_(1)
         , sensor_type_(0) {
-        event_queue_ = ASensorManager_createEventQueue(ASensorManager_getInstance(), common::jni::main_looper,
-                                        SENSOR_LOOPER_ID, [](int fd, int events, void *data) {
+        event_queue_ = ASensorManager_createEventQueue(ASensorManager_getInstance(), common::jni::main_looper, SENSOR_LOOPER_ID, [](int fd, int events, void *data) {
             sensor_android *sensor = reinterpret_cast<sensor_android*>(data);
             sensor->handle_event_arrival();
 
-            return 1;
-        }, this);
+            return 1; }, this);
 
         if (!event_queue_) {
             LOG_ERROR(SERVICE_SENSOR, "Unable to create event queue to receive sensor event!");
@@ -65,13 +63,13 @@ namespace eka2l1::drivers {
         sensor_type_ = ASensor_getType(asensor);
 
         switch (sensor_type_) {
-            case ASENSOR_TYPE_ACCELEROMETER:
-                packet_size_ = sizeof(sensor_accelerometer_axis_data);
-                break;
+        case ASENSOR_TYPE_ACCELEROMETER:
+            packet_size_ = sizeof(sensor_accelerometer_axis_data);
+            break;
 
-            default:
-                packet_size_ = 100;
-                break;
+        default:
+            packet_size_ = 100;
+            break;
         }
     }
 
@@ -84,30 +82,30 @@ namespace eka2l1::drivers {
     }
 
     bool sensor_android::get_property(const sensor_property prop, const std::int32_t item_index,
-                      const std::int32_t array_index, sensor_property_data &data) {
+        const std::int32_t array_index, sensor_property_data &data) {
         // Handle global property
         bool global_handled = true;
 
         switch (prop) {
-            case SENSOR_PROPERTY_SAMPLE_RATE:
-                if (array_index == -2) {
-                    data.set_as_array_status(sensor_property_data::DATA_TYPE_INT, SAMPLING_RATE_MAX_OPTION - 1,
-                                             active_sampling_rate_);
-                } else {
-                    if ((array_index >= SAMPLING_RATE_MAX_OPTION) || (array_index < 0)) {
-                        LOG_ERROR(SERVICE_SENSOR, "Trying to get out-of-bound sample rate!");
-                        return false;
-                    }
-
-                    data.set_int(SAMPLING_RATE_AVAILABLE[array_index]);
-                    data.array_index_ = array_index;
+        case SENSOR_PROPERTY_SAMPLE_RATE:
+            if (array_index == -2) {
+                data.set_as_array_status(sensor_property_data::DATA_TYPE_INT, SAMPLING_RATE_MAX_OPTION - 1,
+                    active_sampling_rate_);
+            } else {
+                if ((array_index >= SAMPLING_RATE_MAX_OPTION) || (array_index < 0)) {
+                    LOG_ERROR(SERVICE_SENSOR, "Trying to get out-of-bound sample rate!");
+                    return false;
                 }
 
-                break;
+                data.set_int(SAMPLING_RATE_AVAILABLE[array_index]);
+                data.array_index_ = array_index;
+            }
 
-            default:
-                global_handled = false;
-                break;
+            break;
+
+        default:
+            global_handled = false;
+            break;
         }
 
         if (global_handled) {
@@ -118,42 +116,42 @@ namespace eka2l1::drivers {
             data.property_id_ = prop;
 
             switch (prop) {
-                case SENSOR_PROPERTY_DATA_FORMAT:
-                    data.set_int(SENSOR_DATA_FORMAT_SCALED);
-                    break;
+            case SENSOR_PROPERTY_DATA_FORMAT:
+                data.set_int(SENSOR_DATA_FORMAT_SCALED);
+                break;
 
-                case SENSOR_PROPERTY_SCALED_RANGE:
-                    data.set_int_range(ACCELEROMETER_SCALE_RANGE_MIN, ACCELEROMETER_SCALE_RANGE_MAX);
-                    break;
+            case SENSOR_PROPERTY_SCALED_RANGE:
+                data.set_int_range(ACCELEROMETER_SCALE_RANGE_MIN, ACCELEROMETER_SCALE_RANGE_MAX);
+                break;
 
-                case SENSOR_PROPERTY_CHANNEL_UNIT:
-                    data.set_int(SENSOR_UNIT_MS_PER_S2);
-                    break;
+            case SENSOR_PROPERTY_CHANNEL_UNIT:
+                data.set_int(SENSOR_UNIT_MS_PER_S2);
+                break;
 
-                case SENSOR_PROPERTY_SCALE:
-                    data.set_int(0);
-                    break;
+            case SENSOR_PROPERTY_SCALE:
+                data.set_int(0);
+                break;
 
-                case SENSOR_PROPERTY_MEASURE_RANGE:
-                    if (array_index == -2) {
-                        data.set_as_array_status(sensor_property_data::DATA_TYPE_DOUBLE, ACCELEROMETER_MEASURE_RANGE_MAX_OPTION - 1,
-                                                 active_accel_measure_range_);
-                    } else {
-                        if ((array_index >= ACCELEROMETER_MEASURE_RANGE_MAX_OPTION) || (array_index < 0)) {
-                            LOG_ERROR(SERVICE_SENSOR, "Trying to get out-of-bound measure range!");
-                            return false;
-                        }
-
-                        data.set_double_range(-ACCELEROMETER_MEASURE_RANGE_AVAILABLE[array_index],
-                                              ACCELEROMETER_MEASURE_RANGE_AVAILABLE[array_index]);
-                        data.array_index_ = array_index;
+            case SENSOR_PROPERTY_MEASURE_RANGE:
+                if (array_index == -2) {
+                    data.set_as_array_status(sensor_property_data::DATA_TYPE_DOUBLE, ACCELEROMETER_MEASURE_RANGE_MAX_OPTION - 1,
+                        active_accel_measure_range_);
+                } else {
+                    if ((array_index >= ACCELEROMETER_MEASURE_RANGE_MAX_OPTION) || (array_index < 0)) {
+                        LOG_ERROR(SERVICE_SENSOR, "Trying to get out-of-bound measure range!");
+                        return false;
                     }
 
-                    break;
+                    data.set_double_range(-ACCELEROMETER_MEASURE_RANGE_AVAILABLE[array_index],
+                        ACCELEROMETER_MEASURE_RANGE_AVAILABLE[array_index]);
+                    data.array_index_ = array_index;
+                }
 
-                default:
-                    LOG_TRACE(SERVICE_SENSOR, "Unhandled getting accelerometer sensor property {}", static_cast<int>(prop));
-                    break;
+                break;
+
+            default:
+                LOG_TRACE(SERVICE_SENSOR, "Unhandled getting accelerometer sensor property {}", static_cast<int>(prop));
+                break;
             }
         } else {
             LOG_ERROR(SERVICE_SENSOR, "Get property unimplemented for Android sensor type {}!", sensor_type_);
@@ -166,24 +164,23 @@ namespace eka2l1::drivers {
     bool sensor_android::set_property(const sensor_property_data &data) {
         bool global_handled = true;
         switch (data.property_id_) {
-            case SENSOR_PROPERTY_SAMPLE_RATE:
-                if (data.array_index_ == -2) {
-                    if ((data.int_value_ >= SAMPLING_RATE_MAX_OPTION) || (data.int_value_ < 0)) {
-                        LOG_ERROR(SERVICE_SENSOR, "Trying to set out-of-bound sample rate!");
-                        return false;
-                    }
-
-                    active_sampling_rate_ = static_cast<std::uint32_t>(data.int_value_);
-                    ASensorEventQueue_setEventRate(event_queue_, asensor_, static_cast<std::int32_t>(
-                            common::microsecs_per_sec / SAMPLING_RATE_AVAILABLE[active_sampling_rate_]));
-                } else {
-                    LOG_ERROR(SERVICE_SENSOR, "Trying to set read-only sample rate property! Only current sample rate index can be set!");
+        case SENSOR_PROPERTY_SAMPLE_RATE:
+            if (data.array_index_ == -2) {
+                if ((data.int_value_ >= SAMPLING_RATE_MAX_OPTION) || (data.int_value_ < 0)) {
+                    LOG_ERROR(SERVICE_SENSOR, "Trying to set out-of-bound sample rate!");
                     return false;
                 }
 
-            default:
-                global_handled = false;
-                break;
+                active_sampling_rate_ = static_cast<std::uint32_t>(data.int_value_);
+                ASensorEventQueue_setEventRate(event_queue_, asensor_, static_cast<std::int32_t>(common::microsecs_per_sec / SAMPLING_RATE_AVAILABLE[active_sampling_rate_]));
+            } else {
+                LOG_ERROR(SERVICE_SENSOR, "Trying to set read-only sample rate property! Only current sample rate index can be set!");
+                return false;
+            }
+
+        default:
+            global_handled = false;
+            break;
         }
 
         if (global_handled) {
@@ -192,24 +189,24 @@ namespace eka2l1::drivers {
 
         if (sensor_type_ == ASENSOR_TYPE_ACCELEROMETER) {
             switch (data.property_id_) {
-                case SENSOR_PROPERTY_MEASURE_RANGE:
-                    if (data.array_index_ == -2) {
-                        if ((data.int_value_ >= ACCELEROMETER_MEASURE_RANGE_MAX_OPTION) || (data.int_value_ < 0)) {
-                            LOG_ERROR(SERVICE_SENSOR, "Trying to set out-of-bound measure range!");
-                            return false;
-                        }
-
-                        active_accel_measure_range_ = static_cast<std::uint32_t>(data.int_value_);
-                    } else {
-                        LOG_ERROR(SERVICE_SENSOR, "Trying to set read-only measure range property! Only current measure range index can be set!");
+            case SENSOR_PROPERTY_MEASURE_RANGE:
+                if (data.array_index_ == -2) {
+                    if ((data.int_value_ >= ACCELEROMETER_MEASURE_RANGE_MAX_OPTION) || (data.int_value_ < 0)) {
+                        LOG_ERROR(SERVICE_SENSOR, "Trying to set out-of-bound measure range!");
                         return false;
                     }
 
-                    break;
+                    active_accel_measure_range_ = static_cast<std::uint32_t>(data.int_value_);
+                } else {
+                    LOG_ERROR(SERVICE_SENSOR, "Trying to set read-only measure range property! Only current measure range index can be set!");
+                    return false;
+                }
 
-                default:
-                    LOG_TRACE(SERVICE_SENSOR, "Unhandled setting accelerometer sensor property {}", static_cast<int>(data.property_id_));
-                    break;
+                break;
+
+            default:
+                LOG_TRACE(SERVICE_SENSOR, "Unhandled setting accelerometer sensor property {}", static_cast<int>(data.property_id_));
+                break;
             }
         } else {
             LOG_ERROR(SERVICE_SENSOR, "Set property unimplemented for Android sensor type {}!", sensor_type_);
@@ -230,27 +227,27 @@ namespace eka2l1::drivers {
         // But there's no utilities widely available to convert them to EPOCH. So we gonna use the current time here
         // Hope it's fine :D
         switch (event.type) {
-            case ASENSOR_TYPE_ACCELEROMETER: {
-                sensor_accelerometer_axis_data axis_data;
+        case ASENSOR_TYPE_ACCELEROMETER: {
+            sensor_accelerometer_axis_data axis_data;
 
-                static constexpr float alpha = 0.8f;
-                const float measure_range = ACCELEROMETER_MEASURE_RANGE_AVAILABLE[active_accel_measure_range_];
+            static constexpr float alpha = 0.8f;
+            const float measure_range = ACCELEROMETER_MEASURE_RANGE_AVAILABLE[active_accel_measure_range_];
 
-                axis_data.timestamp_ = common::get_current_utc_time_in_microseconds_since_0ad();
+            axis_data.timestamp_ = common::get_current_utc_time_in_microseconds_since_0ad();
 
-                axis_data.axis_x_ = static_cast<std::int32_t>(static_cast<float>(event.acceleration.x) * ACCELEROMETER_SCALE_RANGE_MAX / measure_range);
-                axis_data.axis_y_ = static_cast<std::int32_t>(static_cast<float>(event.acceleration.y) * ACCELEROMETER_SCALE_RANGE_MAX / measure_range);
-                axis_data.axis_z_ = static_cast<std::int32_t>(static_cast<float>(event.acceleration.z) * ACCELEROMETER_SCALE_RANGE_MAX / measure_range);
+            axis_data.axis_x_ = static_cast<std::int32_t>(static_cast<float>(event.acceleration.x) * ACCELEROMETER_SCALE_RANGE_MAX / measure_range);
+            axis_data.axis_y_ = static_cast<std::int32_t>(static_cast<float>(event.acceleration.y) * ACCELEROMETER_SCALE_RANGE_MAX / measure_range);
+            axis_data.axis_z_ = static_cast<std::int32_t>(static_cast<float>(event.acceleration.z) * ACCELEROMETER_SCALE_RANGE_MAX / measure_range);
 
-                events_translated_.insert(events_translated_.end(), reinterpret_cast<std::uint8_t*>(&axis_data),
-                                          reinterpret_cast<std::uint8_t*>(&axis_data + 1));
+            events_translated_.insert(events_translated_.end(), reinterpret_cast<std::uint8_t *>(&axis_data),
+                reinterpret_cast<std::uint8_t *>(&axis_data + 1));
 
-                break;
-            }
+            break;
+        }
 
-            default:
-                LOG_WARN(SERVICE_SENSOR, "Unknown event type {}", event.type);
-                break;
+        default:
+            LOG_WARN(SERVICE_SENSOR, "Unknown event type {}", event.type);
+            break;
         }
     }
 
@@ -301,14 +298,13 @@ namespace eka2l1::drivers {
             return false;
         }
 
-        const std::int32_t period_event = static_cast<std::int32_t>(common::microsecs_per_sec /
-                SAMPLING_RATE_AVAILABLE[active_sampling_rate_]);
+        const std::int32_t period_event = static_cast<std::int32_t>(common::microsecs_per_sec / SAMPLING_RATE_AVAILABLE[active_sampling_rate_]);
 
         result = ASensorEventQueue_setEventRate(event_queue_, asensor_, period_event);
 
         if (result < 0) {
             LOG_WARN(SERVICE_SENSOR, "Setting sensor event rate failed with result {}. us/event={}",
-                     result, period_event);
+                result, period_event);
         }
 
         return true;
@@ -420,15 +416,15 @@ namespace eka2l1::drivers {
 
             // Add and handle types that we currently supported here!
             switch (type) {
-                case ASENSOR_TYPE_ACCELEROMETER:
-                    info.type_ = SENSOR_TYPE_ACCELEROMETER;
-                    info.quantity_ = SENSOR_DATA_QUANTITY_ACCELERATION;
-                    info.data_type_ = SENSOR_DATA_TYPE_ACCELOREMETER_AXIS;
-                    info.item_size_ = sizeof(sensor_accelerometer_axis_data);
-                    break;
+            case ASENSOR_TYPE_ACCELEROMETER:
+                info.type_ = SENSOR_TYPE_ACCELEROMETER;
+                info.quantity_ = SENSOR_DATA_QUANTITY_ACCELERATION;
+                info.data_type_ = SENSOR_DATA_TYPE_ACCELOREMETER_AXIS;
+                info.item_size_ = sizeof(sensor_accelerometer_axis_data);
+                break;
 
-                default:
-                    continue;
+            default:
+                continue;
             }
 
             if (search_info.type_ != info.type_) {

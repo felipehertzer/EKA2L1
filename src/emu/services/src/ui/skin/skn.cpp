@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -222,8 +222,28 @@ namespace eka2l1::epoc {
                 break;
             }
 
+            case as_desc_skin_desc_string_item_def: {
+                process_string_item_def_chunk(base_offset);
+                break;
+            }
+
             case as_desc_effect_queue: {
                 process_effect_queue_chunk(base_offset);
+                break;
+            }
+
+            case as_desc_release26: {
+                process_class_release_26_restriction_chunk(base_offset);
+                break;
+            }
+
+            case as_desc_release_generic: {
+                process_class_release_generic_restriction_chunk(base_offset);
+                break;
+            }
+
+            case as_desc_lang: {
+                process_class_lang_restriction_chunk(base_offset);
                 break;
             }
 
@@ -234,6 +254,51 @@ namespace eka2l1::epoc {
             }
 
             base_offset += chunk_size;
+        }
+    }
+
+    void skn_file::process_class_release_26_restriction_chunk(std::uint32_t base_offset) {
+        std::uint32_t count = 0;
+        stream_->read(base_offset + skn_desc_dfo_release26_chunks_count, &count, 4);
+
+        std::int8_t plat_major = 0;
+        std::int8_t plat_minor = 0;
+
+        stream_->read(base_offset + skn_desc_dfo_release26_plat_major, &plat_major, 1);
+        stream_->read(base_offset + skn_desc_dfo_release26_plat_minor, &plat_minor, 1);
+
+        if (ver_ >= plat_ver{ plat_major, plat_minor }) {
+            process_class_def_chunks(base_offset + skn_desc_dfo_release26_content, count);
+        }
+    }
+
+    void skn_file::process_class_release_generic_restriction_chunk(std::uint32_t base_offset) {
+        std::uint32_t count = 0;
+        stream_->read(base_offset + skn_desc_dfo_release_generic_chunks_count, &count, 4);
+
+        std::int8_t plat_major = 0;
+        std::int8_t plat_minor = 0;
+
+        stream_->read(base_offset + skn_desc_dfo_release_generic_plat_major, &plat_major, 1);
+        stream_->read(base_offset + skn_desc_dfo_release_generic_plat_minor, &plat_minor, 1);
+
+        if (ver_ >= plat_ver{ plat_major, plat_minor }) {
+            process_class_def_chunks(base_offset + skn_desc_dfo_release_generic_content, count);
+        }
+    }
+
+    void skn_file::process_class_lang_restriction_chunk(std::uint32_t base_offset) {
+        std::uint32_t count = 0;
+        stream_->read(base_offset + skn_desc_dfo_lang_lang_count, &count, 4);
+
+        std::uint16_t lang_restr = 0;
+        std::uint16_t general_restr = 0;
+
+        stream_->read(base_offset + skn_desc_dfo_lang_lang_restr, &lang_restr, 2);
+        stream_->read(base_offset + skn_desc_dfo_lang_gen_restr, &general_restr, 2);
+
+        if (general_restr == 0 || lang_restr == 0 || importer_lang_ == language::any || (static_cast<language>(lang_restr) == importer_lang_)) {
+            process_class_def_chunks(base_offset + skn_desc_dfo_lang_content, count);
         }
     }
 
@@ -248,7 +313,7 @@ namespace eka2l1::epoc {
 
         process_attrib(base_offset + skn_desc_dfo_bitmap_attribs, bmp_info_.attrib);
 
-        bitmaps_.emplace(bmp_info_.id_hash, std::move(bmp_info_));
+        bitmaps_.emplace(bmp_info_.id_hash, bmp_info_);
     }
 
     void skn_file::process_image_table_def_chunk(std::uint32_t base_offset) {
@@ -363,6 +428,23 @@ namespace eka2l1::epoc {
         bitmap_anims_.emplace(anim_.id_hash, std::move(anim_));
     }
 
+    void skn_file::process_string_item_def_chunk(std::uint32_t base_offset) {
+        std::uint64_t id_hash = 0;
+        stream_->read(base_offset + skn_desc_dfo_string_major, &id_hash, 8);
+
+        std::uint16_t string_len = 0;
+        stream_->read(base_offset + skn_desc_dfo_string_string_len, &string_len, 2);
+
+        std::u16string value;
+        value.resize(string_len);
+
+        if (string_len > 0) {
+            stream_->read(base_offset + skn_desc_dfo_string_string, &value[0], string_len * sizeof(char16_t));
+        }
+
+        strings_.emplace(id_hash, std::move(value));
+    }
+
     std::string skn_file::process_string(std::uint32_t base_offset, const std::uint16_t size) {
         std::string buf;
         buf.resize(size);
@@ -419,7 +501,7 @@ namespace eka2l1::epoc {
 
             // Let's read the parameters!
             process_effect_parameters(base_offset, effects[i].parameters);
-            base_offset += 1;   // Why?
+            base_offset += 1; // Why?
         }
     }
 

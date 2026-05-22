@@ -114,17 +114,30 @@ if (ANDROID)
         src/android/storage.cpp
         src/android/jniutils.cpp
         )
+elseif (VITA)
+    target_sources(common PRIVATE
+        src/vita/applauncher.cpp
+        )
+else()
+    target_sources(common PRIVATE
+        src/applauncher_null.cpp
+        )
 endif()
 
-target_include_directories(common PUBLIC include)
+set(COMMON_GENERATED_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_include_directories(common PUBLIC ${COMMON_GENERATED_INCLUDE_DIR} include)
 target_link_libraries(common PUBLIC fmt miniz spdlog)
-target_link_libraries(common PRIVATE pugixml miniupnpc::miniupnpc re2::re2)
+target_link_libraries(common PRIVATE pugixml)
+
+if (EKA2L1_ENABLE_UPNP)
+    target_link_libraries(common PRIVATE miniupnpc::miniupnpc)
+endif()
 
 if (UNIX OR APPLE)
     set_property(TARGET common PROPERTY POSITION_INDEPENDENT_CODE ON)
-    if (NOT ANDROID)
+    if (NOT ANDROID AND NOT VITA)
         target_link_libraries(common PRIVATE pthread)
-    else()
+    elseif(ANDROID)
         target_link_libraries(common PRIVATE android)
     endif()
 endif ()
@@ -145,7 +158,7 @@ execute_process(
 )
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/common/configure.h.in
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/common/configure.h)
+        ${COMMON_GENERATED_INCLUDE_DIR}/common/configure.h)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/common/version.h.in
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/common/version.h)
+        ${COMMON_GENERATED_INCLUDE_DIR}/common/version.h)

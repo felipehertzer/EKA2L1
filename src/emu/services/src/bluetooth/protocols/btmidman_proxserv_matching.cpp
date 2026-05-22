@@ -1,26 +1,26 @@
 /*
  * Copyright (c) 2023 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <common/log.h>
+#include <config/config.h>
 #include <services/bluetooth/protocols/btmidman_inet.h>
 #include <services/bluetooth/protocols/common_inet.h>
-#include <config/config.h>
-#include <common/log.h>
 
 namespace eka2l1::epoc::bt {
     void midman_inet::setup_proxy_server_discovery(const std::string &base_server) {
@@ -73,13 +73,13 @@ namespace eka2l1::epoc::bt {
         auto matching_server_socket_copy = matching_server_socket_;
 
         libuv::default_looper->one_shot([matching_server_socket_copy, meta_server_addr, this]() {
-            auto matching_server_socket_copy_copy = matching_server_socket_copy;
+            const auto &matching_server_socket_copy_copy = matching_server_socket_copy;
 
             sockaddr_in6 addr_temp;
             std::memset(&addr_temp, 0, sizeof(sockaddr_in6));
             addr_temp.sin6_family = meta_server_addr.sin6_family;
 
-            matching_server_socket_copy_copy->bind(*reinterpret_cast<sockaddr*>(&addr_temp));
+            matching_server_socket_copy_copy->bind(*reinterpret_cast<sockaddr *>(&addr_temp));
 
             matching_server_socket_copy_copy->on<uvw::error_event>([this](const uvw::error_event &event, uvw::tcp_handle &handle) {
                 // Accept the fate and resend login
@@ -113,9 +113,9 @@ namespace eka2l1::epoc::bt {
         matching_server_socket_->on<uvw::error_event>([this](const uvw::error_event &event, uvw::tcp_handle &handle) {
             LOG_ERROR(SERVICE_BLUETOOTH, "Fail to send login request to server! Libuv's error code {}", event.code());
         });
-        
-        int err = matching_server_socket_->write(login_package.data(), login_package.size());
-        
+
+        int err = matching_server_socket_->write(login_package.data(), static_cast<unsigned int>(login_package.size()));
+
         if (err < 0) {
             LOG_ERROR(SERVICE_BLUETOOTH, "Fail to send login request to server! Libuv's error code {}", err);
         }
@@ -131,7 +131,7 @@ namespace eka2l1::epoc::bt {
         matching_server_socket_->on<uvw::error_event>([this](const uvw::error_event &event, uvw::tcp_handle &handle) {
             LOG_ERROR(SERVICE_BLUETOOTH, "Fail to send logout request to server! Libuv's error code {}", event.code());
         });
-        
+
         int err = matching_server_socket_->write(&package, 1);
 
         if (err < 0) {

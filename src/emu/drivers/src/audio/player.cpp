@@ -1,24 +1,26 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <common/platform.h>
+#if EKA2L1_ENABLE_FFMPEG
 #include <drivers/audio/backend/ffmpeg/player_ffmpeg.h>
+#endif
 #include <drivers/audio/backend/minibae/player_minibae.h>
 #include <drivers/audio/backend/tinysoundfont/player_tsf.h>
 #include <drivers/audio/backend/wmf/player_wmf.h>
@@ -61,7 +63,11 @@ namespace eka2l1::drivers {
             return std::make_unique<player_tsf>(aud);
 
         case player_type_ffmpeg:
+#if EKA2L1_ENABLE_FFMPEG
             return std::make_unique<player_ffmpeg>(aud);
+#else
+            return nullptr;
+#endif
 
         default:
             break;

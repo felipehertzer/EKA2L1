@@ -4,9 +4,9 @@
 #include <config/config.h>
 
 #include <QDialog>
+#include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QGridLayout>
 #include <QVBoxLayout>
 #include <QWidget>
 

@@ -20,7 +20,7 @@ namespace eka2l1::epoc {
     /*! \brief Chunk create info.
      *
      * This struct is passed on creation of a chunk.
-    */
+     */
     struct chunk_create {
         //! Attributes for chunk creation that are used by both euser and the kernel
         // by classes TChunkCreateInfo and SChunkCreateInfo, respectively.

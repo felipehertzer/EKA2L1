@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,7 +23,9 @@
 #include <common/algorithm.h>
 #include <common/configure.h>
 #include <common/log.h>
+#include <common/time.h>
 
+#include <cstdlib>
 #include <functional>
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
@@ -34,6 +36,217 @@
 #include <mem/process.h>
 
 namespace eka2l1::kernel {
+    namespace {
+        bool scheduler_diag_enabled() {
+            static const bool enabled = (std::getenv("EKA2L1_FPS_DIAG") != nullptr)
+                || (std::getenv("EKA2L1_SCHED_DIAG") != nullptr);
+            return enabled;
+        }
+
+        const char *thread_state_name(const thread_state state) {
+            switch (state) {
+            case thread_state::create:
+                return "create";
+            case thread_state::run:
+                return "run";
+            case thread_state::wait:
+                return "wait";
+            case thread_state::ready:
+                return "ready";
+            case thread_state::stop:
+                return "stop";
+            case thread_state::wait_fast_sema:
+                return "wait_fast_sema";
+            case thread_state::wait_mutex:
+                return "wait_mutex";
+            case thread_state::wait_condvar:
+                return "wait_condvar";
+            case thread_state::wait_mutex_suspend:
+                return "wait_mutex_suspend";
+            case thread_state::wait_fast_sema_suspend:
+                return "wait_fast_sema_suspend";
+            case thread_state::wait_condvar_suspend:
+                return "wait_condvar_suspend";
+            case thread_state::hold_mutex_pending:
+                return "hold_mutex_pending";
+            case thread_state::wait_dfc:
+                return "wait_dfc";
+            case thread_state::wait_hle:
+                return "wait_hle";
+            default:
+                return "unknown";
+            }
+        }
+
+        const char *object_type_name(const object_type type) {
+            switch (type) {
+            case object_type::thread:
+                return "thread";
+            case object_type::process:
+                return "process";
+            case object_type::chunk:
+                return "chunk";
+            case object_type::library:
+                return "library";
+            case object_type::sema:
+                return "sema";
+            case object_type::mutex:
+                return "mutex";
+            case object_type::timer:
+                return "timer";
+            case object_type::server:
+                return "server";
+            case object_type::session:
+                return "session";
+            case object_type::logical_device:
+                return "logical_device";
+            case object_type::physical_device:
+                return "physical_device";
+            case object_type::logical_channel:
+                return "logical_channel";
+            case object_type::change_notifier:
+                return "change_notifier";
+            case object_type::undertaker:
+                return "undertaker";
+            case object_type::msg_queue:
+                return "msg_queue";
+            case object_type::prop_ref:
+                return "prop_ref";
+            case object_type::condvar:
+                return "condvar";
+            case object_type::codeseg:
+                return "codeseg";
+            case object_type::prop:
+                return "prop";
+            default:
+                return "unknown";
+            }
+        }
+
+        void report_scheduler_idle_diag(kernel_system *kern) {
+            if (!scheduler_diag_enabled() || !kern) {
+                return;
+            }
+
+            static std::uint64_t last_report_wall_us = 0;
+            static std::uint64_t idle_entries = 0;
+
+            idle_entries++;
+            const std::uint64_t wall_now = common::get_current_utc_time_in_microseconds_since_epoch();
+            if (last_report_wall_us != 0 && (wall_now - last_report_wall_us < common::microsecs_per_sec)) {
+                return;
+            }
+
+            const std::uint64_t elapsed_ms = last_report_wall_us ? ((wall_now - last_report_wall_us) / 1000) : 0;
+            last_report_wall_us = wall_now;
+
+            int create_count = 0;
+            int run_count = 0;
+            int ready_count = 0;
+            int wait_count = 0;
+            int request_wait_count = 0;
+            int sema_wait_count = 0;
+            int mutex_wait_count = 0;
+            int condvar_wait_count = 0;
+            int hle_wait_count = 0;
+            int stopped_count = 0;
+            std::string waiters;
+
+            for (const kernel_obj_unq_ptr &obj : kern->get_thread_list()) {
+                thread *thr = reinterpret_cast<thread *>(obj.get());
+                if (!thr) {
+                    continue;
+                }
+
+                const thread_state state = thr->current_state();
+                switch (state) {
+                case thread_state::create:
+                    create_count++;
+                    break;
+                case thread_state::run:
+                    run_count++;
+                    break;
+                case thread_state::ready:
+                case thread_state::hold_mutex_pending:
+                    ready_count++;
+                    break;
+                case thread_state::wait_fast_sema:
+                case thread_state::wait_fast_sema_suspend:
+                    wait_count++;
+                    sema_wait_count++;
+                    break;
+                case thread_state::wait_mutex:
+                case thread_state::wait_mutex_suspend:
+                    wait_count++;
+                    mutex_wait_count++;
+                    break;
+                case thread_state::wait_condvar:
+                case thread_state::wait_condvar_suspend:
+                    wait_count++;
+                    condvar_wait_count++;
+                    break;
+                case thread_state::wait_hle:
+                    wait_count++;
+                    hle_wait_count++;
+                    break;
+                case thread_state::wait:
+                case thread_state::wait_dfc:
+                    wait_count++;
+                    break;
+                case thread_state::stop:
+                    stopped_count++;
+                    break;
+                }
+
+                if (thr->wait_obj && thr->wait_obj->get_object_type() == object_type::sema
+                    && thr->wait_obj->raw_name().find("requestSema") == 0) {
+                    request_wait_count++;
+                }
+
+                if (state == thread_state::stop || state == thread_state::create || state == thread_state::ready) {
+                    continue;
+                }
+
+                if (waiters.size() > 900) {
+                    continue;
+                }
+
+                kernel::process *owner = thr->owning_process();
+                waiters += waiters.empty() ? "" : "; ";
+                waiters += owner ? owner->name() : "<no-process>";
+                waiters += "/";
+                waiters += thr->name();
+                waiters += ":";
+                waiters += thread_state_name(state);
+
+                if (thr->wait_obj) {
+                    waiters += " on ";
+                    waiters += object_type_name(thr->wait_obj->get_object_type());
+                    waiters += "(";
+                    waiters += thr->wait_obj->raw_name();
+                    waiters += ")";
+                }
+            }
+
+            LOG_WARN(KERNEL,
+                "Scheduler idle diag elapsed_ms={} idle_entries={} threads(create/run/ready/wait/stop)={}/{}/{}/{}/{} waits(request/sema/mutex/condvar/hle)={}/{}/{}/{}/{} [{}]",
+                elapsed_ms,
+                idle_entries,
+                create_count,
+                run_count,
+                ready_count,
+                wait_count,
+                stopped_count,
+                request_wait_count,
+                sema_wait_count,
+                mutex_wait_count,
+                condvar_wait_count,
+                hle_wait_count,
+                waiters);
+            idle_entries = 0;
+        }
+    }
+
     thread_scheduler::thread_scheduler(kernel_system *kern, ntimer *timing, arm::core *cpu)
         : kern(kern)
         , timing(timing)
@@ -117,14 +330,15 @@ namespace eka2l1::kernel {
                 run_core->flush_tlb();
 
                 // NOTE: This is not needed now
-                //run_core->set_asid(mm_process->address_space_id());
+                // run_core->set_asid(mm_process->address_space_id());
             }
 
             run_core->load_context(crr_thread->ctx);
-            //LOG_TRACE(KERNEL, "Switched to {}", crr_thread->name());
+            // LOG_TRACE(KERNEL, "Switched to {}", crr_thread->name());
         } else {
             // No current thread is eligible to run. Let the core that this scheduler currently handle sleeps.
             crr_thread = nullptr;
+            report_scheduler_idle_diag(kern);
 
             // Let free access to kernel now
             if (kern->should_core_idle_when_inactive()) {
@@ -343,10 +557,8 @@ namespace eka2l1::kernel {
         if (wakeup_evt)
             timing->unschedule_event(wakeup_evt, thr->unique_id());
 
-        if (thr->state == thread_state::ready) {
+        if (thr->state == thread_state::ready || thr->state == thread_state::run) {
             unschedule(thr);
-        } else if (thr->state == thread_state::run) {
-            dequeue_thread_from_ready(thr);
         } else if (thr->state == thread_state::wait || thr->state == thread_state::wait_fast_sema) {
             if (thr->scheduler_link.next == nullptr && thr->scheduler_link.previous == nullptr) {
                 return false;

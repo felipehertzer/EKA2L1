@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
- * 
+ *
+ * This file is part of EKA2L1 project
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -33,8 +33,8 @@
 #include <kernel/kernel.h>
 #include <kernel/libmanager.h>
 
-#include <services/window/window.h>
 #include <services/init.h>
+#include <services/window/window.h>
 
 #include <qt/state.h>
 #include <qt/utils.h>
@@ -51,13 +51,17 @@ namespace eka2l1::desktop {
         , should_emu_quit(false)
         , should_emu_pause(false)
         , stage_two_inited(false)
+        , inited_graphics(false)
+        , graphics_init_failed(false)
         , stretch_to_fill_display(false)
         , first_time(true)
         , init_fullscreen(false)
         , app_launch_from_command_line(false)
         , winserv(nullptr)
         , sys_reset_cbh(0)
-        , present_status(0) {
+        , present_status(0)
+        , pending_command_line_launch_(false)
+        , pending_command_line_launch_ngage_(false) {
     }
 
     void emulator::stage_one() {
@@ -180,9 +184,12 @@ namespace eka2l1::desktop {
 
             // Copy additional DLLs
             std::vector<std::tuple<std::u16string, std::string, epocver>> dlls_need_to_copy = {
-                { u"Z:\\sys\\bin\\goommonitor.dll", "patch\\goommonitor_general.dll", epocver::epoc94 },
-                { u"Z:\\sys\\bin\\avkonfep.dll", "patch\\avkonfep_general.dll", epocver::epoc93fp1 }
+                { u"Z:\\sys\\bin\\goommonitor.dll", "patch/goommonitor_general.dll", epocver::epoc94 },
+                { u"Z:\\sys\\bin\\avkonfep.dll", "patch/avkonfep_general.dll", epocver::epoc93fp1 }
             };
+
+            std::string current_dir;
+            common::get_current_directory(current_dir);
 
             for (std::size_t i = 0; i < dlls_need_to_copy.size(); i++) {
                 epocver ver_required = std::get<2>(dlls_need_to_copy[i]);
@@ -194,12 +201,27 @@ namespace eka2l1::desktop {
                 auto where_to_copy = io->get_raw_path(org_file_path);
 
                 if (where_to_copy.has_value()) {
+                    const std::string source_copy = eka2l1::absolute_path(std::get<1>(dlls_need_to_copy[i]), current_dir);
+                    if (!common::exists(source_copy)) {
+                        LOG_ERROR(FRONTEND_CMDLINE, "Replacement DLL source does not exist: {}", source_copy);
+                        continue;
+                    }
+
                     std::string where_to_copy_u8 = common::ucs2_to_utf8(where_to_copy.value());
                     std::string where_to_backup_u8 = where_to_copy_u8 + ".bak";
                     if (common::exists(where_to_copy_u8) && !common::exists(where_to_backup_u8)) {
-                        common::move_file(where_to_copy_u8, where_to_copy_u8 + ".bak");
+                        common::move_file(where_to_copy_u8, where_to_backup_u8);
                     }
-                    common::copy_file(std::get<1>(dlls_need_to_copy[i]), where_to_copy_u8, true);
+
+                    common::create_directories(eka2l1::file_directory(where_to_copy_u8));
+                    if (!common::copy_file(source_copy, where_to_copy_u8, true)) {
+                        LOG_ERROR(FRONTEND_CMDLINE, "Failed to install replacement DLL {} to {}",
+                            source_copy, where_to_copy_u8);
+
+                        if (!common::exists(where_to_copy_u8) && common::exists(where_to_backup_u8)) {
+                            common::copy_file(where_to_backup_u8, where_to_copy_u8, true);
+                        }
+                    }
                 }
             }
 

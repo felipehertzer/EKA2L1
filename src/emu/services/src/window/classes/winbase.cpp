@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -48,6 +48,10 @@ namespace eka2l1::epoc {
     }
 
     void window::walk_tree(window_tree_walker *walker, const window_tree_walk_style style) {
+        if (!walker) {
+            return;
+        }
+
         window *end = root_window();
         window *cur = this;
         window *sibling = cur->sibling;
@@ -60,7 +64,7 @@ namespace eka2l1::epoc {
 
             sibling = cur;
 
-            while (sibling->child != nullptr) {
+            while (sibling && (sibling->child != nullptr)) {
                 sibling = sibling->child;
             }
         }
@@ -72,12 +76,16 @@ namespace eka2l1::epoc {
 
                 // If this has a child, traverse to the oldest possible child.
                 // We can start walking again from bottom.
-                while (cur->child != nullptr) {
+                while (cur && (cur->child != nullptr)) {
                     cur = cur->child;
                 }
             } else {
                 // No more sibling present. Get to the parent.
                 cur = parent;
+            }
+
+            if (!cur) {
+                break;
             }
 
             if (cur == end) {
@@ -142,7 +150,7 @@ namespace eka2l1::epoc {
         sibling = *prev;
         parent = new_parent;
         *prev = this;
-        
+
         if (type == window_kind::group || type == window_kind::client || new_parent != old_parent) {
             // TODO: Check if any childs need a redraw before hassle.
             scr->need_update_visible_regions(true);
@@ -348,7 +356,7 @@ namespace eka2l1::epoc {
         }
 
         case EWsWinOpSetOrdinalPriorityAdjust: {
-            priority = *reinterpret_cast<std::int32_t*>(cmd.data_ptr);
+            priority = *reinterpret_cast<std::int32_t *>(cmd.data_ptr);
             set_position(0);
 
             ctx.complete(epoc::error_none);
@@ -370,7 +378,7 @@ namespace eka2l1::epoc {
 
             return true;
         }
-        
+
         case EWsWinOpEnableFocusChangeEvents: {
             if (!focus_group_change_event_handle) {
                 epoc::event_focus_group_change_user evt;

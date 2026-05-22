@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team / RPCS3 Project.
- * 
- * This file is part of EKA2L1 project / RPCS3 Project 
+ *
+ * This file is part of EKA2L1 project / RPCS3 Project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -63,15 +63,15 @@ enum prot {
 enum class epocver {
     eka1, ///< Mark for EKA1
     epocu6,
-    epoc6,     ///< S60v1
+    epoc6, ///< S60v1
     epoc7,
     epoc80,
     epoc81a,
-    eka2,      ///< Mark for EKA2
+    eka2, ///< Mark for EKA2
     epoc81b,
     epoc93fp1, ///< S60v3 Feature pack 1
     epoc93fp2, ///< S60v3 Feature pack 2
-    epoc94,    ///< S60v5
+    epoc94, ///< S60v5
     epoc95,
     epoc10,
     epocverend

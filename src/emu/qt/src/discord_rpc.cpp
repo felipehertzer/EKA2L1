@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2023 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,8 +23,8 @@
 #include <qt/discord_rpc.h>
 #include <qt/utils.h>
 
-#include <discord.h>
 #include <common/log.h>
+#include <discord.h>
 
 #include <QSettings>
 
@@ -52,7 +52,7 @@ namespace eka2l1::qt {
         delete core_;
         delete update_timer_;
     }
-    
+
     void discord_rpc::on_update_timer_hit() {
         core_->RunCallbacks();
     }
@@ -76,7 +76,7 @@ namespace eka2l1::qt {
         if (should_reset_timer) {
             target_update_activity.GetTimestamps().SetStart(time(nullptr));
         }
-        
+
         core_->ActivityManager().UpdateActivity(target_update_activity, [](discord::Result result) {
             if (result != discord::Result::Ok) {
                 LOG_ERROR(FRONTEND_UI, "Error updating Discord Rich Presence, err_code: {}", static_cast<int>(result));

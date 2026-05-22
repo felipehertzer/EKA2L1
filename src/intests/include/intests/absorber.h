@@ -12,7 +12,7 @@
 #include <f32file.h>
 
 /* !\brief The absorb mode.
- * 
+ *
  * This is the mode used to open the output file.
  * Depends on the mode, the absorber will does different thing
  */
@@ -23,7 +23,7 @@ enum TAbsorberMode {
 };
 
 /* !\brief The absorber.
- * 
+ *
  */
 class CAbsorber {
 public:

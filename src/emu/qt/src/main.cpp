@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,9 +24,9 @@
 #include <qt/utils.h>
 
 #include <common/fileutils.h>
+#include <common/log.h>
 #include <common/path.h>
 #include <common/platform.h>
-#include <common/log.h>
 
 #include <QApplication>
 #include <QDir>
@@ -37,6 +37,34 @@
 #include <QTranslator>
 
 #include <memory>
+
+#if EKA2L1_PLATFORM(MACOS)
+static void configure_bundled_vulkan_driver(const QString &bundled_data_path) {
+    const QDir icd_manifest_dir(QDir(bundled_data_path).filePath("vulkan/icd.d"));
+    if (!icd_manifest_dir.exists()) {
+        return;
+    }
+
+    QStringList icd_manifest_paths;
+    const QStringList icd_manifest_names = icd_manifest_dir.entryList({ "*.json" }, QDir::Files);
+    for (const QString &manifest_name : icd_manifest_names) {
+        icd_manifest_paths.append(icd_manifest_dir.absoluteFilePath(manifest_name));
+    }
+
+    if (icd_manifest_paths.isEmpty()) {
+        return;
+    }
+
+    const QByteArray icd_manifest_path_bytes = icd_manifest_paths.join(QDir::listSeparator()).toUtf8();
+    if (qEnvironmentVariableIsEmpty("VK_DRIVER_FILES")) {
+        qputenv("VK_DRIVER_FILES", icd_manifest_path_bytes);
+    }
+
+    if (qEnvironmentVariableIsEmpty("VK_ICD_FILENAMES")) {
+        qputenv("VK_ICD_FILENAMES", icd_manifest_path_bytes);
+    }
+}
+#endif
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
@@ -72,7 +100,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-    
+
     qRegisterMetaType<std::vector<std::string>>("std::vector<std::string>");
     qRegisterMetaType<eka2l1::drivers::input_event>("eka2l1::drivers::input_event");
 
@@ -81,18 +109,31 @@ int main(int argc, char *argv[]) {
     QDir root_dir = QDir::root();
     root_dir.mkpath(data_path);
     std::string data_path_str = data_path.toUtf8().toStdString();
-    
+
     QString app_path = QDir(QCoreApplication::applicationDirPath()).path();
-    std::string app_path_str = app_path.toUtf8().toStdString();
-    eka2l1::common::copy_folder(app_path_str + "/patch", data_path_str + "/patch", 0, nullptr);
-    eka2l1::common::copy_folder(app_path_str + "/resources", data_path_str + "/resources", 0, nullptr);
+    QString bundled_data_path = app_path;
+#if EKA2L1_PLATFORM(MACOS)
+    bundled_data_path = QDir(app_path + "/../Resources").canonicalPath();
+    if (bundled_data_path.isEmpty()) {
+        bundled_data_path = QDir::cleanPath(app_path + "/../Resources");
+    }
+
+    configure_bundled_vulkan_driver(bundled_data_path);
+#endif
+
+    std::string bundled_data_path_str = bundled_data_path.toUtf8().toStdString();
+    eka2l1::common::copy_file(bundled_data_path_str + "/panic.json", data_path_str + "/panic.json", true);
+    eka2l1::common::copy_folder(bundled_data_path_str + "/patch", data_path_str + "/patch", 0, nullptr);
+    eka2l1::common::copy_folder(bundled_data_path_str + "/resources", data_path_str + "/resources", 0, nullptr);
 
     if (!eka2l1::common::exists(data_path_str + "/scripts/")) {
-        eka2l1::common::copy_folder(app_path_str + "/scripts", data_path_str + "/scripts", 0, nullptr);
+        eka2l1::common::copy_folder(bundled_data_path_str + "/scripts", data_path_str + "/scripts", 0, nullptr);
     }
-    
+
+    eka2l1::common::copy_folder(bundled_data_path_str + "/scripts/eka2l1", data_path_str + "/scripts/eka2l1", 0, nullptr);
+
     if (!eka2l1::common::exists(data_path_str + "/compat/")) {
-        eka2l1::common::copy_folder(app_path_str + "/compat", data_path_str + "/compat", 0, nullptr);
+        eka2l1::common::copy_folder(bundled_data_path_str + "/compat", data_path_str + "/compat", 0, nullptr);
     }
 
     eka2l1::common::set_current_directory(data_path_str);

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,6 +22,7 @@
 #include <drivers/graphics/graphics.h>
 #include <drivers/itc.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 
@@ -29,6 +30,10 @@ using namespace std::chrono_literals;
 
 namespace eka2l1::drivers {
     static int send_sync_command(graphics_driver *drv, command cmd) {
+        if (!drv) {
+            return -1;
+        }
+
         int status = -100;
         cmd.status_ = &status;
 
@@ -71,7 +76,7 @@ namespace eka2l1::drivers {
 
         return handle_num;
     }
-    
+
     drivers::handle create_shader_module(graphics_driver *driver, const char *data, const std::size_t size, const shader_module_type mtype, std::string *compile_log) {
         drivers::handle handle_num = 0;
 
@@ -129,7 +134,7 @@ namespace eka2l1::drivers {
 
         return handle_num;
     }
-    
+
     drivers::handle create_input_descriptors(graphics_driver *driver, input_descriptor *descriptors, const std::uint32_t count) {
         drivers::handle handle_num = 0;
 
@@ -173,7 +178,7 @@ namespace eka2l1::drivers {
 
         return handle_num;
     }
-    
+
     drivers::handle create_renderbuffer(graphics_driver *driver, const eka2l1::vec2 &size, const drivers::texture_format internal_format) {
         drivers::handle handle_num = 0;
         command cmd;
@@ -190,7 +195,7 @@ namespace eka2l1::drivers {
 
         return handle_num;
     }
-    
+
     drivers::handle create_framebuffer(graphics_driver *driver, const drivers::handle *color_buffers, const int *color_face_indicies,
         const std::uint32_t color_buffer_count, drivers::handle depth_buffer, const int depth_face_index,
         drivers::handle stencil_buffer, const int stencil_face_index) {
@@ -212,7 +217,7 @@ namespace eka2l1::drivers {
 
         return handle_num;
     }
-    
+
     bool read_bitmap(graphics_driver *driver, drivers::handle h, const eka2l1::point &pos, const eka2l1::object_size &size,
         const std::uint32_t bpp, std::uint8_t *buffer_ptr) {
         command cmd;
@@ -226,7 +231,7 @@ namespace eka2l1::drivers {
 
         return send_sync_command(driver, cmd);
     }
-    
+
     void read_framebuffer(graphics_driver *driver, drivers::handle h, const eka2l1::vec2 pos, const eka2l1::vec2 size, drivers::texture_format format, drivers::texture_data_type dt, void *data_ptr) {
         command cmd;
 
@@ -241,14 +246,14 @@ namespace eka2l1::drivers {
     }
 
     std::uint64_t pack_from_two_floats(const float f1, const float f2) {
-        return ((static_cast<std::uint64_t>(*reinterpret_cast<const std::uint32_t*>(&f2)) << 32) | *reinterpret_cast<const std::uint32_t*>(&f1));
+        return ((static_cast<std::uint64_t>(*reinterpret_cast<const std::uint32_t *>(&f2)) << 32) | *reinterpret_cast<const std::uint32_t *>(&f1));
     }
 
     void unpack_to_two_floats(const std::uint64_t source, float &f1, float &f2) {
         std::uint32_t high = static_cast<std::uint32_t>(source >> 32);
-        std::uint32_t low = static_cast<std::uint32_t>(source );
-        f1 = *reinterpret_cast<float*>(&low);
-        f2 = *reinterpret_cast<float*>(&high);
+        std::uint32_t low = static_cast<std::uint32_t>(source);
+        f1 = *reinterpret_cast<float *>(&low);
+        f2 = *reinterpret_cast<float *>(&high);
     }
 
     void graphics_command_builder::clip_rect(const eka2l1::rect &rect) {
@@ -333,7 +338,7 @@ namespace eka2l1::drivers {
         cmd->data_[0] = h;
         cmd->data_[1] = make_data_copy(data, size);
         cmd->data_[2] = size;
-        cmd->data_[3] = lvl | (static_cast<std::uint64_t>(data_format) << 8) | (static_cast<std::uint64_t>(data_type) << 24); 
+        cmd->data_[3] = lvl | (static_cast<std::uint64_t>(data_format) << 8) | (static_cast<std::uint64_t>(data_type) << 24);
         cmd->data_[4] = PACK_2U32_TO_U64(offset.x, offset.y);
         cmd->data_[5] = PACK_2U32_TO_U64(offset.z, dim.x);
         cmd->data_[6] = PACK_2U32_TO_U64(dim.y, dim.z);
@@ -353,7 +358,7 @@ namespace eka2l1::drivers {
         cmd->data_[4] = PACK_2U32_TO_U64(source_rect.top.x, source_rect.top.y);
         cmd->data_[5] = PACK_2U32_TO_U64(source_rect.size.x, source_rect.size.y);
         cmd->data_[6] = PACK_2U32_TO_U64(origin.x, origin.y);
-        cmd->data_[7] = (static_cast<std::uint64_t>(flags) << 32) | *reinterpret_cast<const std::uint32_t*>(&rotation);
+        cmd->data_[7] = (static_cast<std::uint64_t>(flags) << 32) | *reinterpret_cast<const std::uint32_t *>(&rotation);
     }
 
     void graphics_command_builder::bind_bitmap(const drivers::handle h) {
@@ -430,11 +435,16 @@ namespace eka2l1::drivers {
     }
 
     void graphics_command_builder::set_vertex_buffers(drivers::handle *h, const std::uint32_t starting_slot, const std::uint32_t count) {
+        set_vertex_buffers(h, nullptr, starting_slot, count);
+    }
+
+    void graphics_command_builder::set_vertex_buffers(drivers::handle *h, const std::size_t *offsets, const std::uint32_t starting_slot, const std::uint32_t count) {
         command *cmd = list_.retrieve_next();
         cmd->opcode_ = graphics_driver_bind_vertex_buffers;
 
         cmd->data_[0] = make_data_copy(h, sizeof(drivers::handle) * count);
         cmd->data_[1] = PACK_2U32_TO_U64(starting_slot, count);
+        cmd->data_[2] = make_data_copy(offsets, sizeof(std::size_t) * count);
     }
 
     void graphics_command_builder::set_index_buffer(drivers::handle h) {
@@ -628,7 +638,7 @@ namespace eka2l1::drivers {
 
     void graphics_command_builder::draw_polygons(const eka2l1::point *point_list, const std::size_t point_count) {
         eka2l1::point *point_list_copied = new eka2l1::point[point_count];
-        memcpy(point_list_copied, point_list, point_count * sizeof(eka2l1::point));
+        std::copy(point_list, point_list + point_count, point_list_copied);
 
         command *cmd = list_.retrieve_next();
 
@@ -678,7 +688,7 @@ namespace eka2l1::drivers {
         cmd->data_[6] = PACK_2U32_TO_U64(size.z, 0);
         cmd->data_[7] = h;
     }
-    
+
     void graphics_command_builder::recreate_buffer(drivers::handle h, const void *initial_data, const std::size_t initial_size, const buffer_upload_hint upload_hint) {
         command *cmd = list_.retrieve_next();
         cmd->opcode_ = graphics_driver_create_buffer;
@@ -698,7 +708,7 @@ namespace eka2l1::drivers {
     void graphics_command_builder::set_texture_for_shader(const int texture_slot, const int shader_binding, const drivers::shader_module_type module) {
         command *cmd = list_.retrieve_next();
         cmd->opcode_ = graphics_driver_set_texture_for_shader;
-    
+
         cmd->data_[0] = PACK_2U32_TO_U64(texture_slot, shader_binding);
         cmd->data_[1] = static_cast<std::uint64_t>(module);
     }
@@ -706,7 +716,7 @@ namespace eka2l1::drivers {
     void graphics_command_builder::update_input_descriptors(drivers::handle h, input_descriptor *descriptors, const std::uint32_t count) {
         command *cmd = list_.retrieve_next();
         cmd->opcode_ = graphics_driver_create_input_descriptor;
-    
+
         cmd->data_[0] = make_data_copy(descriptors, count * sizeof(input_descriptor));
         cmd->data_[1] = count;
         cmd->data_[2] = h;
@@ -722,7 +732,7 @@ namespace eka2l1::drivers {
     void graphics_command_builder::set_line_width(const float width) {
         command *cmd = list_.retrieve_next();
         cmd->opcode_ = graphics_driver_set_line_width;
-        cmd->data_[0] = *reinterpret_cast<const std::uint32_t*>(&width);
+        cmd->data_[0] = *reinterpret_cast<const std::uint32_t *>(&width);
     }
 
     void graphics_command_builder::set_texture_max_mip(drivers::handle h, const std::uint32_t max_mip) {
@@ -744,14 +754,14 @@ namespace eka2l1::drivers {
         cmd->opcode_ = graphics_driver_set_depth_range;
         cmd->data_[0] = pack_from_two_floats(min, max);
     }
-    
+
     void graphics_command_builder::set_texture_anisotrophy(drivers::handle h, const float anisotrophy_fact) {
         command *cmd = list_.retrieve_next();
         cmd->opcode_ = graphics_driver_set_texture_anisotrophy;
         cmd->data_[0] = h;
         cmd->data_[1] = pack_from_two_floats(anisotrophy_fact, 0);
     }
-    
+
     void graphics_command_builder::recreate_renderbuffer(drivers::handle h, const eka2l1::vec2 &size, const drivers::texture_format internal_format) {
         command *cmd = list_.retrieve_next();
 

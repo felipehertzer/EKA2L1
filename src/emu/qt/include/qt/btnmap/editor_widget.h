@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,8 +22,8 @@
 #include <QDockWidget>
 #include <QString>
 
-#include <qt/btnmap/editor.h>
 #include <drivers/input/common.h>
+#include <qt/btnmap/editor.h>
 
 namespace Ui {
     class editor_widget;
@@ -56,7 +56,7 @@ private:
     eka2l1::qt::btnmap::executor *map_exec_;
     int previous_profile_combo_index_;
 
-private slots:
+private:
     void on_edit_btn_clicked(bool checked);
     void on_delete_btn_clicked(bool checked);
     void on_potential_current_app_changed();
@@ -75,10 +75,10 @@ public:
 
     void hear_active_app(eka2l1::system *sys);
     void draw(eka2l1::drivers::graphics_driver *driver, eka2l1::drivers::graphics_command_builder &builder,
-              const eka2l1::vec2f &scale_vector);
+        const eka2l1::vec2f &scale_vector);
 
     bool handle_key_press(const std::uint32_t code);
     bool handle_mouse_action(const eka2l1::vec3 &pos, const int button_id, const int action_id,
-                             const int mouse_id);
+        const int mouse_id);
     bool handle_controller_event(const eka2l1::drivers::input_event &evt);
 };

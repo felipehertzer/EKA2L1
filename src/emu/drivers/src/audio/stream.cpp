@@ -1,5 +1,5 @@
-#include <drivers/audio/stream.h>
 #include <drivers/audio/audio.h>
+#include <drivers/audio/stream.h>
 
 namespace eka2l1::drivers {
     audio_output_stream::audio_output_stream(audio_driver *driver, const std::uint32_t sample_rate, const std::uint8_t channels)
@@ -20,6 +20,5 @@ namespace eka2l1::drivers {
         : driver_(driver)
         , sample_rate_(sample_rate)
         , channels_(channels) {
-
     }
 }

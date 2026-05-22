@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -42,10 +42,6 @@ namespace eka2l1::config {
         std::string filter_shader_path;
         bool child_inherit_setting;
 
-        // Hack through game crashed around T9 log. Force *.dll and *.rsc global search to go through z:\system\t9ldb 
-        // Designed for ONE (N-Gage)
-        bool t9_bypass_hack;
-
         explicit app_setting();
     };
 
@@ -64,10 +60,10 @@ namespace eka2l1::config {
 
         /**
          * @brief       Add new setting or replace an existing setting for current application
-         * 
+         *
          * @param       app_uid         The UID3 of the app to add or replace the setting.
          * @param       setting_to_add  The setting intended for this application with the associated UID.
-         * 
+         *
          * @returns     True if the setting is added and unique.
          * @see         get_setting
          */

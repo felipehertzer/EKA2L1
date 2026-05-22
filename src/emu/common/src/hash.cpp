@@ -42,8 +42,8 @@ namespace eka2l1 {
             remove(org, " ");
             // Remove class in arg
 
-            std::size_t beg = org.find("(");
-            std::size_t end = org.find(")");
+            std::size_t beg = org.find('(');
+            std::size_t end = org.find(')');
 
             std::string sub = org.substr(beg, end);
 

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -64,7 +64,12 @@ namespace eka2l1::mem {
     }
 
     void *page_directory::get_pointer(const vm_address addr) {
-        page_table *pt = page_tabs_[addr >> page_table_index_shift_];
+        const std::size_t table_index = addr >> page_table_index_shift_;
+        if (table_index >= page_tabs_.size()) {
+            return nullptr;
+        }
+
+        page_table *pt = page_tabs_[table_index];
 
         if (!pt) {
             return nullptr;
@@ -80,7 +85,12 @@ namespace eka2l1::mem {
     }
 
     page_info *page_directory::get_page_info(const vm_address addr) {
-        page_table *pt = page_tabs_[addr >> page_table_index_shift_];
+        const std::size_t table_index = addr >> page_table_index_shift_;
+        if (table_index >= page_tabs_.size()) {
+            return nullptr;
+        }
+
+        page_table *pt = page_tabs_[table_index];
         if (!pt) {
             return nullptr;
         }
@@ -89,7 +99,12 @@ namespace eka2l1::mem {
     }
 
     page_table *page_directory::get_page_table(const vm_address addr) {
-        return page_tabs_[addr >> page_table_index_shift_];
+        const std::size_t table_index = addr >> page_table_index_shift_;
+        if (table_index >= page_tabs_.size()) {
+            return nullptr;
+        }
+
+        return page_tabs_[table_index];
     }
 
     page_table *page_directory::get_page_table_from_index(const std::uint32_t index) {

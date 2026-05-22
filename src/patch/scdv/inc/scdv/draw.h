@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -82,14 +82,14 @@ public:
 
     /**
      * \brief Replace target colors with other specified colors.
-     * 
+     *
      * For example, you can replace a green color and replace them with yellow. Use this algorithm
      * to do that to multiple pixels and multiple colors.
-     * 
+     *
      * \param aRect 		The target rectangle to map colors.
      * \param aColors		The color pairs. 2 colors create one pair, one is the color to be replaced,
      * 						one is the color to get replaced.
-     * 	
+     *
      * \param aNumPairs 	Number of color pairs.
      * \param aMapForward	True if the color to be replaced is the first one.
      */

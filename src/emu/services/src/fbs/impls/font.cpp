@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -33,12 +33,18 @@
 
 #include <utils/err.h>
 
+#include <cstdlib>
+
 namespace eka2l1::epoc {
+    static bool trace_fbs_font() {
+        return std::getenv("EKA2L1_FBS_TRACE") != nullptr;
+    }
+
     void open_font_glyph_offset_array::init(fbscli *cli, const std::int32_t count) {
         offset_array_count = count;
 
         std::int32_t *offset_array_ptr = reinterpret_cast<std::int32_t *>(cli->server<fbs_server>()
-                                                                              ->allocate_general_data_impl(count * sizeof(std::int32_t)));
+                ->allocate_general_data_impl(count * sizeof(std::int32_t)));
 
         std::fill(offset_array_ptr, offset_array_ptr + count, 0);
 
@@ -492,7 +498,7 @@ namespace eka2l1 {
         if (epoc::does_client_use_pointer_instead_of_offset(this)) {
             of->session_cache_list_offset = static_cast<std::int32_t>(serv->host_ptr_to_guest_general_data(
                                                                               serv->session_cache_link)
-                                                                          .ptr_address());
+                    .ptr_address());
         } else {
             of->session_cache_list_offset = static_cast<std::int32_t>(reinterpret_cast<std::uint8_t *>(
                                                                           serv->session_cache_list)
@@ -510,7 +516,7 @@ namespace eka2l1 {
             } else {
                 cache->entry_ = 0; // Purposedly make nullptr entry so that the cache is empty
                 of->glyph_cache_offset = static_cast<std::int32_t>(serv->host_ptr_to_guest_general_data(cache)
-                                                                       .ptr_address());
+                        .ptr_address());
             }
         } else {
             of->glyph_cache_offset = 0;
@@ -562,7 +568,7 @@ namespace eka2l1 {
     fill_bitmap_information<epoc::bitmapfont_v##ver>(bmpfont, of, info, spec, font_user);      \
     return bmpfont
 
-            if (serv->kern->is_eka1()) {
+        if (serv->kern->is_eka1()) {
             DO_BITMAP_OPEN_FONT_CREATION(1);
         }
 
@@ -639,8 +645,9 @@ namespace eka2l1 {
 
             font->of_info = *ofi_suit;
             font->of_info.metrics = ofi_suit->adapter->get_nearest_supported_metric(ofi_suit->idx,
-                 is_design_height ? static_cast<std::uint16_t>(spec.height) : static_cast<std::uint16_t>(size_info->x),
-                 &font->of_info.metric_identifier, is_design_height).value();
+                                                         is_design_height ? static_cast<std::uint16_t>(spec.height) : static_cast<std::uint16_t>(size_info->x),
+                                                         &font->of_info.metric_identifier, is_design_height)
+                                        .value();
 
             epoc::bitmapfont_base *bmpfont = create_bitmap_open_font(font->of_info, spec, ctx->msg->own_thr->owning_process());
 
@@ -731,8 +738,7 @@ namespace eka2l1 {
             return;
         }
 
-        const std::int32_t twips_height = static_cast<std::int32_t>(font->of_info.metrics.max_height *
-            epoc::get_approximate_pixel_to_twips_mul(serv->kern->get_epoc_version()));
+        const std::int32_t twips_height = static_cast<std::int32_t>(font->of_info.metrics.max_height * epoc::get_approximate_pixel_to_twips_mul(serv->kern->get_epoc_version()));
 
         ctx->write_data_to_descriptor_argument<std::int32_t>(1, twips_height);
         ctx->complete(epoc::error_none);
@@ -769,9 +775,9 @@ namespace eka2l1 {
         epoc::bitmapfont_base *bmp_font = reinterpret_cast<epoc::bitmapfont_base *>(font->guest_font_offset + reinterpret_cast<std::uint8_t *>(server<fbs_server>()->shared_chunk->host_base()));
 
         if (codepoint & 0x80000000) {
-            //LOG_DEBUG(SERVICE_FBS, "Trying to rasterize glyph index {}", codepoint & ~0x80000000);
+            // LOG_DEBUG(SERVICE_FBS, "Trying to rasterize glyph index {}", codepoint & ~0x80000000);
         } else {
-            //LOG_DEBUG(SERVICE_FBS, "Trying to rasterize character '{}' (code {})", static_cast<char>(codepoint), codepoint);
+            // LOG_DEBUG(SERVICE_FBS, "Trying to rasterize character '{}' (code {})", static_cast<char>(codepoint), codepoint);
         }
 
         int rasterized_width = 0;
@@ -786,6 +792,14 @@ namespace eka2l1 {
         // The returned bitmap is 8bpp single channel. Luckily Symbian likes this (at least in v3 and upper).
         std::uint8_t *bitmap_data = info->adapter->get_glyph_bitmap(info->idx, codepoint, font->of_info.metric_identifier,
             &rasterized_width, &rasterized_height, bitmap_data_size, &bitmap_type, char_metric);
+
+        if (epoc::trace_fbs_font()) {
+            LOG_INFO(SERVICE_FBS,
+                "FBS rasterize codepoint=0x{:X} width={} height={} data_size={} bitmap_type={} font_offset={} "
+                "metric_identifier={} bitmap_data={}",
+                codepoint, rasterized_width, rasterized_height, bitmap_data_size, static_cast<int>(bitmap_type),
+                font->guest_font_offset, font->of_info.metric_identifier, static_cast<void *>(bitmap_data));
+        }
 
         if (!bitmap_data && !info->adapter->does_glyph_exist(info->idx, codepoint, info->metric_identifier)) {
             // The glyph is not available. Let the client know. With code 0, we already use '?'
@@ -941,15 +955,15 @@ namespace eka2l1 {
         }
 
         fbs_server *serv = server<fbs_server>();
-        std::uint8_t *allocated_data = reinterpret_cast<std::uint8_t*>(serv->allocate_general_data_impl(sizeof(epoc::open_font_shaping_header) + temp_header.glyph_count_ * 10 + 4));
+        std::uint8_t *allocated_data = reinterpret_cast<std::uint8_t *>(serv->allocate_general_data_impl(sizeof(epoc::open_font_shaping_header) + temp_header.glyph_count_ * 10 + 4));
         if (!allocated_data) {
             LOG_TRACE(SERVICE_FBS, "Can't allocate data for store shaping!");
             ctx->complete(epoc::error_no_memory);
             return;
         }
 
-        if (!font->of_info.adapter->make_text_shape(font->of_info.idx, params.value(), text_to_shape.value(), font->of_info.metric_identifier, *reinterpret_cast<epoc::open_font_shaping_header*>(allocated_data),
-            allocated_data + sizeof(epoc::open_font_shaping_header))) {
+        if (!font->of_info.adapter->make_text_shape(font->of_info.idx, params.value(), text_to_shape.value(), font->of_info.metric_identifier, *reinterpret_cast<epoc::open_font_shaping_header *>(allocated_data),
+                allocated_data + sizeof(epoc::open_font_shaping_header))) {
             serv->free_general_data_impl(allocated_data);
             ctx->complete(epoc::error_general);
             return;
@@ -976,10 +990,10 @@ namespace eka2l1 {
 
         fbs_server *serv = server<fbs_server>();
         std::uint8_t *shape_ptr = nullptr;
-        
+
         if (epoc::does_client_use_pointer_instead_of_offset(this)) {
             std::uint32_t ptr_addr = static_cast<std::uint32_t>(offset.value());
-            shape_ptr = reinterpret_cast<std::uint8_t*>(serv->guest_general_data_to_host_ptr(ptr<std::uint8_t>(ptr_addr)));
+            shape_ptr = reinterpret_cast<std::uint8_t *>(serv->guest_general_data_to_host_ptr(ptr<std::uint8_t>(ptr_addr)));
         } else {
             shape_ptr = serv->get_shared_chunk_base() + offset.value();
         }
@@ -1004,7 +1018,7 @@ namespace eka2l1 {
     void fbscli::get_font_table(service::ipc_context *ctx) {
         fbsfont *font = get_font_object(ctx);
         std::optional<std::uint32_t> tag = ctx->get_argument_value<std::uint32_t>(1);
-        
+
         if (!font || !tag.has_value()) {
             ctx->complete(epoc::error_argument);
             return;
@@ -1026,7 +1040,7 @@ namespace eka2l1 {
             }
 
             void *result_data = server<fbs_server>()->allocate_general_data_impl(offset_and_size.size);
-            font->of_info.adapter->get_table_content(font->of_info.idx, tag.value(), reinterpret_cast<std::uint8_t*>(result_data),
+            font->of_info.adapter->get_table_content(font->of_info.idx, tag.value(), reinterpret_cast<std::uint8_t *>(result_data),
                 offset_and_size.size);
 
             fbsfont::tf_table_info table_info;
@@ -1035,7 +1049,7 @@ namespace eka2l1 {
             table_info.length = offset_and_size.size;
             offset_and_size.offset = table_info.offset;
 
-            font->font_tables.emplace(tag.value(), std::move(table_info));
+            font->font_tables.emplace(tag.value(), table_info);
         }
 
         ctx->write_data_to_descriptor_argument<font_table_offset_and_size>(2, offset_and_size);
@@ -1045,7 +1059,7 @@ namespace eka2l1 {
     void fbscli::release_font_table(service::ipc_context *ctx) {
         fbsfont *font = get_font_object(ctx);
         std::optional<std::uint32_t> tag = ctx->get_argument_value<std::uint32_t>(1);
-        
+
         if (!font || !tag.has_value()) {
             ctx->complete(epoc::error_argument);
             return;

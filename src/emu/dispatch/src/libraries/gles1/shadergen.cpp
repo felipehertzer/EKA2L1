@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <common/log.h>
 #include <dispatch/libraries/gles1/shadergen.h>
 #include <fmt/format.h>
-#include <common/log.h>
 
 namespace eka2l1::dispatch {
     std::string generate_gl_vertex_shader(const std::uint64_t vertex_statuses, const std::uint32_t active_texs, const bool is_es) {
@@ -36,7 +36,7 @@ namespace eka2l1::dispatch {
                           "precision highp float;\n";
         } else {
             input_decl += "#version 140\n"
-                "#extension GL_ARB_explicit_attrib_location : require\n";
+                          "#extension GL_ARB_explicit_attrib_location : require\n";
         }
 
         input_decl += "layout (location = 0) in vec4 inPosition;\n";
@@ -55,7 +55,7 @@ namespace eka2l1::dispatch {
             input_decl += fmt::format("layout (location = {}) in uint uMatrixIndices[{}];\n", static_cast<int>(3 + GLES1_EMU_MAX_TEXTURE_COUNT), static_cast<int>(GLES1_EMU_MAX_WEIGHTS_PER_VERTEX));
             input_decl += fmt::format("layout (location = {}) in float uWeights[{}];\n", static_cast<int>(4 + GLES1_EMU_MAX_TEXTURE_COUNT), static_cast<int>(GLES1_EMU_MAX_WEIGHTS_PER_VERTEX));
 
-            std::uint32_t weights_per_vertex_count = (vertex_statuses & egl_context_es1::VERTEX_STATE_SKIN_WEIGHTS_PER_VERTEX_MASK) 
+            std::uint32_t weights_per_vertex_count = (vertex_statuses & egl_context_es1::VERTEX_STATE_SKIN_WEIGHTS_PER_VERTEX_MASK)
                 >> egl_context_es1::VERTEX_STATE_SKIN_WEIGHTS_PER_VERTEX_BITS_POS;
 
             main_body += "\tmat4 uViewModelMat = (";
@@ -68,8 +68,9 @@ namespace eka2l1::dispatch {
             }
         }
 
-        main_body += "\tgl_Position = uProjMat * uViewModelMat * inPosition;\n"
-                     "\tmMyPos = uViewModelMat * inPosition;\n";
+        main_body += "\tvec4 emuPosition = vec4(inPosition.xyz, (inPosition.w == 0.0) ? 1.0 : inPosition.w);\n"
+                     "\tgl_Position = uProjMat * uViewModelMat * emuPosition;\n"
+                     "\tmMyPos = uViewModelMat * emuPosition;\n";
 
         if (vertex_statuses & egl_context_es1::VERTEX_STATE_CLIENT_COLOR_ARRAY) {
             input_decl += "layout (location = 1) in vec4 inColor;\n";
@@ -78,7 +79,7 @@ namespace eka2l1::dispatch {
             uni_decl += "uniform vec4 uColor;\n";
             main_body += "\tmFrontColor = mBackColor = uColor;\n";
         }
-        
+
         out_decl += "out vec4 mFrontColor;\n";
         out_decl += "out vec4 mBackColor;\n";
 
@@ -110,11 +111,12 @@ namespace eka2l1::dispatch {
         for (std::size_t i = 0; i < GLES1_EMU_MAX_TEXTURE_COUNT; i++) {
             out_decl += fmt::format("out vec4 mTexCoord{};\n", i);
             uni_decl += fmt::format("uniform mat4 uTextureMat{};\n", i);
-            
+
             if (active_texs & (0b11 << (i * 2))) {
                 if (vertex_statuses & (1 << (egl_context_es1::VERTEX_STATE_CLIENT_TEXCOORD_ARRAY_POS + static_cast<std::uint8_t>(i)))) {
                     input_decl += fmt::format("layout (location = {}) in vec4 inTexCoord{};\n", 3 + i, i);
-                    main_body += fmt::format("\tmTexCoord{} = uTextureMat{} * inTexCoord{};\n", i, i, i);
+                    main_body += fmt::format("\tvec4 emuTexCoord{} = vec4(inTexCoord{}.xyz, (inTexCoord{}.w == 0.0) ? 1.0 : inTexCoord{}.w);\n", i, i, i, i);
+                    main_body += fmt::format("\tmTexCoord{} = uTextureMat{} * emuTexCoord{};\n", i, i, i);
                 } else {
                     uni_decl += fmt::format("uniform vec4 uTexCoord{};\n", i);
                     main_body += fmt::format("\tmTexCoord{} = uTextureMat{} * uTexCoord{};\n", i, i, i);
@@ -131,63 +133,61 @@ namespace eka2l1::dispatch {
 
         if (vertex_statuses & egl_context_es1::VERTEX_STATE_LIGHTING_ENABLE) {
             // Apply lights
-            uni_decl +=
-                "\n"
-                "struct TLightInfo {\n"
-                "\tvec4 mDirOrPosition;\n"
-                "\tvec4 mAmbient;\n"
-                "\tvec4 mDiffuse;\n"
-                "\tvec4 mSpecular;\n"
-                "\tvec3 mSpotDir;\n"
-                "\tfloat mSpotCutoff;\n"
-                "\tfloat mSpotExponent;\n"
-                "\tvec3 mAttenuation;\n"
-                "};\n";
+            uni_decl += "\n"
+                        "struct TLightInfo {\n"
+                        "\tvec4 mDirOrPosition;\n"
+                        "\tvec4 mAmbient;\n"
+                        "\tvec4 mDiffuse;\n"
+                        "\tvec4 mSpecular;\n"
+                        "\tvec3 mSpotDir;\n"
+                        "\tfloat mSpotCutoff;\n"
+                        "\tfloat mSpotExponent;\n"
+                        "\tvec3 mAttenuation;\n"
+                        "};\n";
 
-            external_func +=
-                "vec4 calculateLight(TLightInfo info, vec3 normal, vec4 explicitAmbient, vec4 explicitDiffuse) {\n"
-                "\tvec3 lightDir = vec3(0.0);\n"
-                "\tfloat attenuation = 1.0;\n"
-                "\tif (info.mDirOrPosition.w == 0.0) {\n"
-                "\t\tlightDir = normalize(info.mDirOrPosition.xyz);\n"
-                "\t} else {\n"
-                "\t\tlightDir = normalize(info.mDirOrPosition.xyz - mMyPos.xyz);\n"
-                "\t\tfloat dist = length(info.mDirOrPosition.xyz - mMyPos.xyz);\n"
-                "\t\tattenuation = 1.0 / (info.mAttenuation.x + dist * info.mAttenuation.y + dist * dist * info.mAttenuation.z);\n"
-                "\t}\n"
-                "\tfloat diffuseFactor = max(dot(normal, lightDir), 0.0);\n"
-                "\tfloat specularFactor = max(dot(normal, normalize(lightDir + vec3(0.0, 0.0, 1.0))), 0.0);\n"
-                "\tif ((diffuseFactor > 0.0) && (specularFactor > 0.0))\n"
-                "\t\tspecularFactor = exp(uMaterialShininess * log(specularFactor));\n"
-                "\telse\n"
-                "\t\tspecularFactor = 0.0;\n"
-                "\tvec4 ambient = info.mAmbient * explicitAmbient;\n"
-                "\tvec4 diffuse = info.mDiffuse * diffuseFactor * explicitDiffuse;\n"
-                "\tvec4 specular = info.mSpecular * specularFactor * uMaterialSpecular;\n"
-                "\tfloat spotAngle = dot(lightDir, normalize(info.mSpotDir));\n"
-                "\tfloat spotConstant = 1.0;\n"
-                "\tif ((info.mDirOrPosition.w == 0.0) || (info.mSpotCutoff == 180.0)) spotConstant = 1.0;\n"
-                "\telse {\n"
-                "\t\tif (spotAngle < cos(radians(info.mSpotCutoff))) spotConstant = 0.0;\n"
-                "\t\telse spotConstant = pow(spotAngle, info.mSpotExponent);\n"
-                "\t}\n"
-                "\treturn attenuation * spotConstant * (ambient + diffuse + specular);\n"
-                "}\n";
+            external_func += "vec4 calculateLight(TLightInfo info, vec3 normal, vec4 explicitAmbient, vec4 explicitDiffuse) {\n"
+                             "\tvec3 lightDir = vec3(0.0);\n"
+                             "\tfloat attenuation = 1.0;\n"
+                             "\tif (info.mDirOrPosition.w == 0.0) {\n"
+                             "\t\tlightDir = normalize(info.mDirOrPosition.xyz);\n"
+                             "\t} else {\n"
+                             "\t\tlightDir = normalize(info.mDirOrPosition.xyz - mMyPos.xyz);\n"
+                             "\t\tfloat dist = length(info.mDirOrPosition.xyz - mMyPos.xyz);\n"
+                             "\t\tattenuation = 1.0 / (info.mAttenuation.x + dist * info.mAttenuation.y + dist * dist * info.mAttenuation.z);\n"
+                             "\t}\n"
+                             "\tfloat diffuseFactor = max(dot(normal, lightDir), 0.0);\n"
+                             "\tfloat specularFactor = max(dot(normal, normalize(lightDir + vec3(0.0, 0.0, 1.0))), 0.0);\n"
+                             "\tif ((diffuseFactor > 0.0) && (specularFactor > 0.0))\n"
+                             "\t\tspecularFactor = exp(uMaterialShininess * log(specularFactor));\n"
+                             "\telse\n"
+                             "\t\tspecularFactor = 0.0;\n"
+                             "\tvec4 ambient = info.mAmbient * explicitAmbient;\n"
+                             "\tvec4 diffuse = info.mDiffuse * diffuseFactor * explicitDiffuse;\n"
+                             "\tvec4 specular = info.mSpecular * specularFactor * uMaterialSpecular;\n"
+                             "\tfloat spotAngle = dot(lightDir, normalize(info.mSpotDir));\n"
+                             "\tfloat spotConstant = 1.0;\n"
+                             "\tif ((info.mDirOrPosition.w == 0.0) || (info.mSpotCutoff == 180.0)) spotConstant = 1.0;\n"
+                             "\telse {\n"
+                             "\t\tif (spotAngle < cos(radians(info.mSpotCutoff))) spotConstant = 0.0;\n"
+                             "\t\telse spotConstant = pow(spotAngle, info.mSpotExponent);\n"
+                             "\t}\n"
+                             "\treturn attenuation * spotConstant * (ambient + diffuse + specular);\n"
+                             "}\n";
 
             main_body += "\tvec4 gActualMaterialAmbient;\n"
-                        "\tvec4 gActualMaterialDiffuse;\n";
+                         "\tvec4 gActualMaterialDiffuse;\n";
 
             if (vertex_statuses & egl_context_es1::VERTEX_STATE_COLOR_MATERIAL_ENABLE) {
                 // Texture or previous computed color is used instead of specified material...
                 main_body += "\tgActualMaterialAmbient = mFrontColor;\n"
-                            "\tgActualMaterialDiffuse = mFrontColor;\n";
+                             "\tgActualMaterialDiffuse = mFrontColor;\n";
             } else {
                 main_body += "\tgActualMaterialAmbient = uMaterialAmbient;\n"
-                            "\tgActualMaterialDiffuse = uMaterialDiffuse;\n";
+                             "\tgActualMaterialDiffuse = uMaterialDiffuse;\n";
             }
 
             main_body += "\t// Clear color to make way for lighting\n"
-                        "\tmFrontColor = mBackColor = uMaterialEmission + uGlobalAmbient * gActualMaterialAmbient;\n";
+                         "\tmFrontColor = mBackColor = uMaterialEmission + uGlobalAmbient * gActualMaterialAmbient;\n";
 
             if (vertex_statuses & egl_context_es1::VERTEX_STATE_LIGHT_AROUND_MASK) {
                 for (std::size_t i = 0, mask = egl_context_es1::VERTEX_STATE_LIGHT0_ON; i < GLES1_EMU_MAX_LIGHT; i++, mask <<= 1) {
@@ -203,16 +203,14 @@ namespace eka2l1::dispatch {
             }
 
             if ((vertex_statuses & egl_context_es1::VERTEX_STATE_LIGHT_TWO_SIDE) == 0) {
-                main_body += "\tmBackColor = mFrontColor;\n";   
+                main_body += "\tmBackColor = mFrontColor;\n";
             }
 
-            main_body += 
-                        "\tmBackColor = clamp(mBackColor, 0.0, 1.0);\n"
-                        "\tmFrontColor = clamp(mFrontColor, 0.0, 1.0);\n"
-                        "\t//Alpha is always the diffuse of the material (as far as I know!)\n"
-                        "\tmFrontColor.a = mBackColor.a = gActualMaterialDiffuse.a;\n";
+            main_body += "\tmBackColor = clamp(mBackColor, 0.0, 1.0);\n"
+                         "\tmFrontColor = clamp(mFrontColor, 0.0, 1.0);\n"
+                         "\t//Alpha is always the diffuse of the material (as far as I know!)\n"
+                         "\tmFrontColor.a = mBackColor.a = gActualMaterialDiffuse.a;\n";
         }
-
 
         main_body += "}";
 
@@ -288,7 +286,7 @@ namespace eka2l1::dispatch {
         std::string half_vec = (is_for_rgb ? "vec3(0.5)" : "0.5");
         std::string one_vec = (is_for_rgb ? "vec3(1.0)" : "1.0");
         static const char *END_STATEMENT_MARK = ";\n";
-        
+
         switch (combine_func) {
         case gles_texture_env_info::SOURCE_COMBINE_REPLACE:
             return dest_equals_to + s1 + END_STATEMENT_MARK;
@@ -341,8 +339,8 @@ namespace eka2l1::dispatch {
         }
 
         input_decl += "in vec4 mFrontColor;\n"
-                    "in vec4 mBackColor;\n"
-                    "in vec4 mMyPos;\n";
+                      "in vec4 mBackColor;\n"
+                      "in vec4 mMyPos;\n";
 
         main_body += "void main() {\n"
                      "\toColor = gl_FrontFacing ? mFrontColor : mBackColor;\n"
@@ -353,7 +351,8 @@ namespace eka2l1::dispatch {
             if (fragment_statuses & (1 << (i + egl_context_es1::FRAGMENT_STATE_CLIP_PLANE_BIT_POS))) {
                 uni_decl += fmt::format("uniform vec4 uClipPlane{};\n", i);
                 main_body += fmt::format("\tfloat uClipDistResult{} = dot(mMyPos, uClipPlane{});\n"
-                    "\tif (uClipDistResult{} < 0.0) discard;\n", i, i, i);
+                                         "\tif (uClipDistResult{} < 0.0) discard;\n",
+                    i, i, i);
             }
         }
 
@@ -373,14 +372,16 @@ namespace eka2l1::dispatch {
                         swizz_postfix = ".rgb";
                     }
 
+                    const std::string tex_coord_expr = fmt::format("mTexCoord{}.xy", i);
+
                     if (tex_env_infos[i].env_mode_ != gles_texture_env_info::ENV_MODE_COMBINE) {
                         switch (tex_env_infos[i].env_mode_) {
                         case gles_texture_env_info::ENV_MODE_REPLACE:
-                            main_body += fmt::format("\toColor{} = texture(uTexture{}, mTexCoord{}.xy){};\n", swizz_postfix, i, i, swizz_postfix);
+                            main_body += fmt::format("\toColor{} = texture(uTexture{}, {}){};\n", swizz_postfix, i, tex_coord_expr, swizz_postfix);
                             break;
 
                         case gles_texture_env_info::ENV_MODE_ADD:
-                            main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, mTexCoord{}.xy);\n", i, i, i);
+                            main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, {});\n", i, i, tex_coord_expr);
                             if (mode_texture != 0b10)
                                 main_body += fmt::format("\toColor.rgb += pixelTex{}.rgb;\n", i);
 
@@ -390,11 +391,11 @@ namespace eka2l1::dispatch {
                             break;
 
                         case gles_texture_env_info::ENV_MODE_MODULATE:
-                            main_body += fmt::format("\toColor{} *= texture(uTexture{}, mTexCoord{}.xy){};\n", swizz_postfix, i, i, swizz_postfix);
+                            main_body += fmt::format("\toColor{} *= texture(uTexture{}, {}){};\n", swizz_postfix, i, tex_coord_expr, swizz_postfix);
                             break;
 
                         case gles_texture_env_info::ENV_MODE_BLEND:
-                            main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, mTexCoord{}.xy);\n", i, i, i);
+                            main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, {});\n", i, i, tex_coord_expr);
                             if (mode_texture != 0b10)
                                 main_body += fmt::format("\toColor.rgb = oColor.rgb * (vec3(1.0) - pixelTex{}.rgb) + uTextureEnvColor{}.rgb * pixelTex{}.rgb;\n", i, i, i);
                             if (mode_texture != 0b11)
@@ -402,8 +403,8 @@ namespace eka2l1::dispatch {
                             break;
 
                         case gles_texture_env_info::ENV_MODE_DECAL:
-                            main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, mTexCoord{}.xy);\n", i, i, i);
-                            
+                            main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, {});\n", i, i, tex_coord_expr);
+
                             if (mode_texture != 0b10)
                                 main_body += fmt::format("\toColor.rgb = oColor.rgb * (vec3(1.0) - pixelTex{}.a) + pixelTex{}.rgb * pixelTex{}.a;\n", i, i, i);
                             if (mode_texture != 0b11)
@@ -415,7 +416,7 @@ namespace eka2l1::dispatch {
                         }
                     } else {
                         // Get the pixel sample first...
-                        main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, mTexCoord{}.xy);\n", i, i, i);
+                        main_body += fmt::format("\tvec4 pixelTex{} = texture(uTexture{}, {});\n", i, i, tex_coord_expr);
 
                         main_body += generate_tex_env_combine_statement(generate_tex_env_source(i, tex_env_infos[i].src0_rgb_, tex_env_infos[i].src0_rgb_op_, true),
                             generate_tex_env_source(i, tex_env_infos[i].src1_rgb_, tex_env_infos[i].src1_rgb_op_, true),

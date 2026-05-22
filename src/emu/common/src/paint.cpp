@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -109,7 +109,7 @@ namespace eka2l1::common {
         const auto psize = plotter_->get_size();
 
         while (!floody.empty()) {
-            eka2l1::vec2 ant_pos = std::move(floody.top());
+            eka2l1::vec2 ant_pos = floody.top();
             floody.pop();
 
             // Scan for the beginning of our pixels sequence
@@ -332,7 +332,7 @@ namespace eka2l1::common {
 
             if (2 * e2 <= delta.y) {
                 for (e2 = delta.x - e2; e2 < dlen * width && (end.x != base_x_2 || delta.x < delta.y);
-                     e2 += delta.y) {
+                    e2 += delta.y) {
                     plotter_->plot_pixel({ base_x_2 += sx, base_y }, brush_col_ /* * static_cast<int>(static_cast<float>(e2) / dlen - width + 1)*/);
                 }
 

@@ -1,32 +1,32 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <qt/btnmap/executor.h>
 #include <common/log.h>
+#include <qt/btnmap/executor.h>
 
 #include <yaml-cpp/yaml.h>
 
 #include <common/algorithm.h>
 #include <common/fileutils.h>
 
-#include <services/window/window.h>
 #include <kernel/timing.h>
+#include <services/window/window.h>
 
 namespace eka2l1::qt::btnmap {
     static const char *SINGLE_TOUCH_YAML_TYPE = "singletouch";
@@ -36,13 +36,12 @@ namespace eka2l1::qt::btnmap {
         : winserv_(server)
         , timing_(timing)
         , pointer_ownership_(0) {
-
     }
 
     bool executor::execute(const std::uint64_t keycode, const bool is_press) {
         auto ite = mappings_.find(keycode);
         if (ite != mappings_.end()) {
-            for (behaviour *beha: ite->second) {
+            for (behaviour *beha : ite->second) {
                 beha->produce(keycode, is_press);
             }
             return true;
@@ -53,7 +52,7 @@ namespace eka2l1::qt::btnmap {
     bool executor::execute(const std::uint64_t keycode, const float axisx, const float axisy) {
         auto ite = mappings_.find(keycode);
         if (ite != mappings_.end()) {
-            for (behaviour *beha: ite->second) {
+            for (behaviour *beha : ite->second) {
                 beha->produce(keycode, axisx, axisy);
             }
             return true;
@@ -92,7 +91,7 @@ namespace eka2l1::qt::btnmap {
         reset();
 
         YAML::Node whole_file = YAML::Load(stream_string.c_str());
-        for (const YAML::Node &child: whole_file) {
+        for (const YAML::Node &child : whole_file) {
             std::string type_of_comp = child["type"].as<std::string>("");
             if (type_of_comp.empty()) {
                 continue;
@@ -143,7 +142,7 @@ namespace eka2l1::qt::btnmap {
         evt.type_ = eka2l1::drivers::input_event_type::touch;
         evt.mouse_.pos_x_ = static_cast<int>(pos.x);
         evt.mouse_.pos_y_ = static_cast<int>(pos.y);
-        evt.mouse_.pos_z_ = static_cast<int>(0);    // TODO: Support pressure
+        evt.mouse_.pos_z_ = static_cast<int>(0); // TODO: Support pressure
         evt.mouse_.mouse_id = static_cast<std::uint32_t>(touch_index);
         evt.mouse_.button_ = eka2l1::drivers::mouse_button::mouse_button_left;
         evt.mouse_.action_ = act;
@@ -165,7 +164,7 @@ namespace eka2l1::qt::btnmap {
         : behaviour(exec)
         , position_(pos)
         , keycode_(keycode)
-        , allocated_pointer_(0xFF){
+        , allocated_pointer_(0xFF) {
     }
 
     void single_touch_behaviour::produce(const std::uint64_t key, const bool is_press) {
@@ -214,7 +213,7 @@ namespace eka2l1::qt::btnmap {
         : behaviour(exec)
         , key_status_(0)
         , width_(0)
-        , allocated_pointer_(0xFF)  {
+        , allocated_pointer_(0xFF) {
         position_ = eka2l1::vec2(info_node["x"].as<int>(-1), info_node["y"].as<int>(-1));
         keys_[0] = info_node["keycode"][0].as<std::uint64_t>('W');
         keys_[1] = info_node["keycode"][1].as<std::uint64_t>('S');
@@ -227,7 +226,6 @@ namespace eka2l1::qt::btnmap {
     }
 
     joystick_behaviour::~joystick_behaviour() {
-
     }
 
     void joystick_behaviour::produce(const std::uint64_t key, const float axisx, const float axisy) {
@@ -259,7 +257,7 @@ namespace eka2l1::qt::btnmap {
         }
 
         deliver_touch(position_ + eka2l1::vec2(width_ / 2) + eka2l1::vec2(static_cast<int>(width_ * axisx / 2), static_cast<int>(width_ * axisy / 2)),
-                      allocated_pointer_, drivers::mouse_action_repeat);
+            allocated_pointer_, drivers::mouse_action_repeat);
     }
 
     void joystick_behaviour::produce(const std::uint64_t key, const bool is_press) {

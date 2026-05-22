@@ -262,6 +262,8 @@ std::uint32_t ARMul_State::ReadMemory32(std::uint32_t address) const {
 }
 
 std::uint32_t ARMul_State::ReadCode(std::uint32_t address) const {
+    code_fetch_failed = false;
+
     std::uint32_t value = 0;
     bool result = core->read_code(address, &value);
 
@@ -272,6 +274,8 @@ std::uint32_t ARMul_State::ReadCode(std::uint32_t address) const {
     }
 
     if (!result) {
+        code_fetch_failed = true;
+        core->stop();
         LOG_ERROR(eka2l1::CPU_DYNCOM, "Failure reading 32bit CODE value at 0x{:X}", address);
     }
 

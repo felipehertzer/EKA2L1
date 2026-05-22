@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -38,7 +38,7 @@ namespace eka2l1::epoc::msv {
         common::double_linked_queue_element folder_link_;
 
         enum {
-            FLAG_GRAND_CHILD_PRESENT = 1 << 0,          // Some entry that parent is not directly this entry table visible folder exists
+            FLAG_GRAND_CHILD_PRESENT = 1 << 0, // Some entry that parent is not directly this entry table visible folder exists
         };
 
         friend struct visible_folder;
@@ -50,11 +50,11 @@ namespace eka2l1::epoc::msv {
 
         /**
          * @brief Add list of entries to the table, with no overlap checking.
-         * 
+         *
          * This method automatically expands the table range.
-         * 
+         *
          * If there's only one entry in this list, add is called, with overlap checking.
-         * 
+         *
          * @param ents Entry list sorted by ID.
          */
         bool add_tons(std::vector<entry> &ents, const std::size_t start_index, const std::size_t end_index);

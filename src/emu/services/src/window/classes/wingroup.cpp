@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -112,7 +112,7 @@ namespace eka2l1::epoc {
         if (uid_owner_change_process) {
             uid_owner_change_process->unregister_uid_type_change_callback(uid_owner_change_callback_handle);
         }
-        
+
         remove_from_sibling_list();
 
         if (this == scr->focus) {
@@ -147,10 +147,13 @@ namespace eka2l1::epoc {
     }
 
     void window_group::set_text_cursor(service::ipc_context &context, ws_cmd &cmd) {
-        // Warn myself in the future!
-        LOG_WARN(SERVICE_WINDOW, "Set cursor text is mostly a stubbed now");
-
         ws_cmd_set_text_cursor *cmd_set = reinterpret_cast<decltype(cmd_set)>(cmd.data_ptr);
+
+        if (cmd.header.cmd_len < sizeof(*cmd_set)) {
+            context.complete(epoc::error_argument);
+            return;
+        }
+
         auto canvas_base_to_set = reinterpret_cast<canvas_base *>(client->get_object(cmd_set->win));
 
         if (!canvas_base_to_set || (canvas_base_to_set->type != window_kind::client)) {
@@ -168,8 +171,19 @@ namespace eka2l1::epoc {
         context.complete(epoc::error_none);
     }
 
+    void window_group::cancel_capture_key(service::ipc_context &context, ws_cmd &cmd) {
+        if (cmd.header.cmd_len < sizeof(std::uint32_t)) {
+            context.complete(epoc::error_argument);
+            return;
+        }
+
+        const auto capture_id = *reinterpret_cast<std::uint32_t *>(cmd.data_ptr);
+        client->remove_capture_key_notifier_from_server(capture_id);
+        context.complete(epoc::error_none);
+    }
+
     void window_group::set_name(const std::u16string &new_name) {
-        name = std::move(new_name);
+        name = new_name;
 
         if (this == scr->focus) {
             scr->fire_focus_change_callbacks(focus_change_name);
@@ -210,7 +224,7 @@ namespace eka2l1::epoc {
         client->delete_object(cmd.obj_handle);
     }
 
-    bool window_group::execute_command(service::ipc_context &ctx, ws_cmd &cmd) {        
+    bool window_group::execute_command(service::ipc_context &ctx, ws_cmd &cmd) {
         // LOG_TRACE(SERVICE_WINDOW, "Window group op: {}", cmd.header.op);
 
         bool result = execute_command_for_general_node(ctx, cmd);
@@ -264,6 +278,12 @@ namespace eka2l1::epoc {
             break;
         }
 
+        case EWsWinOpCancelCaptureKey:
+        case EWsWinOpCancelCaptureKeyUpsAndDowns: {
+            cancel_capture_key(ctx, cmd);
+            break;
+        }
+
         case EWsWinOpSetName: {
             set_name(ctx, cmd);
             break;
@@ -298,6 +318,16 @@ namespace eka2l1::epoc {
 
         case EWsWinOpSetTextCursor: {
             set_text_cursor(ctx, cmd);
+            break;
+        }
+
+        case EWsWinOpSetTextCursorClipped: {
+            set_text_cursor(ctx, cmd);
+            break;
+        }
+
+        case EWsWinOpCancelTextCursor: {
+            ctx.complete(epoc::error_none);
             break;
         }
 

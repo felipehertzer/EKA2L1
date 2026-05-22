@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -35,8 +35,8 @@ namespace eka2l1 {
 namespace eka2l1::epoc::msv {
     enum operation_state {
         operation_state_idle,
-        operation_state_queued,         // The operation has been queued for asynchronous execution.
-        operation_state_pending,        // The operation is in progress.
+        operation_state_queued, // The operation has been queued for asynchronous execution.
+        operation_state_pending, // The operation is in progress.
         operation_state_success,
         operation_state_failure
     };
@@ -60,7 +60,7 @@ namespace eka2l1::epoc::msv {
                 progress_.resize(sizeof(T));
             }
 
-            return reinterpret_cast<T*>(progress_.data());
+            return reinterpret_cast<T *>(progress_.data());
         }
 
     public:
@@ -75,7 +75,7 @@ namespace eka2l1::epoc::msv {
         const msv_id operation_id() const {
             return operation_id_;
         }
-        
+
         const operation_buffer &progress_buffer() const {
             return progress_;
         }

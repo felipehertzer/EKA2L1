@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -36,8 +36,8 @@
 
 #include <utils/des.h>
 
-#include <thread>
 #include <chrono>
+#include <thread>
 
 using namespace std::literals::chrono_literals;
 
@@ -187,7 +187,7 @@ namespace eka2l1::dispatch {
                 auto new_player = drivers::new_audio_player(driver, types[i]);
                 if (new_player) {
                     bool open_res = new_player->open_url(url_u8);
-                    
+
                     if (!eplayer->impl_ || open_res)
                         eplayer->impl_ = std::move(new_player);
 
@@ -562,7 +562,7 @@ namespace eka2l1::dispatch {
         drivers::audio_driver *aud_driver = sys->get_audio_driver();
 
         auto ll_stream = in_stream ? drivers::new_dsp_in_stream(aud_driver, drivers::dsp_stream_backend_ffmpeg)
-            : drivers::new_dsp_out_stream(aud_driver, drivers::dsp_stream_backend_ffmpeg);
+                                   : drivers::new_dsp_out_stream(aud_driver, drivers::dsp_stream_backend_ffmpeg);
 
         if (!ll_stream) {
             LOG_ERROR(HLE_AUD, "Unable to create new DSP out stream!");
@@ -814,7 +814,7 @@ namespace eka2l1::dispatch {
         stream->ll_stream_->reset_stat();
         return epoc::error_none;
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, eaudio_dsp_stream_set_format, eka2l1::ptr<void> handle, const std::int32_t four_cc) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::dsp_manager &manager = dispatcher->get_dsp_manager();
@@ -830,7 +830,7 @@ namespace eka2l1::dispatch {
 
         return epoc::error_none;
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, eaudio_dsp_stream_get_format, eka2l1::ptr<void> handle, std::int32_t *four_cc_val) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::dsp_manager &manager = dispatcher->get_dsp_manager();

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -122,7 +122,7 @@ namespace eka2l1 {
         /**
          * @brief Struct used to store critical variables that is needed for Symbian
          * C++ thread to work properly (exception-trap, or allocator).
-         * 
+         *
          * Compare to thread local storage, which that is only available in newer OS versions (mostly since 2009),
          * through CP15 intercept, the data here can only be modified by the OS through system calls,
          * while local thread storage grabbed through the pointer retrieved in CP15 call, can store data freely
@@ -136,7 +136,7 @@ namespace eka2l1 {
             ptr<void> tls_heap_allocator;
             std::uint32_t tls_array_data[40];
 
-            // Hash map is used here, there will hopefully not be thousand of elements 
+            // Hash map is used here, there will hopefully not be thousand of elements
             // and constant complexity, memory is not a worry.
             std::unordered_map<std::uint32_t, tls_slot> tls_slots;
 
@@ -148,7 +148,7 @@ namespace eka2l1 {
             address limit_;
             address expandable_limit_;
         };
-        
+
         static constexpr std::size_t NATIVE_THREAD_LOCAL_DATA_COPY_SIZE = offsetof(thread_local_data, tls_slots);
 
         class thread : public kernel_obj {
@@ -207,8 +207,8 @@ namespace eka2l1 {
 
             void reset_thread_ctx(const std::uint32_t entry_point, const std::uint32_t stack_top, const std::uint32_t thr_local_addr,
                 const bool initial);
-            void create_stack_metadata(std::uint8_t *stack_host_ptr, address stack_ptr, ptr<void> allocator_ptr,
-                std::uint32_t name_len, address name_ptr, address epa);
+            void create_stack_metadata(std::uint8_t *stack_host_ptr, address user_stack_base,
+                ptr<void> allocator_ptr, std::uint32_t name_len, address name_ptr, address epa);
 
             int leave_depth = -1;
 
@@ -271,7 +271,7 @@ namespace eka2l1 {
 
             /**
              * @brief       Push a new trap frame.
-             * 
+             *
              * @param       new_trap          Pointer of the new trap to push.
              * @returns     Pointer to trap handler.
              */
@@ -341,7 +341,7 @@ namespace eka2l1 {
             std::optional<tls_slot> get_tls_slot_no_uid(const std::uint32_t handle);
             std::optional<tls_slot> get_tls_slot(const std::uint32_t handle, const std::uint32_t dll_uid);
             bool set_tls_slot(const std::uint32_t handle, const std::uint32_t dll_uid, ptr<void> value);
-            void close_tls_slot(const std::uint32_t );
+            void close_tls_slot(const std::uint32_t);
 
             void update_priority();
 
@@ -352,7 +352,7 @@ namespace eka2l1 {
             bool set_initial_userdata(const address userdata);
 
             void wait_for_any_request();
-            void signal_request(int count = 1);
+            void signal_request(int count = 1, const char *reason = nullptr);
             std::int32_t request_count();
 
             void set_priority(const thread_priority new_pri);

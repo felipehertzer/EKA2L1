@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -68,7 +68,7 @@ namespace eka2l1 {
             return get_virtual_registry_folder(residing, package_uid) + fmt::format(package::REGISTRY_FILE_FORMAT, index);
         }
 
-        void packages::install_sis_stubs() {
+        void packages::install_sis_stubs(bool install_all) {
             static constexpr const char16_t *STUB_SIS_DIRECTORY = u"{}:\\system\\install\\";
 
             for (drive_number drv = drive_z; drv >= drive_a; drv--) {
@@ -80,6 +80,39 @@ namespace eka2l1 {
                         while (std::optional<entry_info> stub_file_info = stub_dir_iterator->get_next_entry()) {
                             auto stub_file_real_path = sys->get_raw_path(common::utf8_to_ucs2(stub_file_info->full_path));
                             if (stub_file_real_path.has_value()) {
+                                std::optional<loader::sis_type> sis_ver = loader::identify_sis_type(common::ucs2_to_utf8(stub_file_real_path.value()));
+                                if (!sis_ver) {
+                                    continue;
+                                }
+
+                                if (sis_ver.value() == loader::sis_type_old) {
+                                    if (!install_all) {
+                                        continue;
+                                    }
+                                } else {
+                                    loader::sis_contents content = loader::parse_sis(common::ucs2_to_utf8(stub_file_real_path.value()),
+                                        sis_ver == loader::sis_type_new_stub);
+
+                                    const auto has_missing_package = [this](const loader::sis_controller &controller, const auto &has_missing_package_ref) -> bool {
+                                        if (objects_.find(controller.info.uid.uid) == objects_.end()) {
+                                            return true;
+                                        }
+
+                                        for (const auto &child_controller : controller.install_block.controllers.fields) {
+                                            const loader::sis_controller *child = reinterpret_cast<loader::sis_controller *>(child_controller.get());
+                                            if (has_missing_package_ref(*child, has_missing_package_ref)) {
+                                                return true;
+                                            }
+                                        }
+
+                                        return false;
+                                    };
+
+                                    if (!install_all && !has_missing_package(content.controller, has_missing_package)) {
+                                        continue;
+                                    }
+                                }
+
                                 install_package(stub_file_real_path.value(), drv, nullptr, nullptr, true);
                             }
                         }
@@ -133,9 +166,10 @@ namespace eka2l1 {
                 }
             }
 
-            if (!sys->exist(stub_cached_path)) {
-                install_sis_stubs();
+            const bool stub_cache_missing = !sys->exist(stub_cached_path);
+            install_sis_stubs(stub_cache_missing);
 
+            if (stub_cache_missing) {
                 // Life hacks sorry guys
                 auto stub_cached_real_path = sys->get_raw_path(stub_cached_path);
                 if (stub_cached_real_path.has_value()) {
@@ -383,7 +417,7 @@ namespace eka2l1 {
                 me_as_embed.vendor_name = pkg.vendor_name;
                 me_as_embed.index = pkg.index;
 
-                base_package->embedded_packages.push_back(std::move(pkg));
+                base_package->embedded_packages.push_back(std::move(me_as_embed));
                 base_package->drives |= pkg.drives;
                 base_package->current_drives |= pkg.current_drives;
                 base_package->language |= pkg.language;

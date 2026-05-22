@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -82,12 +82,12 @@ namespace eka2l1::hle {
 
     static std::string get_real_dll_name(std::string dll_name) {
         const std::string ext = eka2l1::path_extension(dll_name);
-        size_t dll_name_end_pos = dll_name.find_first_of("{");
+        size_t dll_name_end_pos = dll_name.find_first_of('{');
 
         if (FOUND_STR(dll_name_end_pos)) {
             dll_name = dll_name.substr(0, dll_name_end_pos);
         } else {
-            dll_name_end_pos = dll_name.find_last_of("[");
+            dll_name_end_pos = dll_name.find_last_of('[');
 
             if (FOUND_STR(dll_name_end_pos)) {
                 dll_name = dll_name.substr(0, dll_name_end_pos);
@@ -97,6 +97,19 @@ namespace eka2l1::hle {
         }
 
         return dll_name + (ext.empty() ? ".dll" : ext);
+    }
+
+    static bool is_drive_relative_root_path(const std::u16string &path) {
+        return !path.empty() && eka2l1::is_separator(path.front()) && !eka2l1::has_root_name(path, true);
+    }
+
+    static std::u16string add_drive_to_root_path(const drive_number drv, const std::u16string &path) {
+        std::u16string driven_path;
+        driven_path += drive_to_char16(drv);
+        driven_path += u':';
+        driven_path += path;
+
+        return driven_path;
     }
 
     static bool pe_fix_up_iat(memory_system *mem, hle::lib_manager &mngr, const std::uint32_t iat_offset_from_codebase,
@@ -285,8 +298,7 @@ namespace eka2l1::hle {
         std::vector<std::uint32_t> export_tables = dest_seg->get_export_table_raw();
         auto will_current_export_resolve_to_trampoline_map = [&](const std::size_t index) -> bool {
             if (export_tables[index] > dest_ptr) {
-                if (((dest_ptr & 1) && ((export_tables[index] & ~1) - (dest_ptr & ~1) < sizeof(THUMB_TRAMPOLINE_ASM))) ||
-                    (((dest_ptr & 1) == 0) && ((export_tables[index] & ~1) - (dest_ptr & ~1) < sizeof(ARM_TRAMPOLINE_ASM)))) {
+                if (((dest_ptr & 1) && ((export_tables[index] & ~1) - (dest_ptr & ~1) < sizeof(THUMB_TRAMPOLINE_ASM))) || (((dest_ptr & 1) == 0) && ((export_tables[index] & ~1) - (dest_ptr & ~1) < sizeof(ARM_TRAMPOLINE_ASM)))) {
                     resolve_to_trampoline_map = true;
                     trampoline_map.emplace(dest_ptr, source_ptr);
 
@@ -313,9 +325,9 @@ namespace eka2l1::hle {
 
         if (resolve_to_trampoline_map) {
             if (dest_ptr & 1) {
-                *reinterpret_cast<std::uint16_t *>(dest_ptr_host) = 0xDFFF;            // SVC #0xFF
+                *reinterpret_cast<std::uint16_t *>(dest_ptr_host) = 0xDFFF; // SVC #0xFF
             } else {
-                *reinterpret_cast<std::uint32_t *>(dest_ptr_host) = 0xEF0000FF;        // SVC #0xFF
+                *reinterpret_cast<std::uint32_t *>(dest_ptr_host) = 0xEF0000FF; // SVC #0xFF
             }
         } else {
             if (dest_ptr & 1) {
@@ -345,7 +357,7 @@ namespace eka2l1::hle {
         }
 
         // Can't set upper since export table in upper loop needs to be in shape and unmodified
-        for (auto &rinfo: infos) {
+        for (auto &rinfo : infos) {
             dest_seg->set_export(rinfo.second, source_seg->lookup(nullptr, rinfo.first));
         }
 
@@ -381,7 +393,7 @@ namespace eka2l1::hle {
 
         case epocver::epoc93fp1:
             return "v93fp1";
-            
+
         case epocver::epoc93fp2:
             return "v93fp2";
 
@@ -399,6 +411,10 @@ namespace eka2l1::hle {
         }
 
         return "";
+    }
+
+    static bool patch_general_dll_allowed(const epocver ver) {
+        return ver >= epocver::epoc93fp1;
     }
 
     void lib_manager::load_patch_libraries(const std::string &patch_folder) {
@@ -462,6 +478,12 @@ namespace eka2l1::hle {
             }
 
             if (patch_dll_map.empty()) {
+                if (!patch_general_dll_allowed(kern_->get_epoc_version())) {
+                    LOG_TRACE(KERNEL, "Skipping general patch DLL for {} on unsupported epoc version {}", original_map_name,
+                        epocver_to_string(kern_->get_epoc_version()));
+                    continue;
+                }
+
                 const std::string source_dll_name = source_dll_name_from_patch + "general.dll";
                 patch_dll_map = eka2l1::add_path(patch_folder, source_dll_name);
 
@@ -472,8 +494,6 @@ namespace eka2l1::hle {
 
                 LOG_TRACE(KERNEL, "Using general DLL {} as patch DLL for map file {}", source_dll_name, original_map_name);
             }
-
-            patch_image_paths.push_back(patch_dll_map);
             patch_info the_patch;
 
             the_patch.name_ = original_map_name;
@@ -525,6 +545,13 @@ namespace eka2l1::hle {
                 }
             }
 
+            if (the_patch.routes_.empty()) {
+                LOG_TRACE(KERNEL, "Skipping patch {} because it has no routes for epoc version {}", entry.name,
+                    epocver_to_string(kern_->get_epoc_version()));
+                continue;
+            }
+
+            patch_image_paths.push_back(patch_dll_map);
             patches_.push_back(the_patch);
         }
 
@@ -715,8 +742,7 @@ namespace eka2l1::hle {
         info.exception_descriptor = romimg.header.exception_des;
         info.constant_data = reinterpret_cast<std::uint8_t *>(mem_->get_real_pointer(romimg.header.data_address));
 
-        const std::string seg_name = (path.empty()) ? "codeseg" :
-            common::lowercase_string(common::ucs2_to_utf8(eka2l1::filename(path)));
+        const std::string seg_name = (path.empty()) ? "codeseg" : common::lowercase_string(common::ucs2_to_utf8(eka2l1::filename(path)));
 
         auto cs = kern_->create<kernel::codeseg>(seg_name, info);
 
@@ -846,7 +872,7 @@ namespace eka2l1::hle {
             std::pair<std::optional<loader::e32img>, std::optional<loader::romimg>>
                 result{ std::nullopt, std::nullopt };
 
-            if (io_->exist(lib_path)) {
+            if (io_->exist(path)) {
                 symfile f = io_->open_file(path, READ_MODE | BIN_MODE | additional_mode_);
                 if (!f) {
                     return result;
@@ -921,6 +947,23 @@ namespace eka2l1::hle {
             return std::pair<std::optional<loader::e32img>, std::optional<loader::romimg>>{};
         }
 
+        if (is_drive_relative_root_path(lib_path)) {
+            for (drive_number drv = drive_a; drv <= drive_z; drv = static_cast<drive_number>(static_cast<int>(drv) + 1)) {
+                const std::u16string driven_path = add_drive_to_root_path(drv, lib_path);
+
+                auto result = open_and_get(driven_path);
+                if (result.first != std::nullopt || result.second != std::nullopt) {
+                    if (full_path) {
+                        *full_path = driven_path;
+                    }
+
+                    return result;
+                }
+            }
+
+            return std::pair<std::optional<loader::e32img>, std::optional<loader::romimg>>{};
+        }
+
         if (full_path) {
             *full_path = lib_path;
         }
@@ -940,7 +983,7 @@ namespace eka2l1::hle {
                 }
             }
         }
-    
+
         auto load_depend_on_drive = [&](const std::u16string &lib_path, const bool is_driver_lib = false) -> codeseg_ptr {
             symfile f = io_->open_file(lib_path, READ_MODE | BIN_MODE | additional_mode_);
             if (!f) {
@@ -951,12 +994,21 @@ namespace eka2l1::hle {
             eka2l1::ro_file_stream image_data_stream(f.get());
 
             if (f->is_in_rom()) {
-                auto romimg = loader::parse_romimg(reinterpret_cast<common::ro_stream *>(&image_data_stream), mem_, kern_->get_epoc_version(), is_driver_lib);
-                if (!romimg) {
-                    return nullptr;
-                }
+                if (loader::is_e32img(reinterpret_cast<common::ro_stream *>(&image_data_stream))) {
+                    auto e32img = loader::parse_e32img(reinterpret_cast<common::ro_stream *>(&image_data_stream));
+                    if (!e32img) {
+                        return nullptr;
+                    }
 
-                return load_as_romimg(*romimg, lib_path, is_driver_lib);
+                    return load_as_e32img(*e32img, lib_path);
+                } else {
+                    auto romimg = loader::parse_romimg(reinterpret_cast<common::ro_stream *>(&image_data_stream), mem_, kern_->get_epoc_version(), is_driver_lib);
+                    if (!romimg) {
+                        return nullptr;
+                    }
+
+                    return load_as_romimg(*romimg, lib_path, is_driver_lib);
+                }
             } else {
                 auto e32img = loader::parse_e32img(reinterpret_cast<common::ro_stream *>(&image_data_stream));
                 if (!e32img) {
@@ -1018,6 +1070,24 @@ namespace eka2l1::hle {
             return nullptr;
         }
 
+        if (is_drive_relative_root_path(lib_path)) {
+            const std::u16string root_path = lib_path;
+
+            for (drive_number drv = drive_a; drv <= drive_z; drv = static_cast<drive_number>(static_cast<int>(drv) + 1)) {
+                lib_path = add_drive_to_root_path(drv, root_path);
+
+                if (io_->exist(lib_path)) {
+                    auto result = load_depend_on_drive(lib_path, is_driver_lib);
+                    if (result != nullptr) {
+                        result->set_full_path(lib_path);
+                        return result;
+                    }
+                }
+            }
+
+            return nullptr;
+        }
+
         if (!io_->exist(lib_path)) {
             return nullptr;
         }
@@ -1052,7 +1122,7 @@ namespace eka2l1::hle {
     bool lib_manager::call_svc(sid svcnum) {
         // Lock the kernel so SVC call can operate in safety
         kern_->lock();
-        
+
         // Trampoline lookup here
         if (svcnum == 0xFF) {
             jump_trampoline_through_svc();
@@ -1077,6 +1147,16 @@ namespace eka2l1::hle {
         }
 
         func.func(kern_, kern_->crr_process(), kern_->get_cpu());
+
+        if (kern_->get_config()->log_svc) {
+            const std::uint32_t r0 = kern_->get_cpu()->get_reg(0);
+            if (r0 == static_cast<std::uint32_t>(epoc::error_bad_handle)) {
+                arm::core::thread_context &context = kern_->crr_thread()->get_thread_context();
+                LOG_TRACE(KERNEL, "SVC 0x{:X} {} returned KErrBadHandle, pc=0x{:X}, lr=0x{:X}, r1=0x{:X}, r2=0x{:X}, r3=0x{:X}",
+                    svcnum, func.name, context.get_pc(), context.get_lr(), kern_->get_cpu()->get_reg(1),
+                    kern_->get_cpu()->get_reg(2), kern_->get_cpu()->get_reg(3));
+            }
+        }
 
         kern_->unlock();
         return true;
@@ -1281,6 +1361,7 @@ namespace eka2l1::hle {
             search_paths.push_back(u"\\System\\Libs\\");
             search_paths.push_back(u"\\System\\Programs\\");
             search_paths.push_back(u"\\System\\Fep\\");
+            search_paths.push_back(u"\\Sys\\Bin\\");
         } else {
             search_paths.push_back(u"\\Sys\\Bin\\");
 

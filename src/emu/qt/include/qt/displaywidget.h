@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,10 +20,11 @@
 #ifndef DISPLAY_WIDGET_H
 #define DISPLAY_WIDGET_H
 
-#include <QOpenGLContext>
 #include <QWidget>
 
 #include <drivers/graphics/emu_window.h>
+
+#include <array>
 
 class display_window_widget;
 
@@ -32,9 +33,13 @@ class display_widget : public QWidget, public eka2l1::drivers::emu_window {
 
 private:
     std::array<int, eka2l1::MAX_SYMBIAN_SUPPORTED_POINTERS> active_pointers_;
+    std::array<eka2l1::vec3, eka2l1::MAX_SYMBIAN_SUPPORTED_POINTERS> active_pointer_positions_;
+    eka2l1::vec2d last_mouse_pos_;
+    Qt::MouseButtons held_mouse_buttons_;
     void *userdata_;
 
     void reset_active_pointers();
+    bool emit_raw_mouse_event(eka2l1::vec3 pos, int button, int action, int mouse_id);
 
 public:
     explicit display_widget(QWidget *parent = nullptr);

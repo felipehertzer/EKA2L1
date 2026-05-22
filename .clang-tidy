@@ -1,0 +1,28 @@
+---
+Checks: >
+  -*,
+  bugprone-assert-side-effect,
+  bugprone-bool-pointer-implicit-conversion,
+  bugprone-copy-constructor-init,
+  bugprone-dangling-handle,
+  bugprone-fold-init-type,
+  bugprone-infinite-loop,
+  bugprone-parent-virtual-call,
+  bugprone-sizeof-container,
+  bugprone-string-constructor,
+  bugprone-suspicious-memset-usage,
+  bugprone-use-after-move,
+  bugprone-virtual-near-miss,
+  -bugprone-easily-swappable-parameters,
+  performance-faster-string-find,
+  performance-for-range-copy,
+  performance-inefficient-vector-operation,
+  performance-move-const-arg,
+  performance-unnecessary-copy-initialization
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(src/emu|src/patch|src/tests|src/tools|native)/'
+FormatStyle: file
+CheckOptions:
+  - key: bugprone-argument-comment.StrictMode
+    value: '0'
+...

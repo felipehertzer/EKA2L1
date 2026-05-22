@@ -19,9 +19,9 @@
 
 #pragma once
 
+#include <common/container.h>
 #include <common/types.h>
 #include <common/watcher.h>
-#include <common/container.h>
 
 #include <scripting/lua_helper.h>
 #include <scripting/platform.h>
@@ -71,9 +71,9 @@ namespace eka2l1::manager {
             META_CATEGORY_BREAKPOINT = 2
         };
 
-        std::shared_ptr<script_module> parent_; 
+        std::shared_ptr<script_module> parent_;
 
-        void* func_;
+        void *func_;
         meta_category category_;
 
         explicit script_function(std::shared_ptr<script_module> parent, void *func, meta_category category)
@@ -87,7 +87,7 @@ namespace eka2l1::manager {
             return reinterpret_cast<T>(func_);
         }
     };
-    
+
     struct script_module {
         scripting::luacpp_state state_;
         common::identity_container<std::unique_ptr<script_function>> functions_;
@@ -120,7 +120,7 @@ namespace eka2l1::manager {
         explicit breakpoint_info();
     };
 
-    using ipc_operation_func_list = std::vector<script_function*>;
+    using ipc_operation_func_list = std::vector<script_function *>;
     using breakpoint_info_list = std::vector<breakpoint_info>;
 
     struct breakpoint_info_list_record {
@@ -131,10 +131,10 @@ namespace eka2l1::manager {
     static constexpr std::uint32_t INVALID_HOOK_HANDLE = 0xFFFFFFFF;
 
     /**
-     * \brief A manager for all custom Python scripts of EKA2L1 
+     * \brief A manager for all custom Python scripts of EKA2L1
      *
      * This class manages all Python modules of an EKA2L1 instance.
-     * 
+     *
      * This class also manages all panic, system call and reschedule hooks,
      * allowing users to discover and work with high-level interface of
      * EKA2L1
@@ -175,20 +175,19 @@ namespace eka2l1::manager {
 
         /**
          * \brief Patch ordinal breakpoints with address based on code base address of given image.
-         * 
+         *
          * \param name      The code segment of the library that requires patching.
          */
         void patch_library_hook(const codeseg_ptr &seg);
 
         /**
          * \brief Patch breakpoints that are not relocated yet.
-         * 
+         *
          * \param process_uid       The process of the UID that holds the relocated image.
          * \param seg               The code segment that requires patching.
          * \param new_code_addr     The new code base address of the given image.
          */
-        void patch_unrelocated_hook(const std::uint32_t process_uid,const codeseg_ptr &seg, const address new_code_addr);
-
+        void patch_unrelocated_hook(const std::uint32_t process_uid, const codeseg_ptr &seg, const address new_code_addr);
 
     public:
         explicit scripts(system *sys);
@@ -215,7 +214,7 @@ namespace eka2l1::manager {
 
         /**
          * \brief Register a library hook.
-         * 
+         *
          * \param name              The name of the library we want to hook to.
          * \param ord               The ordinal of the function we want to hook.
          * \param process_uid       The UID of the process we wants to invoke this hook.
@@ -223,20 +222,20 @@ namespace eka2l1::manager {
          */
         std::uint32_t register_library_hook(const std::string &name, const std::uint32_t ord, const std::uint32_t process_uid, const std::uint32_t uid3, const std::uint32_t seghash, breakpoint_hit_func func);
         std::uint32_t register_breakpoint(const std::string &lib_name, const uint32_t addr, const std::uint32_t process_uid, const std::uint32_t uid3, const std::uint32_t seghash, breakpoint_hit_func func);
-        std::uint32_t register_ipc(const std::string &server_name, const int opcode, const int invoke_when, void* func);
+        std::uint32_t register_ipc(const std::string &server_name, const int opcode, const int invoke_when, void *func);
 
         bool call_breakpoints(const std::uint32_t addr, const std::uint32_t process_uid);
 
         /**
          * \brief Set all pending breakpoints.
-         * 
+         *
          * \param pr    The process we want to attach the breakpoint to.
          */
         void write_breakpoint_blocks(kernel::process *pr);
 
         /**
          * \brief Set breakpoint on a process, at specified address.
-         * 
+         *
          * \param pr        The target process we want to attach a breakpoint to
          * \param target    The address of the breakpoint.
          */
@@ -244,19 +243,19 @@ namespace eka2l1::manager {
 
         /**
          * \brief Write back all instructions that was overwritted by bkpt.
-         * 
+         *
          * \param pr        The target process we want to give back the instruction.
          */
         void write_back_breakpoints(kernel::process *pr);
 
         /**
          * \brief Write back instruction that was overwritted by bkpt.
-         * 
+         *
          * \param pr                The target process we want to give back the instruction.
          * \param target            The address to write back instruction.
          * \param should_full_flush Pointer to a boolean variable suggesting that a full flush should be done
          *                          after this write or not.
-         * 
+         *
          * \returns True on success and the bkpt was written before.
          */
         bool write_back_breakpoint(kernel::process *pr, const vaddress target, bool *should_full_flush = nullptr);
@@ -264,7 +263,7 @@ namespace eka2l1::manager {
         script_function *make_function(void *func_ptr, const script_function::meta_category category, std::size_t *handle);
         void remove_function(const std::uint32_t handle);
 
-        template <typename T, typename ...Args>
+        template <typename T, typename... Args>
         void call(script_function *func, Args... args) {
             current_module = func->parent_;
             func->cast<T>()(args...);

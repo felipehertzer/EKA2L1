@@ -20,12 +20,15 @@
 #include <android/emu_window_android.h>
 #include <common/log.h>
 #include <common/raw_bind.h>
-#include <glad/glad.h>
+
+#include <algorithm>
 
 namespace eka2l1 {
     namespace drivers {
         emu_window_android::emu_window_android()
-            : userdata(nullptr) {
+            : fb_size(0, 0)
+            , surface(nullptr)
+            , userdata(nullptr) {
         }
 
         bool emu_window_android::get_mouse_button_hold(const int mouse_btt) {
@@ -92,11 +95,21 @@ namespace eka2l1 {
         }
 
         void emu_window_android::surface_changed(ANativeWindow *surf, int width, int height) {
+            surface = surf;
             if ((width > 0) && (height > 0)) {
                 fb_size.x = width;
                 fb_size.y = height;
             }
-            surface_change_hook(surf);
+            if (surface_change_hook) {
+                surface_change_hook(surf);
+            }
+        }
+
+        window_system_info emu_window_android::get_window_system_info() {
+            window_system_info info(window_system_type::android, nullptr, surface, surface);
+            info.surface_width = static_cast<std::uint32_t>(std::max(0, fb_size.x));
+            info.surface_height = static_cast<std::uint32_t>(std::max(0, fb_size.y));
+            return info;
         }
     }
 }

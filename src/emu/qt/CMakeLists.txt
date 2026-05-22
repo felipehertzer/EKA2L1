@@ -12,14 +12,16 @@ if(ANDROID)
 endif()
 
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets LinguistTools Gui REQUIRED)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets LinguistTools Svg Network REQUIRED)
 
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    set(EXCLUSIVE_QT_COMPONENTS OpenGLWidgets)
-else()
-    set(EXCLUSIVE_QT_COMPONENTS OpenGL)
+if(APPLE AND TARGET Qt${QT_VERSION_MAJOR}::Gui)
+    get_target_property(EKA2L1_QT_GUI_LINK_LIBRARIES Qt${QT_VERSION_MAJOR}::Gui INTERFACE_LINK_LIBRARIES)
+    if(EKA2L1_QT_GUI_LINK_LIBRARIES)
+        list(REMOVE_ITEM EKA2L1_QT_GUI_LINK_LIBRARIES WrapOpenGL::WrapOpenGL "-framework OpenGL")
+        set_target_properties(Qt${QT_VERSION_MAJOR}::Gui PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${EKA2L1_QT_GUI_LINK_LIBRARIES}")
+    endif()
 endif()
-
-find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets LinguistTools Svg Network ${EXCLUSIVE_QT_COMPONENTS} REQUIRED)
 
 # Make list of TS files, and add them to resources. Credits from Yuzu CMakeLists
 set(TS_FOLDER translations)
@@ -173,19 +175,10 @@ else()
     endif()
 endif()
 
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    set(EXCLUSIVE_QT_LIBRARIES
-        Qt${QT_VERSION_MAJOR}::OpenGLWidgets)
-else()
-    set(EXCLUSIVE_QT_LIBRARIES
-        Qt${QT_VERSION_MAJOR}::OpenGL)
-endif()
-
 target_link_libraries(eka2l1_qt PRIVATE
     Qt${QT_VERSION_MAJOR}::Svg
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
-    ${EXCLUSIVE_QT_LIBRARIES}
     common
     config
     drivers
@@ -236,27 +229,48 @@ add_dependencies(eka2l1_qt
     postingsurfacefactory
     goommonitor)
 
+if (APPLE)
+    set(EKA2L1_RUNTIME_DATA_DIR "$<TARGET_FILE_DIR:eka2l1_qt>/../Resources")
+    set(EKA2L1_PREPARE_RUNTIME_DATA_COMMANDS
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:eka2l1_qt>/scripts"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:eka2l1_qt>/resources"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:eka2l1_qt>/compat"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "$<TARGET_FILE_DIR:eka2l1_qt>/patch"
+        COMMAND ${CMAKE_COMMAND} -E remove -f "$<TARGET_FILE_DIR:eka2l1_qt>/panic.json")
+else()
+    set(EKA2L1_RUNTIME_DATA_DIR "$<TARGET_FILE_DIR:eka2l1_qt>")
+    set(EKA2L1_PREPARE_RUNTIME_DATA_COMMANDS)
+endif()
+
 add_custom_command(
         TARGET eka2l1_qt
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/scripts"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/scripts/disabled"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/resources"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/resources/upscale"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/compat"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/miscs/panic/panic.json" "$<TARGET_FILE_DIR:eka2l1_qt>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/miscs/utils/leavehook.py" "$<TARGET_FILE_DIR:eka2l1_qt>/scripts/disabled/"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/scripts/" "$<TARGET_FILE_DIR:eka2l1_qt>/scripts/"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/gl/" "$<TARGET_FILE_DIR:eka2l1_qt>/resources/"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/upscale/" "$<TARGET_FILE_DIR:eka2l1_qt>/resources/upscale/"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/defaultbank.hsb" "$<TARGET_FILE_DIR:eka2l1_qt>/resources/"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/defaultbank.sf2" "$<TARGET_FILE_DIR:eka2l1_qt>/resources/"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/miscs/compat/" "$<TARGET_FILE_DIR:eka2l1_qt>/compat/"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/src/external/SDL_GameControllerDB/gamecontrollerdb.txt" "$<TARGET_FILE_DIR:eka2l1_qt>/resources/"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/qt/resources/" "$<TARGET_FILE_DIR:eka2l1_qt>/resources/"
+        ${EKA2L1_PREPARE_RUNTIME_DATA_COMMANDS}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${EKA2L1_RUNTIME_DATA_DIR}/scripts"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${EKA2L1_RUNTIME_DATA_DIR}/scripts/disabled"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${EKA2L1_RUNTIME_DATA_DIR}/resources"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${EKA2L1_RUNTIME_DATA_DIR}/resources/upscale"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${EKA2L1_RUNTIME_DATA_DIR}/compat"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/miscs/panic/panic.json" "${EKA2L1_RUNTIME_DATA_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/miscs/utils/leavehook.py" "${EKA2L1_RUNTIME_DATA_DIR}/scripts/disabled/"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/scripts/" "${EKA2L1_RUNTIME_DATA_DIR}/scripts/"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/upscale/" "${EKA2L1_RUNTIME_DATA_DIR}/resources/upscale/"
+        COMMAND ${CMAKE_COMMAND} -E remove -f "${EKA2L1_RUNTIME_DATA_DIR}/resources/upscale/.git"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/defaultbank.hsb" "${EKA2L1_RUNTIME_DATA_DIR}/resources/"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/defaultbank.sf2" "${EKA2L1_RUNTIME_DATA_DIR}/resources/"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/miscs/compat/" "${EKA2L1_RUNTIME_DATA_DIR}/compat/"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/src/external/SDL_GameControllerDB/gamecontrollerdb.txt" "${EKA2L1_RUNTIME_DATA_DIR}/resources/"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/qt/resources/" "${EKA2L1_RUNTIME_DATA_DIR}/resources/"
     )
 
 if (EKA2L1_ENABLE_SCRIPTING_ABILITY)
+    add_custom_command(
+            TARGET eka2l1_qt
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${EKA2L1_RUNTIME_DATA_DIR}/scripts/eka2l1"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/scripting/lua/eka2l1/" "${EKA2L1_RUNTIME_DATA_DIR}/scripts/eka2l1/"
+    )
+
     if (LUA_DLL_PATH)
         add_custom_command(
                 TARGET eka2l1_qt
@@ -269,6 +283,9 @@ if (EKA2L1_ENABLE_SCRIPTING_ABILITY)
 
     if (UNIX AND (NOT APPLE) AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"))
         target_link_libraries(eka2l1_qt PRIVATE -Wl,--whole-archive $<TARGET_FILE:scripting> -Wl,--no-whole-archive)
+    elseif(APPLE AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU"))
+        target_link_options(eka2l1_qt PRIVATE "LINKER:-force_load,$<TARGET_FILE:scripting>")
+        target_link_libraries(eka2l1_qt PRIVATE scripting)
     elseif(MSVC)
         set_target_properties(eka2l1_qt PROPERTIES LINK_FLAGS /WHOLEARCHIVE:scripting.lib)
     else()
@@ -300,14 +317,20 @@ if(APPLE)
     )
 
     # Copy Qt plugins into the bundle
-    if (${QT_VERSION_MAJOR} EQUAL 5)
+    if (TARGET Qt${QT_VERSION_MAJOR}::QCocoaIntegrationPlugin)
         get_target_property(qtcocoa_location Qt${QT_VERSION_MAJOR}::QCocoaIntegrationPlugin LOCATION)
-        target_sources(eka2l1_qt PRIVATE "${qtcocoa_location}")
-        set_source_files_properties("${qtcocoa_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/platforms)
+        add_custom_command(TARGET eka2l1_qt
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/../PlugIns/platforms"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${qtcocoa_location}" "$<TARGET_FILE_DIR:eka2l1_qt>/../PlugIns/platforms/")
+    endif()
 
+    if (TARGET Qt${QT_VERSION_MAJOR}::QMacStylePlugin)
         get_target_property(qtmacstyle_location Qt${QT_VERSION_MAJOR}::QMacStylePlugin LOCATION)
-        target_sources(eka2l1_qt PRIVATE "${qtmacstyle_location}")
-        set_source_files_properties("${qtmacstyle_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/styles)
+        add_custom_command(TARGET eka2l1_qt
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/../PlugIns/styles"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${qtmacstyle_location}" "$<TARGET_FILE_DIR:eka2l1_qt>/../PlugIns/styles/")
     endif()
 
     # Copy icon into the bundle
@@ -317,9 +340,20 @@ if(APPLE)
     add_custom_command(
         TARGET eka2l1_qt
         POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/patch"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_BINARY_DIR}/bin/patch/" "$<TARGET_FILE_DIR:eka2l1_qt>/patch/"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/external/sdl2/macos/SDL2.framework" "$<TARGET_FILE_DIR:eka2l1_qt>/Frameworks/SDL2.framework")
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${EKA2L1_RUNTIME_DATA_DIR}/patch"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_BINARY_DIR}/bin/patch/" "${EKA2L1_RUNTIME_DATA_DIR}/patch/"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:eka2l1_qt>/Frameworks"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/external/sdl2/macos/SDL2.framework" "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework"
+        # cmake -E copy_directory dereferences framework symlinks. Restore the
+        # canonical layout so codesign and dyld treat SDL2 as a framework.
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/Headers"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/Resources"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/SDL2"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/Versions/Current"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink "Versions/Current/Headers" "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/Headers"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink "Versions/Current/Resources" "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/Resources"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink "Versions/Current/SDL2" "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/SDL2"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink "A" "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/SDL2.framework/Versions/Current")
 
     # Update library references to make the bundle portable
     include(DolphinPostprocessBundle)
@@ -329,6 +363,42 @@ if(APPLE)
        POST_BUILD COMMAND
        ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../Frameworks/"
        $<TARGET_FILE:eka2l1_qt>)
+
+    if (BUILD_WITH_VULKAN)
+        find_library(MOLTENVK_LIBRARY NAMES MoltenVK libMoltenVK
+            HINTS /opt/homebrew/lib /usr/local/lib)
+
+        if (MOLTENVK_LIBRARY)
+            set(MOLTENVK_ICD_JSON "${CMAKE_CURRENT_BINARY_DIR}/MoltenVK_icd.json")
+            file(WRITE "${MOLTENVK_ICD_JSON}"
+"{
+    \"file_format_version\" : \"1.0.0\",
+    \"ICD\": {
+        \"library_path\": \"../../../Frameworks/libMoltenVK.dylib\",
+        \"api_version\" : \"1.4.0\",
+        \"is_portability_driver\" : true
+    }
+}
+")
+
+            add_custom_command(TARGET eka2l1_qt
+                POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:eka2l1_qt>/../Resources/vulkan/icd.d"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MOLTENVK_LIBRARY}" "$<TARGET_FILE_DIR:eka2l1_qt>/../Frameworks/libMoltenVK.dylib"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MOLTENVK_ICD_JSON}" "$<TARGET_FILE_DIR:eka2l1_qt>/../Resources/vulkan/icd.d/MoltenVK_icd.json")
+        else()
+            message(WARNING "MoltenVK library not found; macOS Vulkan bundle will require a system MoltenVK install.")
+        endif()
+    endif()
+
+    if (NOT EKA2L1_DEPLOY_DMG)
+        add_custom_command(TARGET eka2l1_qt
+            POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -DEKA2L1_BUNDLE_PATH="$<TARGET_FILE_DIR:eka2l1_qt>/../.."
+                -DEKA2L1_MAIN_EXECUTABLE_PATH="$<TARGET_FILE:eka2l1_qt>"
+                -DEKA2L1_ENTITLEMENTS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/EKA2L1.entitlements"
+                -P "${PROJECT_SOURCE_DIR}/cmake/MacOSAdHocSignBundle.cmake")
+    endif()
 
     if (EKA2L1_DEPLOY_DMG)
         find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BIN_DIR}")
@@ -370,7 +440,7 @@ if (WIN32)
     add_custom_command(
         TARGET eka2l1_qt
         POST_BUILD
-        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-compiler-runtime --no-opengl-sw --no-quick --plugindir "$<TARGET_FILE_DIR:eka2l1_qt>/qt/plugins" ${DEPLOY_BUILD_CONFIG_ARG} "$<TARGET_FILE:eka2l1_qt>")
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-compiler-runtime --no-quick --plugindir "$<TARGET_FILE_DIR:eka2l1_qt>/qt/plugins" ${DEPLOY_BUILD_CONFIG_ARG} "$<TARGET_FILE:eka2l1_qt>")
 
     set_property(TARGET updater PROPERTY WIN32_EXECUTABLE true)
 
@@ -382,7 +452,7 @@ if (WIN32)
     add_custom_command(
         TARGET updater
         POST_BUILD
-        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-compiler-runtime --no-opengl-sw --no-quick --plugindir "$<TARGET_FILE_DIR:updater>/qt/plugins" ${DEPLOY_BUILD_CONFIG_ARG} "$<TARGET_FILE:updater>")
+        COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-compiler-runtime --no-quick --plugindir "$<TARGET_FILE_DIR:updater>/qt/plugins" ${DEPLOY_BUILD_CONFIG_ARG} "$<TARGET_FILE:updater>")
 
     if (MINGW)
         find_file(LIBGCC_DLL_PATH "libgcc_s_seh-1.dll" HINTS ENV PATH NO_CACHE)

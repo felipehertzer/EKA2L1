@@ -17,8 +17,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <loader/nvg.h>
 #include <common/log.h>
+#include <loader/nvg.h>
 
 #include <map>
 
@@ -26,7 +26,7 @@ namespace eka2l1::loader {
     static constexpr std::uint32_t NVG_TYPE_OFFSET = 6;
     static constexpr std::uint32_t NVG_VERSION_OFFSET = 3;
     static constexpr std::uint32_t NVG_HEADERSIZE_OFFSET = 4;
-    static constexpr std::uint32_t NVG_PATH_DATATYPE_OFFSET = 26;   // int16
+    static constexpr std::uint32_t NVG_PATH_DATATYPE_OFFSET = 26; // int16
 
     // Unused mostly, scale and bias is hardcoded depends on path type (8/16/32 bits)
     static constexpr std::uint32_t NVG_PATH_DATA_SCALE_OFFSET = 28; // float
@@ -58,19 +58,19 @@ namespace eka2l1::loader {
     };
 
     enum vg_path_segment_type {
-        VG_CLOSE_PATH                               = ( 0 << 1),
-        VG_MOVE_TO                                  = ( 1 << 1),
-        VG_LINE_TO                                  = ( 2 << 1),
-        VG_HLINE_TO                                 = ( 3 << 1),
-        VG_VLINE_TO                                 = ( 4 << 1),
-        VG_QUAD_TO                                  = ( 5 << 1),
-        VG_CUBIC_TO                                 = ( 6 << 1),
-        VG_SQUAD_TO                                 = ( 7 << 1),
-        VG_SCUBIC_TO                                = ( 8 << 1),
-        VG_SCCWARC_TO                               = ( 9 << 1),
-        VG_SCWARC_TO                                = (10 << 1),
-        VG_LCCWARC_TO                               = (11 << 1),
-        VG_LCWARC_TO                                = (12 << 1),
+        VG_CLOSE_PATH = (0 << 1),
+        VG_MOVE_TO = (1 << 1),
+        VG_LINE_TO = (2 << 1),
+        VG_HLINE_TO = (3 << 1),
+        VG_VLINE_TO = (4 << 1),
+        VG_QUAD_TO = (5 << 1),
+        VG_CUBIC_TO = (6 << 1),
+        VG_SQUAD_TO = (7 << 1),
+        VG_SCUBIC_TO = (8 << 1),
+        VG_SCCWARC_TO = (9 << 1),
+        VG_SCWARC_TO = (10 << 1),
+        VG_LCCWARC_TO = (11 << 1),
+        VG_LCWARC_TO = (12 << 1),
     };
 
     enum nvg_transform_set_type {
@@ -127,8 +127,8 @@ namespace eka2l1::loader {
     std::string emit_gradient_stops(nvg_brush &brush) {
         std::string result;
 
-        for (const nvg_color_ramp_stop_info &info: brush.ramps_) {
-            result += fmt::format("\t<stop offset=\"{}\" stop-color=\"#{:02X}{:02X}{:02X}\" stop-opacity=\"{}\" />\n", info.offset_ ,
+        for (const nvg_color_ramp_stop_info &info : brush.ramps_) {
+            result += fmt::format("\t<stop offset=\"{}\" stop-color=\"#{:02X}{:02X}{:02X}\" stop-opacity=\"{}\" />\n", info.offset_,
                 static_cast<int>(info.color_[0] * 255.0f), static_cast<int>(info.color_[1] * 255.0f), static_cast<int>(info.color_[2] * 255.0f),
                 info.color_[3]);
         }
@@ -225,7 +225,7 @@ namespace eka2l1::loader {
 
         std::uint32_t paint_type = command_data & 0b111;
         std::uint32_t specific_data = static_cast<std::uint16_t>((command_data >> 16) & 0xFF);
-        
+
         switch (paint_type) {
         case NVG_BRUSH_FLAT_COLOR: {
             brush.brush_type_ = NVG_BRUSH_FLAT_COLOR;
@@ -260,7 +260,7 @@ namespace eka2l1::loader {
 
             break;
         }
-        
+
         case NVG_BRUSH_RADIAL_GRAD: {
             brush.brush_type_ = NVG_BRUSH_RADIAL_GRAD;
             // Read start and end point
@@ -318,24 +318,26 @@ namespace eka2l1::loader {
             { VG_HLINE_TO, 'H' },
             { VG_VLINE_TO, 'V' },
             { VG_MOVE_TO, 'M' },
-            { VG_SQUAD_TO, 'T' },   // Smooth quad
+            { VG_SQUAD_TO, 'T' }, // Smooth quad
             { VG_QUAD_TO, 'Q' },
             { VG_SCUBIC_TO, 'S' },
             { VG_CUBIC_TO, 'C' },
             { VG_LCCWARC_TO, 'A' },
             { VG_SCCWARC_TO, 'A' },
             { VG_LCWARC_TO, 'A' },
-            { VG_SCCWARC_TO, 'A' }
+            { VG_SCWARC_TO, 'A' }
         };
 
         T values[6];
 
-        for (std::uint8_t segment_type: segment_types) {
-            if (segment_type == VG_CLOSE_PATH) {
+        for (std::uint8_t segment_type : segment_types) {
+            const auto segment_base = static_cast<vg_path_segment_type>(segment_type & ~1);
+
+            if (segment_base == VG_CLOSE_PATH) {
                 break;
             }
 
-            auto correspond_find_res = CORRESPOND_SVG_CMD_CHAR.find(static_cast<vg_path_segment_type>(segment_type & ~1));
+            auto correspond_find_res = CORRESPOND_SVG_CMD_CHAR.find(segment_base);
             if (correspond_find_res == CORRESPOND_SVG_CMD_CHAR.end()) {
                 errors.emplace_back(NVG_UNKNOWN_PATH_SEGMENT_TYPE, in.tell(), segment_type & ~1);
                 continue;
@@ -347,11 +349,11 @@ namespace eka2l1::loader {
                 result_char_res = static_cast<char>(std::tolower(result_char_res));
             }
 
-            switch (segment_type) {
+            switch (segment_base) {
             case VG_HLINE_TO:
             case VG_VLINE_TO: {
                 T to_pos = 0;
-                        
+
                 if (in.read(&to_pos, ELEM_T_SIZE) != ELEM_T_SIZE) {
                     errors.emplace_back(NVG_READ_COMMAND_DATA_FAILED, in.tell());
                     return false;
@@ -377,8 +379,8 @@ namespace eka2l1::loader {
             case VG_SCWARC_TO:
             case VG_LCCWARC_TO:
             case VG_LCWARC_TO: {
-                const bool is_counterclock_wise = (segment_type == VG_SCCWARC_TO) || (segment_type == VG_LCCWARC_TO);
-                const bool is_small = (segment_type == VG_SCWARC_TO) || (segment_type == VG_SCCWARC_TO);
+                const bool is_counterclock_wise = (segment_base == VG_SCCWARC_TO) || (segment_base == VG_LCCWARC_TO);
+                const bool is_small = (segment_base == VG_SCWARC_TO) || (segment_base == VG_SCCWARC_TO);
 
                 if (in.read(values, ELEM_T_SIZE * 5) != ELEM_T_SIZE * 5) {
                     errors.emplace_back(NVG_READ_COMMAND_DATA_FAILED, in.tell());
@@ -466,7 +468,7 @@ namespace eka2l1::loader {
             if (state.path_datatype_ == NVG_PATH_SIXTEEN_BIT_DECODING) {
                 scale = 1.0f / 16.0f;
             }
-            
+
             if (!nvg_generate_direction<std::uint16_t>(in, direction, errors, segment_types, scale)) {
                 return false;
             }
@@ -539,7 +541,7 @@ namespace eka2l1::loader {
         if (state.stroke_width_ != 1.0f) {
             stroke_width = fmt::format(" stroke-width=\"{}\"", state.stroke_width_);
         }
-        
+
         std::string stroke_miterlimit;
         if (state.stroke_miter_limit != 4.0f) {
             stroke_width = fmt::format(" stroke-miterlimit=\"{}\"", state.stroke_miter_limit);

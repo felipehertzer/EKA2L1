@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -89,7 +89,7 @@ CMMFMdaOutputBufferQueue::CMMFMdaOutputBufferQueue(CMMFMdaAudioStream *aStream)
 }
 
 void CMMFMdaOutputBufferQueue::WriteAndWait() {
-    CMMFMdaAudioOutputStream *outputStream = (CMMFMdaAudioOutputStream*) iStream;
+    CMMFMdaAudioOutputStream *outputStream = (CMMFMdaAudioOutputStream *)iStream;
 
     if (iBufferNodes.IsEmpty()) {
         iCopied = NULL;
@@ -113,7 +113,7 @@ void CMMFMdaOutputBufferQueue::WriteAndWait() {
 }
 
 void CMMFMdaOutputBufferQueue::RunL() {
-    CMMFMdaAudioOutputStream *outputStream = (CMMFMdaAudioOutputStream*) iStream;
+    CMMFMdaAudioOutputStream *outputStream = (CMMFMdaAudioOutputStream *)iStream;
 
     // Notify that last buffer has been copied
     if (iCopied) {
@@ -133,7 +133,7 @@ void CMMFMdaOutputBufferQueue::RunL() {
 }
 
 void CMMFMdaOutputBufferQueue::CleanQueue() {
-    CMMFMdaAudioOutputStream *outputStream = (CMMFMdaAudioOutputStream*) iStream;
+    CMMFMdaAudioOutputStream *outputStream = (CMMFMdaAudioOutputStream *)iStream;
 
     if (iCopied)
         outputStream->iCallback.MaoscBufferCopied(KErrAbort, *iCopied->iBuffer);
@@ -166,8 +166,8 @@ void CMMFMdaOutputOpen::RunL() {
 void CMMFMdaOutputOpen::Open(CMMFMdaAudioStream *stream) {
     iParent = stream;
 
-	if (!iConstructed) {
-		TRAPD(result, ConstructL());
+    if (!iConstructed) {
+        TRAPD(result, ConstructL());
         if (result != KErrNone) {
             LogOut(KMcaCat, _L("Error happens during open active object construction (code=%d)!"), result);
         }
@@ -363,7 +363,7 @@ CMMFMdaAudioOutputStream *CMMFMdaAudioOutputStream::NewL(MMdaAudioOutputStreamCa
 
 void CMMFMdaAudioOutputStream::ConstructL() {
     ConstructBaseL(EFalse);
-    
+
     iWaitBufferEndTimer = CPeriodic::NewL(CActive::EPriorityStandard);
 
     CActiveScheduler::Add(&iBufferQueue);
@@ -511,11 +511,10 @@ void CMMFMdaAudioOutputStream::HandleBufferInsufficient() {
 /// INPUT STREAM BUFFER QUEUE
 CMMFMdaInputBufferQueue::CMMFMdaInputBufferQueue(CMMFMdaAudioStream *aStream)
     : CMMFMdaBufferQueue(aStream) {
-
 }
 
 void CMMFMdaInputBufferQueue::ReadAndWait() {
-    CMMFMdaAudioInputStream *inputStream = (CMMFMdaAudioInputStream*) iStream;
+    CMMFMdaAudioInputStream *inputStream = (CMMFMdaAudioInputStream *)iStream;
 
     if (iBufferNodes.IsEmpty()) {
         return;
@@ -532,7 +531,7 @@ void CMMFMdaInputBufferQueue::ReadAndWait() {
 }
 
 void CMMFMdaInputBufferQueue::CleanQueue() {
-    CMMFMdaAudioInputStream *inputStream = (CMMFMdaAudioInputStream*) iStream;
+    CMMFMdaAudioInputStream *inputStream = (CMMFMdaAudioInputStream *)iStream;
 
     if (!iBufferNodes.IsEmpty()) {
         inputStream->iCallback.MaiscBufferCopied(KErrAbort, *(iBufferNodes.First()->iBuffer));
@@ -542,10 +541,10 @@ void CMMFMdaInputBufferQueue::CleanQueue() {
 }
 
 void CMMFMdaInputBufferQueue::RunL() {
-    CMMFMdaAudioInputStream *inputStream = (CMMFMdaAudioInputStream*) iStream;
+    CMMFMdaAudioInputStream *inputStream = (CMMFMdaAudioInputStream *)iStream;
     TMMFMdaBufferNode *node = iBufferNodes.First();
 
-    static_cast<TDes8&>(const_cast<TDesC8&>(*node->iBuffer)).SetLength(node->iBuffer->Length());
+    static_cast<TDes8 &>(const_cast<TDesC8 &>(*node->iBuffer)).SetLength(node->iBuffer->Length());
     inputStream->iCallback.MaiscBufferCopied(iStatus.Int(), *node->iBuffer);
 
     node->iLink.Deque();
@@ -559,11 +558,9 @@ CMMFMdaAudioInputStream::CMMFMdaAudioInputStream(MMdaAudioInputStreamCallback &a
     : CMMFMdaAudioStream(aPriority, aPref)
     , iBufferQueue(this)
     , iCallback(aCallback) {
-
 }
 
 CMMFMdaAudioInputStream::~CMMFMdaAudioInputStream() {
-
 }
 
 void CMMFMdaAudioInputStream::NotifyOpenComplete() {

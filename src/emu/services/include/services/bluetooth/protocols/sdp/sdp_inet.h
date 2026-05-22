@@ -1,34 +1,34 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/bluetooth/protocols/common.h>
-#include <services/internet/protocols/inet.h>
-#include <services/bluetooth/protocols/asker_inet.h>
-#include <services/bluetooth/protocols/sdp/pdu_builder.h>
-#include <services/socket/netdb.h>
 #include <common/sync.h>
+#include <services/bluetooth/protocols/asker_inet.h>
+#include <services/bluetooth/protocols/common.h>
+#include <services/bluetooth/protocols/sdp/pdu_builder.h>
+#include <services/internet/protocols/inet.h>
+#include <services/socket/netdb.h>
 
-#include <string>
 #include <memory>
 #include <mutex>
+#include <string>
 
 #include <uvlooper/uvlooper.h>
 #include <uvw.hpp>
@@ -37,7 +37,7 @@ namespace eka2l1::epoc::bt {
     class midman;
     class sdp_inet_protocol;
 
-    class sdp_inet_net_database: public socket::net_database {
+    class sdp_inet_net_database : public socket::net_database {
     private:
         internet::inet_bridged_protocol *inet_pro_;
         sdp_inet_protocol *protocol_;

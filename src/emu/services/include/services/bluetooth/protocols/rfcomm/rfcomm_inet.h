@@ -1,26 +1,26 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/bluetooth/protocols/btlink/btlink_inet.h>
 #include <services/bluetooth/protocols/base_inet.h>
+#include <services/bluetooth/protocols/btlink/btlink_inet.h>
 #include <services/socket/socket.h>
 
 namespace eka2l1::epoc::internet {
@@ -39,7 +39,7 @@ namespace eka2l1::epoc::bt {
     class rfcomm_inet_socket : public btinet_socket {
     public:
         explicit rfcomm_inet_socket(rfcomm_inet_protocol *pr, std::unique_ptr<epoc::socket::socket> &inet_sock)
-            : btinet_socket(reinterpret_cast<btlink_inet_protocol*>(pr), inet_sock) {
+            : btinet_socket(reinterpret_cast<btlink_inet_protocol *>(pr), inet_sock) {
         }
 
         std::size_t get_option(const std::uint32_t option_id, const std::uint32_t option_family,

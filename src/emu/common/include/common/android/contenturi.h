@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include <common/url.h>
-#include <common/pystr.h>
 #include <common/path.h>
+#include <common/pystr.h>
+#include <common/url.h>
 #include <fmt/format.h>
 
 #include <cctype>
@@ -31,6 +31,7 @@ namespace eka2l1::common::android {
         std::string provider;
         std::string root;
         std::string file;
+
     public:
         content_uri() {}
         explicit content_uri(const std::string &path) {
@@ -234,7 +235,7 @@ namespace eka2l1::common::android {
             } else {
                 // File URI from Tree
                 return fmt::format("content://{}/tree/{}/document/{}", provider,
-                                   uri_encode(root), uri_encode(file));
+                    uri_encode(root), uri_encode(file));
             }
         }
 

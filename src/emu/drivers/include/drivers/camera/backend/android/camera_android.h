@@ -54,11 +54,11 @@ namespace eka2l1::drivers::camera {
         std::vector<eka2l1::vec2> supported_output_image_sizes(const frame_format frame_format) override;
 
         void capture_image(const std::uint32_t resolution_index, const frame_format format,
-                           camera_capture_image_done_callback callback) override;
+            camera_capture_image_done_callback callback) override;
 
         void receive_viewfinder_feed(const eka2l1::vec2 &size, const frame_format format,
-                                     camera_wants_new_frame_callback new_frame_needed_callback,
-                                     camera_capture_image_done_callback new_frame_come_callback) override;
+            camera_wants_new_frame_callback new_frame_needed_callback,
+            camera_capture_image_done_callback new_frame_come_callback) override;
 
         void stop_viewfinder_feed() override;
 

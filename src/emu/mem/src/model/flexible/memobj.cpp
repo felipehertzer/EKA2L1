@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,9 +24,21 @@
 
 #include <common/algorithm.h>
 #include <common/log.h>
+#include <common/platform.h>
 #include <common/virtualmem.h>
 
 namespace eka2l1::mem::flexible {
+    namespace {
+        prot host_backing_protection(prot perm) {
+#if EKA2L1_PLATFORM(DARWIN)
+            if ((perm & prot_write) && (perm & prot_exec)) {
+                return static_cast<prot>(perm & ~prot_exec);
+            }
+#endif
+            return perm;
+        }
+    }
+
     memory_object::memory_object(control_base *ctrl, const std::size_t page_count, void *external_host)
         : data_(external_host)
         , page_occupied_(page_count)
@@ -48,6 +60,13 @@ namespace eka2l1::mem::flexible {
     memory_object::~memory_object() {
         decommit(0, page_occupied_);
 
+        for (auto &mapping : mappings_) {
+            if (mapping && (mapping->object_ == this)) {
+                mapping->object_ = nullptr;
+            }
+        }
+        mappings_.clear();
+
         if (data_ && !external_) {
             common::unmap_memory(data_, page_occupied_ * control_->page_size());
         }
@@ -63,7 +82,7 @@ namespace eka2l1::mem::flexible {
 
         if (!external_) {
             const bool alloc_result = common::commit(reinterpret_cast<std::uint8_t *>(data_) + start_offset,
-                size_to_commit, perm);
+                size_to_commit, host_backing_protection(perm));
 
             if (!alloc_result) {
                 return false;
@@ -74,6 +93,10 @@ namespace eka2l1::mem::flexible {
 
         // Map to all mappings
         for (auto &mapping : mappings_) {
+            if (!mapping || (mapping->object_ != this) || !mapping->owner_) {
+                continue;
+            }
+
             if (!mapping->map(this, page_offset, total_pages, perm)) {
                 LOG_WARN(MEMORY, "Unable to map committed memory to a mapping!");
             }
@@ -113,6 +136,10 @@ namespace eka2l1::mem::flexible {
 
         // Unmap decomitted memory from all mappings
         for (auto &mapping : mappings_) {
+            if (!mapping || (mapping->object_ != this) || !mapping->owner_) {
+                continue;
+            }
+
             if (!mapping->unmap(page_offset, total_pages)) {
                 LOG_WARN(MEMORY, "Unable to unmap decommitted memory from a mapping!");
             }
@@ -131,10 +158,19 @@ namespace eka2l1::mem::flexible {
     }
 
     bool memory_object::attach_mapping(mapping *layout) {
+        if (!layout) {
+            return false;
+        }
+
         if (std::find(mappings_.begin(), mappings_.end(), layout) != mappings_.end())
             return false;
 
+        if (layout->object_ && (layout->object_ != this)) {
+            layout->object_->detach_mapping(layout);
+        }
+
         mappings_.push_back(layout);
+        layout->object_ = this;
         page_arr_.supply_mapping(this, layout);
 
         return true;
@@ -148,6 +184,10 @@ namespace eka2l1::mem::flexible {
         }
 
         mappings_.erase(ite);
+        if (layout->object_ == this) {
+            layout->object_ = nullptr;
+        }
+
         return true;
     }
 }

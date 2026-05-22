@@ -1,32 +1,35 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <dispatch/libraries/gles_shared/def.h>
-#include <dispatch/libraries/gles_shared/utils.h>
-#include <dispatch/libraries/gles_shared/gles_shared.h>
 #include <dispatch/libraries/gles2/consts.h>
+#include <dispatch/libraries/gles_shared/def.h>
+#include <dispatch/libraries/gles_shared/gles_shared.h>
+#include <dispatch/libraries/gles_shared/utils.h>
 #include <services/window/screen.h>
 
 #include <dispatch/dispatcher.h>
 #include <drivers/graphics/graphics.h>
-#include <system/epoc.h>
 #include <kernel/kernel.h>
+#include <system/epoc.h>
+
+#include <algorithm>
+#include <cstring>
 
 namespace eka2l1::dispatch {
     static bool decompress_palette_data(std::vector<std::uint8_t> &dest, std::vector<std::size_t> &out_size, std::uint8_t *source, std::int32_t width,
@@ -58,7 +61,7 @@ namespace eka2l1::dispatch {
             bytes_per_pixel = 3;
             dest_format_gl = GL_RGB_EMU;
             break;
-        
+
         case GL_PALETTE4_RGBA8_OES_EMU:
         case GL_PALETTE8_RGBA8_OES_EMU:
             dest_format = drivers::texture_format::rgba;
@@ -94,7 +97,7 @@ namespace eka2l1::dispatch {
 
             out_size.push_back(calculated_size);
             dest.resize(dest.size() + calculated_size);
-            
+
             std::uint8_t *current_dest = dest.data() + prev_size;
 
             std::uint8_t *source_start = source + (1 << palette_bits) * bytes_per_pixel;
@@ -195,7 +198,7 @@ namespace eka2l1::dispatch {
         case GL_FUNC_ADD_EMU:
             eq = drivers::blend_equation::add;
             break;
-        
+
         case GL_FUNC_SUBTRACT_EMU:
             eq = drivers::blend_equation::sub;
             break;
@@ -245,7 +248,7 @@ namespace eka2l1::dispatch {
             internal_out = drivers::texture_format::r8;
             swizzles_out = { drivers::channel_swizzle::red, drivers::channel_swizzle::red, drivers::channel_swizzle::red, drivers::channel_swizzle::one };
             break;
-            
+
         case GL_LUMINANCE_ALPHA_EMU:
             format_out = drivers::texture_format::rg;
             internal_out = drivers::texture_format::rg8;
@@ -280,16 +283,16 @@ namespace eka2l1::dispatch {
 
     static bool gl_enum_to_addressing_option(const std::uint32_t param, drivers::addressing_option &res) {
         switch (param) {
-            case GL_REPEAT_EMU:
-                res = drivers::addressing_option::repeat;
-                break;
+        case GL_REPEAT_EMU:
+            res = drivers::addressing_option::repeat;
+            break;
 
-            case GL_CLAMP_TO_EDGE_EMU:
-                res = drivers::addressing_option::clamp_to_edge;
-                break;
+        case GL_CLAMP_TO_EDGE_EMU:
+            res = drivers::addressing_option::clamp_to_edge;
+            break;
 
-            default:
-                return false;
+        default:
+            return false;
         }
 
         return true;
@@ -391,7 +394,7 @@ namespace eka2l1::dispatch {
         case GL_KEEP_EMU:
             action = drivers::stencil_action::keep;
             break;
-        
+
         case GL_ZERO_EMU:
             action = drivers::stencil_action::set_to_zero;
             break;
@@ -434,7 +437,7 @@ namespace eka2l1::dispatch {
             break;
 
         case GL_FIXED_EMU:
-            res = drivers::data_format::fixed;
+            res = drivers::data_format::sfloat;
             break;
 
         case GL_UNSIGNED_BYTE_EMU:
@@ -451,7 +454,7 @@ namespace eka2l1::dispatch {
 
         return true;
     }
-    
+
     bool convert_gl_enum_to_primitive_mode(const std::uint32_t mode, drivers::graphics_primitive_mode &res) {
         switch (mode) {
         case GL_POINTS_EMU:
@@ -488,7 +491,7 @@ namespace eka2l1::dispatch {
 
         return true;
     }
-    
+
     std::uint32_t driver_blend_factor_to_gl_enum(const drivers::blend_factor factor) {
         switch (factor) {
         case drivers::blend_factor::current_alpha:
@@ -541,8 +544,7 @@ namespace eka2l1::dispatch {
     }
 
     bool is_valid_gl_emu_func(const std::uint32_t func) {
-        return ((func == GL_NEVER_EMU) || (func == GL_ALWAYS_EMU) || (func == GL_GREATER_EMU) || (func == GL_GEQUAL_EMU) ||
-            (func == GL_LESS_EMU) || (func == GL_LEQUAL_EMU) || (func == GL_EQUAL_EMU) || (func == GL_NOTEQUAL_EMU));
+        return ((func == GL_NEVER_EMU) || (func == GL_ALWAYS_EMU) || (func == GL_GREATER_EMU) || (func == GL_GEQUAL_EMU) || (func == GL_LESS_EMU) || (func == GL_LEQUAL_EMU) || (func == GL_EQUAL_EMU) || (func == GL_NOTEQUAL_EMU));
     }
 
     bool assign_vertex_attrib_gles(gles_vertex_attrib &attrib, std::int32_t size, std::uint32_t type, std::int32_t stride, std::uint32_t offset, std::uint32_t buffer_obj) {
@@ -562,7 +564,7 @@ namespace eka2l1::dispatch {
 
     bool egl_context_es_shared::prepare_for_clear(drivers::graphics_driver *driver, egl_controller &controller) {
         flush_state_changes();
-        return true;    
+        return true;
     }
 
     void egl_context_es_shared::flush_to_driver(egl_controller &controller, drivers::graphics_driver *drv, const bool is_frame_swap_flush) {
@@ -574,10 +576,20 @@ namespace eka2l1::dispatch {
         drv->submit_command_list(retrieved);
 
         flush_state_changes();
+
         retrieved = cmd_builder_.retrieve_command_list();
 
         drv->submit_command_list(retrieved);
         init_context_state();
+
+        epoc::canvas_base *auto_present_window = nullptr;
+        if (!is_frame_swap_flush && controller.should_auto_present(this)) {
+            auto_present_window = controller.queue_present_context_surface(this, drv);
+        }
+
+        if (auto_present_window) {
+            auto_present_window->try_update(nullptr);
+        }
 
         if (is_frame_swap_flush) {
             vertex_buffer_pusher_.done_frame();
@@ -600,7 +612,7 @@ namespace eka2l1::dispatch {
             tex->update();
         }
 
-        // Beside texture parameters still being submitted directly. This is the best for now. 
+        // Beside texture parameters still being submitted directly. This is the best for now.
         if (state_change_tracker_ == 0) {
             return;
         }
@@ -641,7 +653,7 @@ namespace eka2l1::dispatch {
             cmd_builder_.set_color_mask(color_mask_);
         }
 
-        if (state_change_tracker_ & STATE_CHANGED_DEPTH_BIAS) {    
+        if (state_change_tracker_ & STATE_CHANGED_DEPTH_BIAS) {
             cmd_builder_.set_depth_bias(polygon_offset_units_, 1.0, polygon_offset_factor_);
         }
 
@@ -658,11 +670,11 @@ namespace eka2l1::dispatch {
                 source_blend_factor_a_, dest_blend_factor_a_);
         }
 
-        if (state_change_tracker_ & STATE_CHANGED_LINE_WIDTH) {    
+        if (state_change_tracker_ & STATE_CHANGED_LINE_WIDTH) {
             cmd_builder_.set_line_width(line_width_);
         }
 
-        if (state_change_tracker_ & STATE_CHANGED_DEPTH_MASK) {    
+        if (state_change_tracker_ & STATE_CHANGED_DEPTH_MASK) {
             cmd_builder_.set_depth_mask(depth_mask_);
         }
 
@@ -684,7 +696,7 @@ namespace eka2l1::dispatch {
             cmd_builder_.set_stencil_pass_condition(drivers::rendering_face::front, stencil_func_drv,
                 stencil_func_ref_front_, stencil_func_mask_front_);
         }
-        
+
         if (state_change_tracker_ & STATE_CHANGED_STENCIL_FUNC_BACK) {
             drivers::condition_func stencil_func_drv;
             cond_func_from_gl_enum(stencil_func_back_, stencil_func_drv);
@@ -698,17 +710,17 @@ namespace eka2l1::dispatch {
             stencil_action_from_gl_enum(stencil_fail_action_front_, stencil_action_fail_drv);
             stencil_action_from_gl_enum(stencil_depth_fail_action_front_, stencil_action_depth_fail_drv);
             stencil_action_from_gl_enum(stencil_depth_pass_action_front_, stencil_action_depth_pass_drv);
-    
+
             cmd_builder_.set_stencil_action(drivers::rendering_face::front, stencil_action_fail_drv,
                 stencil_action_depth_fail_drv, stencil_action_depth_pass_drv);
         }
-        
+
         if (state_change_tracker_ & STATE_CHANGED_STENCIL_OP_BACK) {
             drivers::stencil_action stencil_action_fail_drv, stencil_action_depth_fail_drv, stencil_action_depth_pass_drv;
             stencil_action_from_gl_enum(stencil_fail_action_back_, stencil_action_fail_drv);
             stencil_action_from_gl_enum(stencil_depth_fail_action_back_, stencil_action_depth_fail_drv);
             stencil_action_from_gl_enum(stencil_depth_pass_action_back_, stencil_action_depth_pass_drv);
-    
+
             cmd_builder_.set_stencil_action(drivers::rendering_face::back, stencil_action_fail_drv,
                 stencil_action_depth_fail_drv, stencil_action_depth_pass_drv);
         }
@@ -779,7 +791,7 @@ namespace eka2l1::dispatch {
         if (viewport_bl_.size == eka2l1::vec2(-1, -1)) {
             viewport_bl_.size = draw_surface_->dimension_;
         }
-    
+
         if (scissor_bl_.size == eka2l1::vec2(-1, -1)) {
             scissor_bl_.size = draw_surface_->dimension_;
         }
@@ -796,7 +808,7 @@ namespace eka2l1::dispatch {
 
         cmd_builder_.clip_rect(clip_rect_transformed);
         cmd_builder_.set_viewport(viewport_transformed);
-        
+
         // Some games have 0 alphas in some situation!
         // TODO: This is hack definitely. So removal is ideal.
         switch (draw_surface_->backed_screen_->disp_mode) {
@@ -814,7 +826,7 @@ namespace eka2l1::dispatch {
     }
 
     void egl_context_es_shared::destroy(drivers::graphics_driver *driver, drivers::graphics_command_builder &builder) {
-        for (auto &obj: objects_) {
+        for (auto &obj : objects_) {
             if (obj) {
                 obj.reset();
             }
@@ -826,14 +838,14 @@ namespace eka2l1::dispatch {
 
             texture_pools_2d_.pop();
         }
-        
+
         while (!texture_pools_cube_.empty()) {
             drivers::handle h = texture_pools_cube_.top();
             builder.destroy(h);
 
             texture_pools_cube_.pop();
         }
-        
+
         while (!buffer_pools_.empty()) {
             drivers::handle h = buffer_pools_.top();
             builder.destroy(h);
@@ -939,13 +951,13 @@ namespace eka2l1::dispatch {
             context_.return_handle_to_pool(GLES_OBJECT_TEXTURE, driver_handle_, static_cast<int>(texture_type_));
         }
 
-        for (gles_driver_texture_observer *observer: texture_observers_) {
+        for (gles_driver_texture_observer *observer : texture_observers_) {
             observer->on_texture_destruction(this);
         }
 
         update_link_.deque();
     }
-    
+
     gles_driver_buffer::~gles_driver_buffer() {
         if (driver_handle_ != 0) {
             context_.return_handle_to_pool(GLES_OBJECT_BUFFER, driver_handle_);
@@ -1166,13 +1178,28 @@ namespace eka2l1::dispatch {
         , data_size_(0) {
     }
 
+    void gles_driver_buffer::assign_data(const void *data, const std::uint32_t size) {
+        data_.assign(size, 0);
+        if (data && size) {
+            std::memcpy(data_.data(), data, size);
+        }
+    }
+
+    void gles_driver_buffer::update_data(const std::uint32_t offset, const void *data, const std::uint32_t size) {
+        if (!data || (offset > data_.size()) || (size > (data_.size() - offset))) {
+            return;
+        }
+
+        std::memcpy(data_.data() + offset, data, size);
+    }
+
     gles_driver_buffer *egl_context_es_shared::binded_buffer(const bool is_array_buffer) {
         auto *obj = objects_.get(is_array_buffer ? binded_array_buffer_handle_ : binded_element_array_buffer_handle_);
         if (!obj || (*obj)->object_type() != GLES_OBJECT_BUFFER) {
             return nullptr;
         }
 
-        return reinterpret_cast<gles_driver_buffer*>(obj->get());
+        return reinterpret_cast<gles_driver_buffer *>(obj->get());
     }
 
     void egl_context_es_shared::return_handle_to_pool(const gles_object_type type, const drivers::handle h, const int subtype) {
@@ -1194,12 +1221,42 @@ namespace eka2l1::dispatch {
         }
     }
 
-    bool egl_context_es_shared::retrieve_vertex_buffer_slot(std::vector<drivers::handle> &vertex_buffers_alloc, drivers::graphics_driver *drv,
+    bool egl_context_es_shared::retrieve_vertex_buffer_slot(std::vector<drivers::handle> &vertex_buffers_alloc, std::vector<std::size_t> &vertex_buffer_offsets_alloc, drivers::graphics_driver *drv,
         kernel::process *crr_process, const gles_vertex_attrib &attrib, const std::int32_t first_index, const std::int32_t vcount,
         std::uint32_t &res, int &offset, bool &attrib_not_persistent) {
         drivers::handle buffer_handle_drv = 0;
+        std::size_t binding_offset = 0;
         bool unpredictable = false;
+        bool needs_dedicated_binding_slot = false;
         std::int32_t first_index_real = first_index;
+        std::vector<std::uint8_t> fixed_converted;
+
+        auto convert_fixed_attribs = [&](const std::uint8_t *source, const std::size_t total_buffer_size, const std::uint32_t stride) -> const std::uint8_t * {
+            if ((attrib.data_type_ != GL_FIXED_EMU) || !source || (stride == 0) || (attrib.size_ <= 0)) {
+                return source;
+            }
+
+            fixed_converted.assign(total_buffer_size, 0);
+            const std::size_t vertex_count = total_buffer_size / stride;
+            const std::size_t component_count = static_cast<std::size_t>(attrib.size_);
+
+            for (std::size_t vertex = 0; vertex < vertex_count; vertex++) {
+                const std::size_t vertex_offset = vertex * stride;
+                for (std::size_t component = 0; component < component_count; component++) {
+                    const std::size_t component_offset = vertex_offset + component * sizeof(std::int32_t);
+                    if ((component_offset + sizeof(std::int32_t)) > total_buffer_size) {
+                        break;
+                    }
+
+                    std::int32_t fixed_value = 0;
+                    std::memcpy(&fixed_value, source + component_offset, sizeof(fixed_value));
+                    const float converted = static_cast<float>(fixed_value) / 65536.0f;
+                    std::memcpy(fixed_converted.data() + component_offset, &converted, sizeof(converted));
+                }
+            }
+
+            return fixed_converted.data();
+        };
 
         if (first_index_real == -1) {
             unpredictable = true;
@@ -1238,9 +1295,12 @@ namespace eka2l1::dispatch {
             }
 
             std::size_t offset_big = 0;
-            buffer_handle_drv = vertex_buffer_pusher_.push_buffer(drv, data_raw, total_buffer_size, offset_big);
+            const std::uint8_t *data_to_upload = convert_fixed_attribs(data_raw, total_buffer_size, stride);
+            buffer_handle_drv = vertex_buffer_pusher_.push_buffer(drv, data_to_upload, total_buffer_size, offset_big);
+            binding_offset = offset_big;
+            needs_dedicated_binding_slot = true;
 
-            offset = static_cast<int>(offset_big);
+            offset = 0;
 
             if (!attrib_not_persistent) {
                 attrib_not_persistent = true;
@@ -1255,17 +1315,44 @@ namespace eka2l1::dispatch {
                 return false;
             }
 
-            gles_driver_buffer *buffer = reinterpret_cast<gles_driver_buffer*>((*buffer_inst_ptr).get());
-            buffer_handle_drv = buffer->handle_value();
+            gles_driver_buffer *buffer = reinterpret_cast<gles_driver_buffer *>((*buffer_inst_ptr).get());
+            if (attrib.data_type_ == GL_FIXED_EMU) {
+                const std::vector<std::uint8_t> &buffer_data = buffer->data();
+                if ((offset < 0) || (static_cast<std::size_t>(offset) >= buffer_data.size())) {
+                    return false;
+                }
+
+                const std::uint32_t stride = get_gl_attrib_stride(attrib);
+                const std::size_t total_buffer_size = common::min<std::size_t>(
+                    static_cast<std::size_t>(stride) * vcount,
+                    buffer_data.size() - static_cast<std::size_t>(offset));
+                const std::uint8_t *data_to_upload = convert_fixed_attribs(buffer_data.data() + offset, total_buffer_size, stride);
+
+                if (!vertex_buffer_pusher_.is_initialized()) {
+                    vertex_buffer_pusher_.initialize(common::MB(4));
+                }
+
+                std::size_t offset_big = 0;
+                buffer_handle_drv = vertex_buffer_pusher_.push_buffer(drv, data_to_upload, total_buffer_size, offset_big);
+                binding_offset = offset_big;
+                offset = 0;
+                needs_dedicated_binding_slot = true;
+                attrib_not_persistent = true;
+            } else {
+                buffer_handle_drv = buffer->handle_value();
+            }
         }
 
-        auto ite = std::find(vertex_buffers_alloc.begin(), vertex_buffers_alloc.end(), buffer_handle_drv);
-        if (ite != vertex_buffers_alloc.end()) {
-            res = static_cast<std::uint32_t>(std::distance(vertex_buffers_alloc.begin(), ite));
-            return true;
+        if (!needs_dedicated_binding_slot) {
+            auto ite = std::find(vertex_buffers_alloc.begin(), vertex_buffers_alloc.end(), buffer_handle_drv);
+            if (ite != vertex_buffers_alloc.end()) {
+                res = static_cast<std::uint32_t>(std::distance(vertex_buffers_alloc.begin(), ite));
+                return true;
+            }
         }
 
         vertex_buffers_alloc.push_back(buffer_handle_drv);
+        vertex_buffer_offsets_alloc.push_back(binding_offset);
         res = static_cast<std::uint32_t>(vertex_buffers_alloc.size() - 1);
 
         return true;
@@ -1300,7 +1387,7 @@ namespace eka2l1::dispatch {
             return nullptr;
         }
 
-        return reinterpret_cast<egl_context_es_shared*>(context);
+        return reinterpret_cast<egl_context_es_shared *>(context);
     }
 
     bool egl_context_es_shared::enable(const std::uint32_t feature) {
@@ -1532,7 +1619,7 @@ namespace eka2l1::dispatch {
 
         return true;
     }
-    
+
     template <typename T>
     bool get_data_impl(egl_context_es_shared *ctx, drivers::graphics_driver *drv, std::uint32_t pname, T *params, std::uint32_t scale_factor) {
         switch (pname) {
@@ -1649,16 +1736,16 @@ namespace eka2l1::dispatch {
     bool egl_context_es_shared::get_data(drivers::graphics_driver *drv, const std::uint32_t feature, void *data, gles_get_data_type data_type) {
         switch (data_type) {
         case GLES_GET_DATA_TYPE_BOOLEAN:
-            return get_data_impl<std::int32_t>(this, drv, feature, reinterpret_cast<std::int32_t*>(data), 255);
+            return get_data_impl<std::int32_t>(this, drv, feature, reinterpret_cast<std::int32_t *>(data), 255);
 
         case GLES_GET_DATA_TYPE_FIXED:
-            return get_data_impl<gl_fixed>(this, drv, feature, reinterpret_cast<gl_fixed*>(data), 65536);
+            return get_data_impl<gl_fixed>(this, drv, feature, reinterpret_cast<gl_fixed *>(data), 65536);
 
         case GLES_GET_DATA_TYPE_FLOAT:
-            return get_data_impl<float>(this, drv, feature, reinterpret_cast<float*>(data), 1);
+            return get_data_impl<float>(this, drv, feature, reinterpret_cast<float *>(data), 1);
 
         case GLES_GET_DATA_TYPE_INTEGER:
-            return get_data_impl<std::uint32_t>(this, drv, feature, reinterpret_cast<std::uint32_t*>(data), 255);
+            return get_data_impl<std::uint32_t>(this, drv, feature, reinterpret_cast<std::uint32_t *>(data), 255);
 
         default:
             break;
@@ -1666,7 +1753,7 @@ namespace eka2l1::dispatch {
 
         return false;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_clear_color_emu, float red, float green, float blue, float alpha) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -1704,7 +1791,7 @@ namespace eka2l1::dispatch {
 
         ctx->clear_stencil_ = s;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_clear_emu, std::uint32_t bits) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -1737,14 +1824,15 @@ namespace eka2l1::dispatch {
             clear_parameters[5] = ctx->clear_stencil_ / 255.0f;
         }
 
-        if (!ctx->prepare_for_clear(sys->get_graphics_driver(), sys->get_dispatcher()->get_egl_controller())) {
+        dispatch::egl_controller &controller = sys->get_dispatcher()->get_egl_controller();
+        if (!ctx->prepare_for_clear(sys->get_graphics_driver(), controller)) {
             return;
         }
 
         ctx->cmd_builder_.clear(clear_parameters, flags_driver);
 
         if (ctx->cmd_builder_.need_flush()) {
-            ctx->flush_to_driver(sys->get_dispatcher()->get_egl_controller(), sys->get_graphics_driver());
+            ctx->flush_to_driver(controller, sys->get_graphics_driver());
         }
     }
 
@@ -1764,7 +1852,6 @@ namespace eka2l1::dispatch {
         dispatch::egl_controller &controller = dp->get_egl_controller();
         return controller.pop_error(crr_thread->unique_id());
     }
-    
 
     BRIDGE_FUNC_LIBRARY(void, gl_cull_face_emu, std::uint32_t mode) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
@@ -1795,7 +1882,7 @@ namespace eka2l1::dispatch {
 
         ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_CULL_FACE;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_scissor_emu, std::int32_t x, std::int32_t y, std::int32_t width, std::int32_t height) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -1834,7 +1921,7 @@ namespace eka2l1::dispatch {
 
         ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_FRONT_FACE_RULE;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(bool, gl_is_texture_emu, std::uint32_t name) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -1854,7 +1941,7 @@ namespace eka2l1::dispatch {
         gles_driver_object_instance *obj = ctx->objects_.get(name);
         return obj && ((*obj)->object_type() == GLES_OBJECT_BUFFER);
     }
-    
+
     static void gen_gles_objects_generic(system *sys, gles_object_type obj_type, std::int32_t n, std::uint32_t *texs) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -1926,7 +2013,7 @@ namespace eka2l1::dispatch {
     BRIDGE_FUNC_LIBRARY(void, gl_gen_buffers_emu, std::int32_t n, std::uint32_t *buffers) {
         gen_gles_objects_generic(sys, GLES_OBJECT_BUFFER, n, buffers);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_delete_textures_emu, std::int32_t n, std::uint32_t *texs) {
         delete_gles_objects_generic(sys, GLES_OBJECT_TEXTURE, n, texs);
     }
@@ -1981,32 +2068,49 @@ namespace eka2l1::dispatch {
         return 0;
     }
 
-    static std::uint32_t calculate_possible_upload_size(const eka2l1::vec2 size, const std::uint32_t format, const std::uint32_t data_type) {
+    static std::size_t calculate_upload_bytes_per_pixel(const std::uint32_t format, const std::uint32_t data_type) {
         if ((format == GL_LUMINANCE_EMU) || (format == GL_ALPHA_EMU)) {
-            return size.x * size.y;
+            return 1;
         }
 
         if (format == GL_LUMINANCE_ALPHA_EMU) {
-            return size.x * size.y * 2;
+            return 2;
         }
 
         if (format == GL_RGB_EMU) {
             if (data_type == GL_UNSIGNED_BYTE_EMU) {
-                return size.x * size.y * 3;
-            } else {
-                return size.x * size.y * 2;
+                return 3;
             }
-        } else {
-            if ((format == GL_RGBA_EMU) || (format == GL_BGRA_EXT_EMU)) {
-                if (data_type == GL_UNSIGNED_BYTE_EMU) {
-                    return size.x * size.y * 4;
-                } else {
-                    return size.x * size.y * 2;
-                }
+
+            return 2;
+        }
+
+        if ((format == GL_RGBA_EMU) || (format == GL_BGRA_EXT_EMU)) {
+            if (data_type == GL_UNSIGNED_BYTE_EMU) {
+                return 4;
             }
+
+            return 2;
         }
 
         return 0;
+    }
+
+    static std::size_t calculate_possible_upload_size(const eka2l1::vec2 size, const std::uint32_t format,
+        const std::uint32_t data_type, const std::uint32_t unpack_alignment) {
+        const std::size_t bytes_per_pixel = calculate_upload_bytes_per_pixel(format, data_type);
+        if ((bytes_per_pixel == 0) || (size.x <= 0) || (size.y <= 0)) {
+            return 0;
+        }
+
+        const std::uint32_t alignment = ((unpack_alignment == 1) || (unpack_alignment == 2)
+                || (unpack_alignment == 4) || (unpack_alignment == 8))
+            ? unpack_alignment
+            : 4;
+        const std::size_t row_bytes = static_cast<std::size_t>(size.x) * bytes_per_pixel;
+        const std::size_t row_stride = (row_bytes + alignment - 1U) & ~(static_cast<std::size_t>(alignment) - 1U);
+
+        return (static_cast<std::size_t>(size.y - 1) * row_stride) + row_bytes;
     }
 
     BRIDGE_FUNC_LIBRARY(void, gl_compressed_tex_image_2d_emu, std::uint32_t target, std::int32_t level, std::int32_t internal_format,
@@ -2028,7 +2132,7 @@ namespace eka2l1::dispatch {
             controller.push_error(ctx, GL_INVALID_OPERATION);
             return;
         }
-        
+
         std::uint32_t target_match_err = tex->target_matched(target);
         if (target_match_err != 0) {
             controller.push_error(ctx, target_match_err);
@@ -2066,8 +2170,8 @@ namespace eka2l1::dispatch {
             std::uint32_t format_gl = 0;
             drivers::texture_data_type dtype;
 
-            if (!decompress_palette_data(decompressed_data, out_size, reinterpret_cast<std::uint8_t*>(data_pixels), width, height, internal_format,
-                level, internal_format_driver, dtype, format_gl)) {
+            if (!decompress_palette_data(decompressed_data, out_size, reinterpret_cast<std::uint8_t *>(data_pixels), width, height, internal_format,
+                    level, internal_format_driver, dtype, format_gl)) {
                 controller.push_error(ctx, GL_INVALID_ENUM);
                 return;
             }
@@ -2117,7 +2221,7 @@ namespace eka2l1::dispatch {
                 height /= 2;
 
                 ctx->cmd_builder_.recreate_texture(tex->handle_value(), dimension, static_cast<std::uint8_t>(i), internal_format_driver,
-                    internal_format_driver, dtype, data_to_pass, out_size[i], eka2l1::vec3(width, height, 0), 0, ctx->unpack_alignment_);            
+                    internal_format_driver, dtype, data_to_pass, out_size[i], eka2l1::vec3(width, height, 0), 0, ctx->unpack_alignment_);
             }
         } else {
             // Pass to driver as normal
@@ -2157,7 +2261,7 @@ namespace eka2l1::dispatch {
                 controller.push_error(ctx, GL_INVALID_VALUE);
                 return;
             }
-            
+
             if (!tex->handle_value()) {
                 need_set_params = true;
 
@@ -2202,7 +2306,7 @@ namespace eka2l1::dispatch {
             ctx->cmd_builder_.regenerate_mips(tex->handle_value());
             tex->set_mipmap_generated(true);
         }
-    
+
         ctx->cmd_builder_.set_swizzle(tex->handle_value(), swizz[0], swizz[1], swizz[2], swizz[3]);
     }
 
@@ -2264,6 +2368,7 @@ namespace eka2l1::dispatch {
 
         drivers::graphics_driver *drv = sys->get_graphics_driver();
         get_data_type_to_upload(internal_format_driver, format_driver, dtype, swizzles, format, data_type, drv->is_stricted());
+        const std::size_t needed_size = data_pixels ? calculate_possible_upload_size(eka2l1::vec2(width, height), format, data_type, ctx->unpack_alignment_) : 0;
 
         // TODO: border is ignored!
         if (!tex->handle_value()) {
@@ -2277,7 +2382,7 @@ namespace eka2l1::dispatch {
                 ctx->texture_pools_2d_.pop();
             } else {
                 drivers::handle new_h = drivers::create_texture(drv, dimension, static_cast<std::uint8_t>(level), internal_format_driver,
-                    format_driver, dtype, data_pixels, 0, eka2l1::vec3(width, height, 0), 0, ctx->unpack_alignment_);
+                    format_driver, dtype, data_pixels, needed_size, eka2l1::vec3(width, height, 0), 0, ctx->unpack_alignment_);
 
                 if (!new_h) {
                     controller.push_error(ctx, GL_INVALID_OPERATION);
@@ -2290,7 +2395,6 @@ namespace eka2l1::dispatch {
         }
 
         if (need_reinstantiate) {
-            const std::size_t needed_size = calculate_possible_upload_size(eka2l1::vec2(width, height), format, data_type);
             ctx->cmd_builder_.recreate_texture(tex->handle_value(), dimension, static_cast<std::uint8_t>(level), internal_format_driver,
                 format_driver, dtype, data_pixels, needed_size, eka2l1::vec3(width, height, 0), 0, ctx->unpack_alignment_);
         }
@@ -2310,7 +2414,7 @@ namespace eka2l1::dispatch {
 
         ctx->cmd_builder_.set_swizzle(tex->handle_value(), swizzles[0], swizzles[1], swizzles[2], swizzles[3]);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_tex_sub_image_2d_emu, std::uint32_t target, std::int32_t level, std::int32_t xoffset,
         std::int32_t yoffset, std::int32_t width, std::int32_t height, std::uint32_t format, std::uint32_t data_type,
         void *data_pixels) {
@@ -2367,8 +2471,9 @@ namespace eka2l1::dispatch {
 
         get_data_type_to_upload(internal_format_driver, format_driver, dtype, swizzles, format, data_type, sys->get_graphics_driver()->is_stricted());
 
-        const std::size_t needed_size = calculate_possible_upload_size(eka2l1::vec2(width, height), format, data_type);
-        ctx->cmd_builder_.update_texture(tex->handle_value(), reinterpret_cast<const char*>(data_pixels), needed_size,
+        const std::size_t needed_size = calculate_possible_upload_size(eka2l1::vec2(width, height), format, data_type, ctx->unpack_alignment_);
+
+        ctx->cmd_builder_.update_texture(tex->handle_value(), reinterpret_cast<const char *>(data_pixels), needed_size,
             static_cast<std::uint8_t>(level), format_driver, dtype, eka2l1::vec3(xoffset, yoffset, 0), eka2l1::vec3(width, height, 0),
             0, ctx->unpack_alignment_);
 
@@ -2473,6 +2578,7 @@ namespace eka2l1::dispatch {
         }
 
         buffer->assign_data_size(static_cast<std::uint32_t>(size));
+        buffer->assign_data(data, static_cast<std::uint32_t>(size));
     }
 
     BRIDGE_FUNC_LIBRARY(void, gl_buffer_sub_data_emu, std::uint32_t target, std::int32_t offset, std::int32_t size, const void *data) {
@@ -2498,6 +2604,7 @@ namespace eka2l1::dispatch {
         std::uint32_t size_upload_casted = static_cast<std::uint32_t>(size);
         ctx->cmd_builder_.update_buffer_data(buffer->handle_value(), static_cast<std::size_t>(offset), 1,
             &data, &size_upload_casted);
+        buffer->update_data(static_cast<std::uint32_t>(offset), data, static_cast<std::uint32_t>(size));
     }
 
     BRIDGE_FUNC_LIBRARY(void, gl_color_mask_emu, std::uint8_t red, std::uint8_t green, std::uint8_t blue, std::uint8_t alpha) {
@@ -2507,14 +2614,18 @@ namespace eka2l1::dispatch {
         }
 
         ctx->color_mask_ = 0;
-        if (red) ctx->color_mask_ |= 1;
-        if (green) ctx->color_mask_ |= 2;
-        if (blue) ctx->color_mask_ |= 4;
-        if (alpha) ctx->color_mask_ |= 8;
+        if (red)
+            ctx->color_mask_ |= 1;
+        if (green)
+            ctx->color_mask_ |= 2;
+        if (blue)
+            ctx->color_mask_ |= 4;
+        if (alpha)
+            ctx->color_mask_ |= 8;
 
         ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_COLOR_MASK;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_blend_func_emu, std::uint32_t source_factor, std::uint32_t dest_factor) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2537,7 +2648,7 @@ namespace eka2l1::dispatch {
 
         ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_BLEND_FACTOR;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_stencil_mask_emu, std::uint32_t mask) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2560,7 +2671,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return;
         }
-        
+
         drivers::condition_func func_drv = drivers::condition_func::always;
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
@@ -2599,7 +2710,7 @@ namespace eka2l1::dispatch {
 
         ctx->depth_mask_ = mask;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_depth_func_emu, std::uint32_t func) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2621,7 +2732,7 @@ namespace eka2l1::dispatch {
 
         ctx->depth_func_ = func;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_stencil_func_emu, std::uint32_t func, std::int32_t ref, std::uint32_t mask) {
         gl_stencil_func_separate_emu(sys, GL_FRONT_AND_BACK_EMU, func, ref, mask);
     }
@@ -2655,7 +2766,7 @@ namespace eka2l1::dispatch {
             ctx->stencil_func_ref_front_ = ref;
             ctx->stencil_func_mask_front_ = mask;
         }
-        
+
         if ((face == GL_BACK_EMU) || (face == GL_FRONT_AND_BACK_EMU)) {
             if ((ctx->stencil_func_back_ != func) || (ctx->stencil_func_ref_back_ != ref) || (ctx->stencil_func_mask_back_ != mask)) {
                 ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_STENCIL_FUNC_BACK;
@@ -2670,7 +2781,7 @@ namespace eka2l1::dispatch {
     BRIDGE_FUNC_LIBRARY(void, gl_stencil_op_emu, std::uint32_t fail, std::uint32_t depth_fail, std::uint32_t depth_pass) {
         gl_stencil_op_separate_emu(sys, GL_FRONT_AND_BACK_EMU, fail, depth_fail, depth_pass);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_stencil_op_separate_emu, std::uint32_t face, std::uint32_t fail, std::uint32_t depth_fail, std::uint32_t depth_pass) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2686,15 +2797,13 @@ namespace eka2l1::dispatch {
         }
 
         drivers::stencil_action action_temp = drivers::stencil_action::keep;
-        if (!stencil_action_from_gl_enum(fail, action_temp) || !stencil_action_from_gl_enum(depth_fail, action_temp) ||
-            !stencil_action_from_gl_enum(depth_pass, action_temp)) {
+        if (!stencil_action_from_gl_enum(fail, action_temp) || !stencil_action_from_gl_enum(depth_fail, action_temp) || !stencil_action_from_gl_enum(depth_pass, action_temp)) {
             controller.push_error(ctx, GL_INVALID_ENUM);
             return;
         }
 
         if ((face == GL_FRONT_EMU) || (face == GL_FRONT_AND_BACK_EMU)) {
-            if ((ctx->stencil_fail_action_front_ != fail) || (ctx->stencil_depth_fail_action_front_ != depth_fail) ||
-                (ctx->stencil_depth_pass_action_front_ != depth_pass)) {
+            if ((ctx->stencil_fail_action_front_ != fail) || (ctx->stencil_depth_fail_action_front_ != depth_fail) || (ctx->stencil_depth_pass_action_front_ != depth_pass)) {
                 ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_STENCIL_OP_FRONT;
             }
 
@@ -2702,10 +2811,9 @@ namespace eka2l1::dispatch {
             ctx->stencil_depth_fail_action_front_ = depth_fail;
             ctx->stencil_depth_pass_action_front_ = depth_pass;
         }
-        
+
         if ((face == GL_BACK_EMU) || (face == GL_FRONT_AND_BACK_EMU)) {
-            if ((ctx->stencil_fail_action_back_ != fail) || (ctx->stencil_depth_fail_action_back_ != depth_fail) ||
-                (ctx->stencil_depth_pass_action_back_ != depth_pass)) {
+            if ((ctx->stencil_fail_action_back_ != fail) || (ctx->stencil_depth_fail_action_back_ != depth_fail) || (ctx->stencil_depth_pass_action_back_ != depth_pass)) {
                 ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_STENCIL_OP_BACK;
             }
 
@@ -2714,7 +2822,7 @@ namespace eka2l1::dispatch {
             ctx->stencil_depth_pass_action_back_ = depth_pass;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_viewport_emu, std::int32_t x, std::int32_t y, std::int32_t width, std::int32_t height) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2781,7 +2889,7 @@ namespace eka2l1::dispatch {
             tex->set_wrap_s(param);
             break;
         }
-        
+
         case GL_TEXTURE_WRAP_T_EMU: {
             drivers::addressing_option opt;
             if (!gl_enum_to_addressing_option(param, opt)) {
@@ -2873,15 +2981,15 @@ namespace eka2l1::dispatch {
         gl_tex_parameter_i_emu(sys, target, pname, static_cast<std::int32_t>(param));
     }
 
-    BRIDGE_FUNC_LIBRARY(void, gl_tex_parameter_iv_emu, std::uint32_t target, std::uint32_t pname, std::int32_t* param) {
+    BRIDGE_FUNC_LIBRARY(void, gl_tex_parameter_iv_emu, std::uint32_t target, std::uint32_t pname, std::int32_t *param) {
         gl_tex_parameter_i_emu(sys, target, pname, *param);
     }
 
-    BRIDGE_FUNC_LIBRARY(void, gl_tex_parameter_fv_emu, std::uint32_t target, std::uint32_t pname, float* param) {
+    BRIDGE_FUNC_LIBRARY(void, gl_tex_parameter_fv_emu, std::uint32_t target, std::uint32_t pname, float *param) {
         gl_tex_parameter_i_emu(sys, target, pname, static_cast<std::int32_t>(*param));
     }
 
-    BRIDGE_FUNC_LIBRARY(void, gl_tex_parameter_xv_emu, std::uint32_t target, std::uint32_t pname, gl_fixed* param) {
+    BRIDGE_FUNC_LIBRARY(void, gl_tex_parameter_xv_emu, std::uint32_t target, std::uint32_t pname, gl_fixed *param) {
         gl_tex_parameter_i_emu(sys, target, pname, static_cast<std::int32_t>(*param));
     }
 
@@ -2907,10 +3015,9 @@ namespace eka2l1::dispatch {
         gl_line_width_emu(sys, FIXED_32_TO_FLOAT(width));
     }
 
-    
     BRIDGE_FUNC_LIBRARY(void, gl_finish_emu) {
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_flush_emu) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2919,7 +3026,7 @@ namespace eka2l1::dispatch {
 
         ctx->flush_to_driver(sys->get_dispatcher()->get_egl_controller(), sys->get_graphics_driver());
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_polygon_offset_emu, float factors, float units) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2941,7 +3048,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -2964,7 +3071,7 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_depth_rangef_emu, float near, float far) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -2988,7 +3095,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -3029,7 +3136,7 @@ namespace eka2l1::dispatch {
             return;
         }
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_get_tex_parameter_fv_emu, std::uint32_t target, std::uint32_t pname, float *param) {
         std::uint32_t value_real = 0;
         gl_get_tex_parameter_iv_emu(sys, target, pname, &value_real);
@@ -3043,7 +3150,7 @@ namespace eka2l1::dispatch {
 
         *param = static_cast<gl_fixed>(value_real);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_point_size_emu, float size) {
         // Empty
     }
@@ -3051,7 +3158,7 @@ namespace eka2l1::dispatch {
     BRIDGE_FUNC_LIBRARY(void, gl_point_sizex_emu, gl_fixed size) {
         // Empty
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_point_parameter_f_emu, std::uint32_t pname, float param) {
         // Empty
     }
@@ -3087,8 +3194,8 @@ namespace eka2l1::dispatch {
         }
 
         ctx->cmd_builder_.draw_arrays(prim_mode_drv, 0, count, false);
- 
-        if (ctx->cmd_builder_.need_flush()) {
+
+        if (ctx->cmd_builder_.need_flush() || controller.should_auto_present(ctx)) {
             ctx->flush_to_driver(controller, drv);
         }
     }
@@ -3144,17 +3251,17 @@ namespace eka2l1::dispatch {
         static constexpr std::int32_t RELOCATE_INDICES_THRESHOLD = 200;
 
         if (ctx->binded_element_array_buffer_handle_ == 0) {
-            indicies_data_raw = reinterpret_cast<std::uint8_t*>(kern->crr_process()->get_ptr_on_addr_space(indices_ptr));
- 
+            indicies_data_raw = reinterpret_cast<std::uint8_t *>(kern->crr_process()->get_ptr_on_addr_space(indices_ptr));
+
             if (indicies_data_raw) {
                 std::int32_t max_vert_index = 0;
 
                 for (std::int32_t i = 0; i < count; i++) {
                     std::int32_t index = 0;
                     if (index_type == GL_UNSIGNED_BYTE_EMU) {
-                        index = static_cast<std::int32_t>((reinterpret_cast<const std::uint8_t*>(indicies_data_raw))[i]);
+                        index = static_cast<std::int32_t>((reinterpret_cast<const std::uint8_t *>(indicies_data_raw))[i]);
                     } else {
-                        index = static_cast<std::int32_t>((reinterpret_cast<const std::uint16_t*>(indicies_data_raw))[i]);
+                        index = static_cast<std::int32_t>((reinterpret_cast<const std::uint16_t *>(indicies_data_raw))[i]);
                     }
 
                     max_vert_index = common::max(index, max_vert_index);
@@ -3162,15 +3269,15 @@ namespace eka2l1::dispatch {
                 }
 
                 total_vert = max_vert_index + 1;
-                
+
                 if (min_vert_index >= RELOCATE_INDICES_THRESHOLD) {
-                    std::uint8_t *normalized_indicies = reinterpret_cast<std::uint8_t*>(malloc((index_type == GL_UNSIGNED_BYTE_EMU) ? count : count * 2));
-                    
+                    std::uint8_t *normalized_indicies = reinterpret_cast<std::uint8_t *>(malloc((index_type == GL_UNSIGNED_BYTE_EMU) ? count : count * 2));
+
                     for (std::int32_t i = 0; i < count; i++) {
                         if (index_type == GL_UNSIGNED_BYTE_EMU) {
-                            (reinterpret_cast<std::uint8_t*>(normalized_indicies))[i] = static_cast<std::uint8_t>((reinterpret_cast<const std::uint8_t*>(indicies_data_raw))[i] - min_vert_index);
+                            (reinterpret_cast<std::uint8_t *>(normalized_indicies))[i] = static_cast<std::uint8_t>((reinterpret_cast<const std::uint8_t *>(indicies_data_raw))[i] - min_vert_index);
                         } else {
-                            (reinterpret_cast<std::uint16_t*>(normalized_indicies))[i] = static_cast<std::uint16_t>((reinterpret_cast<const std::uint16_t*>(indicies_data_raw))[i] - min_vert_index);
+                            (reinterpret_cast<std::uint16_t *>(normalized_indicies))[i] = static_cast<std::uint16_t>((reinterpret_cast<const std::uint16_t *>(indicies_data_raw))[i] - min_vert_index);
                         }
                     }
 
@@ -3221,7 +3328,7 @@ namespace eka2l1::dispatch {
 
         ctx->cmd_builder_.draw_indexed(prim_mode_drv, count, index_format_drv, static_cast<int>(indices_ptr), 0);
 
-        if (ctx->cmd_builder_.need_flush()) {
+        if (ctx->cmd_builder_.need_flush() || controller.should_auto_present(ctx)) {
             ctx->flush_to_driver(controller, drv);
         }
     }
@@ -3245,12 +3352,12 @@ namespace eka2l1::dispatch {
 
         ctx->source_blend_factor_rgb_ = source_factor_driver;
         ctx->dest_blend_factor_rgb_ = dest_factor_driver;
-        
+
         if (!convert_gl_factor_to_driver_enum(source_a, source_factor_driver) || !convert_gl_factor_to_driver_enum(dest_a, dest_factor_driver)) {
             controller.push_error(ctx, GL_INVALID_ENUM);
             return;
         }
-        
+
         ctx->source_blend_factor_a_ = source_factor_driver;
         ctx->dest_blend_factor_a_ = dest_factor_driver;
 
@@ -3287,8 +3394,7 @@ namespace eka2l1::dispatch {
         drivers::blend_equation driver_equation_rgb = drivers::blend_equation::add;
         drivers::blend_equation driver_equation_a = drivers::blend_equation::add;
 
-        if (!convert_gl_equation_to_driver_enum(rgb_mode, driver_equation_rgb) ||
-            !convert_gl_equation_to_driver_enum(a_mode, driver_equation_a)) {
+        if (!convert_gl_equation_to_driver_enum(rgb_mode, driver_equation_rgb) || !convert_gl_equation_to_driver_enum(a_mode, driver_equation_a)) {
             controller.push_error(ctx, GL_INVALID_ENUM);
             return;
         }
@@ -3324,7 +3430,7 @@ namespace eka2l1::dispatch {
         }
         return res;
     }
-    
+
     // NOTE: boolean cast not handled!
     void gl_get_implv_emu(eka2l1::system *sys, std::uint32_t pname, void *params, gles_get_data_type data_type) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
@@ -3335,7 +3441,7 @@ namespace eka2l1::dispatch {
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
         drivers::graphics_driver *drv = sys->get_graphics_driver();
-        
+
         if (!params) {
             controller.push_error(ctx, GL_INVALID_VALUE);
             return;
@@ -3354,7 +3460,7 @@ namespace eka2l1::dispatch {
     BRIDGE_FUNC_LIBRARY(void, gl_get_integerv_emu, std::uint32_t pname, std::uint32_t *params) {
         gl_get_implv_emu(sys, pname, params, GLES_GET_DATA_TYPE_INTEGER);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_get_fixedv_emu, std::uint32_t pname, gl_fixed *params) {
         gl_get_implv_emu(sys, pname, params, GLES_GET_DATA_TYPE_FIXED);
     }
@@ -3396,7 +3502,7 @@ namespace eka2l1::dispatch {
         if (!ctx) {
             return 0;
         }
-        
+
         dispatcher *dp = sys->get_dispatcher();
         dispatch::egl_controller &controller = dp->get_egl_controller();
 
@@ -3408,7 +3514,7 @@ namespace eka2l1::dispatch {
 
         return static_cast<std::int32_t>(is_enabled_result);
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_blend_color_emu, float red, float green, float blue, float alpha) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {
@@ -3421,7 +3527,7 @@ namespace eka2l1::dispatch {
         ctx->blend_colour_[3] = alpha;
         ctx->state_change_tracker_ |= egl_context_es_shared::STATE_CHANGED_BLEND_COLOUR;
     }
-    
+
     BRIDGE_FUNC_LIBRARY(void, gl_generate_mipmap_emu, std::uint32_t pname) {
         egl_context_es_shared *ctx = get_es_shared_active_context(sys);
         if (!ctx) {

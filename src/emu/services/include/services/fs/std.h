@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -32,7 +32,7 @@ namespace eka2l1 {
 }
 
 namespace eka2l1::epoc::fs {
-    enum file_mode {
+    enum file_mode : std::uint32_t {
         file_share_exclusive,
         file_share_readers_only,
         file_share_any,
@@ -89,7 +89,7 @@ namespace eka2l1::epoc::fs {
     constexpr std::uint32_t ipc_arg_slot1_des = 0x20000;
     constexpr std::uint32_t ipc_arg_slot2_des = 0x40000;
 
-    enum media_type {
+    enum media_type : std::uint32_t {
         media_not_present,
         media_unknown,
         media_floppy,
@@ -103,13 +103,13 @@ namespace eka2l1::epoc::fs {
         media_rotating
     };
 
-    enum battery_state {
+    enum battery_state : std::uint32_t {
         battery_state_not_supported,
         battery_state_good,
         battery_state_low
     };
 
-    enum connection_bus_type {
+    enum connection_bus_type : std::uint32_t {
         connection_bus_internal,
         connection_bus_usb
     };
@@ -122,7 +122,7 @@ namespace eka2l1::epoc::fs {
         extensions_supported
     };
 
-    enum file_cache_flags {
+    enum file_cache_flags : std::uint32_t {
         file_cache_read_enabled = 0x01,
         file_cache_read_on = 0x02,
         file_cache_read_ahead_enabled = 0x04,

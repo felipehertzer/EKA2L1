@@ -1,28 +1,28 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <mem/model/flexible/pagearray.h>
 #include <common/types.h>
 #include <cstddef>
 #include <cstdint>
+#include <mem/model/flexible/pagearray.h>
 #include <vector>
 
 namespace eka2l1::mem {
@@ -60,7 +60,7 @@ namespace eka2l1::mem::flexible {
 
         /**
          * @brief       Attach new mapping.
-         * 
+         *
          * @param       layout Pointer to the mapping.
          * @returns     True on success, if the mapping has not been attached.
          */
@@ -68,7 +68,7 @@ namespace eka2l1::mem::flexible {
 
         /**
          * @brief       Detach existing mapping.
-         * 
+         *
          * @param       layout Pointer to the mapping to detach.
          * @returns     True on success.
          */
@@ -76,12 +76,12 @@ namespace eka2l1::mem::flexible {
 
         /**
          * @brief       Commit pages to the host.
-         * 
+         *
          * The number of pages to commit must not exceed the maximum page count specified when
          * constructing this memory object.
-         * 
+         *
          * Also, the region to commit must not also exceed the maximum page count.
-         * 
+         *
          * @param       page_offset   Starting page offset for the commit.
          * @param       total_pages   Number of pages to commit.
          * @param       perm          The permissions for newly committed pages.
@@ -92,15 +92,15 @@ namespace eka2l1::mem::flexible {
 
         /**
          * @brief       Decommit pages from the host.
-         * 
+         *
          * The number of pages to decommit must not exceed the maximum page count specified when
          * constructing this memory object.
-         * 
+         *
          * Also, the region to commit must not also exceed the maximum page count.
-         * 
+         *
          * @param       page_offset   Starting page offset for the commit.
          * @param       total_pages   Number of pages to decommit.
-         * 
+         *
          * @returns     True on success.
          */
         bool decommit(const std::uint32_t page_offset, const std::size_t total_pages);

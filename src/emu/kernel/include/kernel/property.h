@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -44,13 +44,13 @@ namespace eka2l1 {
             unk
         };
 
-        /*! \brief Property is a kind of environment data. 
-		 *
-		 * Property is defined by cagetory and key. Each property contains either
-		 * integer or binary data. Properties are stored in the kernel until shutdown,
-		 * and they are the way of ITC (Inter-Thread communication).
- 		 *
-		*/
+        /*! \brief Property is a kind of environment data.
+         *
+         * Property is defined by cagetory and key. Each property contains either
+         * integer or binary data. Properties are stored in the kernel until shutdown,
+         * and they are the way of ITC (Inter-Thread communication).
+         *
+         */
         class property : public kernel::kernel_obj, public std::pair<int, int> {
         public:
             typedef void (*data_change_callback_handler)(void *userdata, service::property *prop);
@@ -75,7 +75,7 @@ namespace eka2l1 {
 
             /**
              * \brief Add a callback that gets waken up when data changed.
-             * 
+             *
              * Note: This does not lock the kernel.
              */
             void add_data_change_callback(void *userdata, data_change_callback_handler handler);
@@ -88,23 +88,23 @@ namespace eka2l1 {
              * \brief Set the property value (integer).
              *
              * If the property type is not integer, this return false, else
-             * it will set the value and notify the request.		
+             * it will set the value and notify the request.
              *
              * \param val The value to set.
-			*/
+             */
             bool set_int(int val);
 
             /**
              * \brief Set the property value (bin).
              *
              * If the property type is not binary, this return false, else
-             * it will set the value and notify the request.	
-             * 
-             * \param data The pointer to binary data.	
+             * it will set the value and notify the request.
+             *
+             * \param data The pointer to binary data.
              * \param arr_length The binary data length.
              *
-             * \returns false if arr_length exceeds allocated data length or property is not binary.			 
-			*/
+             * \returns false if arr_length exceeds allocated data length or property is not binary.
+             */
             bool set(uint8_t *data, uint32_t arr_length);
 
             template <typename T>
@@ -155,7 +155,7 @@ namespace eka2l1 {
             /**
              * \brief   Subscribe to property change.
              * \param   info The info of the subscribe request.
-             * 
+             *
              * \returns True if no pending notify request is attached to this reference.
              */
             bool subscribe(const epoc::notify_info &info);

@@ -1,36 +1,36 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/bluetooth/protocols/common.h>
-#include <services/bluetooth/protocols/asker_inet.h>
-#include <services/socket/socket.h>
 #include <common/sync.h>
+#include <services/bluetooth/protocols/asker_inet.h>
+#include <services/bluetooth/protocols/common.h>
+#include <services/socket/socket.h>
 
 #include <memory>
 
 namespace eka2l1::epoc::bt {
     class midman_inet;
     class btlink_inet_protocol;
- 
-    struct btinet_socket: public socket::socket {
+
+    struct btinet_socket : public socket::socket {
     private:
         hci_scan_enable_ioctl_val scan_value_;
 
@@ -64,7 +64,7 @@ namespace eka2l1::epoc::bt {
         std::int32_t listen(const std::uint32_t backlog) override;
         std::int32_t local_name(epoc::socket::saddress &result, std::uint32_t &result_len) override;
         std::int32_t remote_name(epoc::socket::saddress &result, std::uint32_t &result_len) override;
- 
+
         void ioctl(const std::uint32_t command, epoc::notify_info &complete_info, std::uint8_t *buffer,
             const std::size_t available_size, const std::size_t max_buffer_size, const std::uint32_t level) override;
     };

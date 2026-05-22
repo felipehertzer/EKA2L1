@@ -18,7 +18,7 @@ namespace eka2l1::kernel {
         ntimer *timing_;
 
         int timeout_event_;
-        std::set<thread*> timing_out_thrs_;
+        std::set<thread *> timing_out_thrs_;
 
         void unblock_thread(thread *thr);
 

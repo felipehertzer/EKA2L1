@@ -1,15 +1,15 @@
-#include <catch2/catch.hpp>
 #include "test_cpu.h"
+#include <catch2/catch.hpp>
 
 TEST_CASE("load_chain_single_double", "vfp") {
     eka2l1::arm::test_env env;
     auto core = eka2l1::arm::make_test_cpu(env);
 
     env.code_ = {
-        0xec9c4a0f,  // vldmida ip, {s8-s22}
-        0xeaffffff,  // b +#4
-        0xe1a0000c,  // mov r0, ip
-        0xeafffffe,  // b +#0 (infinite loop)
+        0xec9c4a0f, // vldmida ip, {s8-s22}
+        0xeaffffff, // b +#4
+        0xe1a0000c, // mov r0, ip
+        0xeafffffe, // b +#0 (infinite loop)
 
         // Random data
         0,

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -147,7 +147,7 @@ namespace eka2l1 {
     };
 
     static std::array<std::string, 3> S80_DEVICES_FIRMCODE = {
-        "RAE-6", 
+        "RAE-6",
         "RA-2",
         "RA-8"
     };
@@ -156,14 +156,14 @@ namespace eka2l1 {
         cached_flags_ = 0;
         flag_inited_ = true;
 
-        for (const std::string &device: S80_DEVICES_FIRMCODE) {
+        for (const std::string &device : S80_DEVICES_FIRMCODE) {
             if (common::compare_ignore_case(device.c_str(), firmware_code.c_str()) == 0) {
                 cached_flags_ |= DEVICE_FLAG_S80;
                 break;
             }
         }
     }
-    
+
     bool device::is_s80() {
         if (!flag_inited_) {
             init_flags();

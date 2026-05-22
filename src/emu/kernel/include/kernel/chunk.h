@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -51,7 +51,7 @@ namespace eka2l1 {
     /*! \brief Contains kernel objects implementation. */
     namespace kernel {
         /*! \brief The chunk type.
-		*/
+         */
         enum class chunk_type {
             disconnected,
             double_ended,
@@ -73,9 +73,9 @@ namespace eka2l1 {
         };
 
         /*! \brief A chunk.
-		 *
-		 * Chunk is a big space of reserved memory. In that reserved memory, you can commit and decommit thing.
-		*/
+         *
+         * Chunk is a big space of reserved memory. In that reserved memory, you can commit and decommit thing.
+         */
         class chunk : public kernel_obj {
             // The reversed region that the chunk can commit to
             mem::mem_model_chunk *mmc_impl_;
@@ -102,28 +102,28 @@ namespace eka2l1 {
 
             ~chunk() = default;
 
-            /*! \brief Commit to a disconnected chunk. 
-			 *
-			 * Offset and size SHOULD be aligned with the page size, 
+            /*! \brief Commit to a disconnected chunk.
+             *
+             * Offset and size SHOULD be aligned with the page size,
              * else this will results unwanted behavior. E.g commit(page_size - 1, 2), should commit both
              * the first and second page, since the offset is at the first page, and the commit contains
-             * both last and first byte of two page. This will results two WHOLE pages being allocated. 
-			 * \param offset The offset to commit to.
-			 * \param size The size to commit.
-			 * \returns Error code on failure.
-			*/
+             * both last and first byte of two page. This will results two WHOLE pages being allocated.
+             * \param offset The offset to commit to.
+             * \param size The size to commit.
+             * \returns Error code on failure.
+             */
             std::int32_t commit_symbian_compat(uint32_t offset, size_t size);
 
             bool commit(uint32_t offset, size_t size);
 
             /*! \brief Decommit to a disconnected chunk.
-			 *
+             *
              * Offset and size SHOULD be aligned with the page size.
              * The reason is same as for commit.
-			 * \param offset The offset to decommit.
-			 * \param size The size to decommit.
-			 * \returns false if failed to decommit.
-			*/
+             * \param offset The offset to decommit.
+             * \param size The size to decommit.
+             * \returns false if failed to decommit.
+             */
             bool decommit(uint32_t offset, size_t size);
 
             /*! \brief Destroy the chunk */
@@ -135,17 +135,20 @@ namespace eka2l1 {
             ptr<uint8_t> base(process *pr);
 
             /*! \brief Adjust the chunk size.
-			 * \param adj_size The size of the new adjusted chunk.
-			 * \returns false if adjust failed.
-			*/
+             * \param adj_size The size of the new adjusted chunk.
+             * \returns false if adjust failed.
+             */
             bool adjust(size_t adj_size);
 
             /*! \brief Adjust the size by setting the top and bottom of a chunk
-            */
+             */
             bool adjust_de(size_t nbottom, size_t ntop);
 
+            /*! \brief Ensure a range has backing pages, without changing the chunk size contract. */
+            bool ensure_committed(std::uint32_t offset, std::size_t size);
+
             /*! \brief The definition of this is blurry and uncleared. However,
-             * afaik it commits to the top with size 
+             * afaik it commits to the top with size
              */
             std::int32_t allocate(size_t size);
 

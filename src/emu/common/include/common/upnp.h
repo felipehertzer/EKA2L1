@@ -5,8 +5,7 @@
 
 #include <cstdint>
 
-namespace UPnP
-{
-void TryPortmapping(std::uint16_t port, bool is_udp);
-void StopPortmapping(std::uint16_t port, bool is_udp);
-}  // namespace UPnP
+namespace UPnP {
+    void TryPortmapping(std::uint16_t port, bool is_udp);
+    void StopPortmapping(std::uint16_t port, bool is_udp);
+} // namespace UPnP

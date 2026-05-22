@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team / Citra Team
- * 
+ *
  * This file is part of EKA2L1 project / Citra Emulator Project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,14 +22,17 @@
 #include <common/cvt.h>
 #include <common/log.h>
 #include <common/random.h>
+#include <common/time.h>
 #include <config/config.h>
 
+#include <kernel/codeseg.h>
 #include <kernel/common.h>
+#include <kernel/condvar.h>
 #include <kernel/ipc.h>
 #include <kernel/kernel.h>
 #include <kernel/mutex.h>
+#include <kernel/process.h>
 #include <kernel/sema.h>
-#include <kernel/condvar.h>
 #include <kernel/thread.h>
 #include <mem/mem.h>
 #include <mem/ptr.h>
@@ -38,8 +41,148 @@
 #include <utils/panic.h>
 #include <utils/reqsts.h>
 
+#include <fmt/format.h>
+
+#include <algorithm>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
+
 namespace eka2l1 {
     namespace kernel {
+        static constexpr std::int32_t DEFAULT_EKA1_THREAD_HEAP_MIN_SIZE = 0x10000;
+
+        namespace {
+            bool request_diag_enabled() {
+                static const bool enabled = (std::getenv("EKA2L1_FPS_DIAG") != nullptr)
+                    || (std::getenv("EKA2L1_REQUEST_DIAG") != nullptr);
+                return enabled;
+            }
+
+            struct request_signal_diag_state {
+                std::mutex lock;
+                std::unordered_map<std::string, std::uint64_t> by_target_and_reason;
+                std::uint64_t last_report_wall_us = 0;
+            };
+
+            request_signal_diag_state &request_signal_diag() {
+                static request_signal_diag_state state;
+                return state;
+            }
+
+            void record_request_signal_diag(thread *target, const int count, const char *reason) {
+                if (!request_diag_enabled() || !target) {
+                    return;
+                }
+
+                request_signal_diag_state &diag = request_signal_diag();
+                const std::uint64_t wall_now = common::get_current_utc_time_in_microseconds_since_epoch();
+
+                std::lock_guard<std::mutex> guard(diag.lock);
+
+                kernel::process *owner = target->owning_process();
+                std::string key = owner ? owner->name() : "<no-process>";
+                key += "/";
+                key += target->name();
+                key += ":";
+                key += reason ? reason : "request";
+
+                diag.by_target_and_reason[key] += static_cast<std::uint64_t>(common::max(1, count));
+
+                if (diag.last_report_wall_us == 0) {
+                    diag.last_report_wall_us = wall_now;
+                    return;
+                }
+
+                if (wall_now - diag.last_report_wall_us < common::microsecs_per_sec) {
+                    return;
+                }
+
+                std::vector<std::pair<std::string, std::uint64_t>> rows(diag.by_target_and_reason.begin(), diag.by_target_and_reason.end());
+                diag.by_target_and_reason.clear();
+
+                std::sort(rows.begin(), rows.end(), [](const auto &lhs, const auto &rhs) {
+                    return lhs.second > rhs.second;
+                });
+
+                std::string top;
+                for (std::size_t i = 0; i < rows.size() && i < 10; i++) {
+                    top += top.empty() ? "" : "; ";
+                    top += rows[i].first;
+                    top += "=";
+                    top += common::to_string(rows[i].second);
+                }
+
+                LOG_WARN(KERNEL, "Request signal diag elapsed_ms={} top=[{}]",
+                    (wall_now - diag.last_report_wall_us) / 1000, top);
+
+                diag.last_report_wall_us = wall_now;
+            }
+        }
+
+        static codeseg_ptr get_codeseg_from_addr(kernel_system *kern, kernel::process *pr, const std::uint32_t addr) {
+            if (!pr) {
+                return nullptr;
+            }
+
+            for (const auto &seg_obj : kern->get_codeseg_list()) {
+                codeseg_ptr seg = reinterpret_cast<codeseg_ptr>(seg_obj.get());
+                const address beg = seg->get_code_run_addr(pr);
+                const address end = seg->get_text_size() + beg;
+
+                if ((beg <= addr) && (addr <= end)) {
+                    return seg;
+                }
+            }
+
+            return nullptr;
+        }
+
+        static std::string format_guest_addr(kernel_system *kern, kernel::process *pr, const std::uint32_t addr) {
+            codeseg_ptr seg = get_codeseg_from_addr(kern, pr, addr & ~1U);
+            if (!seg) {
+                return fmt::format("0x{:x} (<unknown>)", addr);
+            }
+
+            const auto seg_base = seg->get_code_run_addr(pr);
+            return fmt::format("0x{:x} ({}+0x{:x})", addr, seg->raw_name(), (addr & ~1U) - seg_base);
+        }
+
+        static std::string collect_stack_callers(kernel_system *kern, kernel::process *pr, const std::uint32_t sp) {
+            std::string stack_callers;
+
+            if (!pr) {
+                return stack_callers;
+            }
+
+            for (std::uint32_t offset = 0; offset < 0x100 && stack_callers.size() < 240; offset += 4) {
+                std::uint8_t *stack_ptr = reinterpret_cast<std::uint8_t *>(pr->get_ptr_on_addr_space(sp + offset));
+                if (!stack_ptr) {
+                    continue;
+                }
+
+                std::uint32_t value = 0;
+                std::memcpy(&value, stack_ptr, sizeof(value));
+                value &= ~1U;
+
+                codeseg_ptr stack_seg = get_codeseg_from_addr(kern, pr, value);
+                if (!stack_seg || stack_seg->raw_name() == "euser.dll") {
+                    continue;
+                }
+
+                const auto stack_seg_base = stack_seg->get_code_run_addr(pr);
+                stack_callers += fmt::format("{}{}+0x{:x}@sp+0x{:x}",
+                    stack_callers.empty() ? "" : ", ",
+                    stack_seg->raw_name(),
+                    value - stack_seg_base,
+                    offset);
+            }
+
+            return stack_callers;
+        }
+
         int map_thread_priority_to_calc(thread_priority pri) {
             switch (pri) {
             case thread_priority::priority_much_less:
@@ -189,8 +332,8 @@ namespace eka2l1 {
             ctx.uprw = thr_local_data_ptr;
         }
 
-        void thread::create_stack_metadata(std::uint8_t *stack_host_ptr, address stack_ptr, ptr<void> allocator,
-            uint32_t name_len, address name_ptr, const address epa) {
+        void thread::create_stack_metadata(std::uint8_t *stack_host_ptr, address user_stack_base,
+            ptr<void> allocator, uint32_t name_len, address name_ptr, const address epa) {
             epoc9_std_epoc_thread_create_info info;
             info.allocator = allocator.ptr_address();
             info.func_ptr = epa;
@@ -199,7 +342,12 @@ namespace eka2l1 {
             // The handle to RThread. HLE function ignore this, however when a RThread HLE call is executed, this
             // will point to that RThread Handle
             info.handle = 0;
-            info.heap_min = min_heap_size;
+            std::int32_t initial_heap_min = min_heap_size;
+            if (kern->is_eka1() && (allocator.ptr_address() == 0) && (max_heap_size > 0) && (initial_heap_min <= 0)) {
+                initial_heap_min = std::min(DEFAULT_EKA1_THREAD_HEAP_MIN_SIZE, max_heap_size);
+            }
+
+            info.heap_min = initial_heap_min;
             info.heap_max = max_heap_size;
             info.init_thread_priority = priority;
 
@@ -208,7 +356,7 @@ namespace eka2l1 {
             info.supervisor_stack = 0;
             info.supervisor_stack_size = 0;
 
-            info.user_stack = stack_ptr;
+            info.user_stack = user_stack_base;
             info.user_stack_size = stack_size;
             info.padding = 0;
 
@@ -289,8 +437,21 @@ namespace eka2l1 {
             obj_type = object_type::thread;
             state = thread_state::create; // Suspended.
 
-            // Stack size is rounded to page unit in actual kernel
-            stack_size = static_cast<int>(common::align(static_cast<std::size_t>(stack_size), mem->get_page_size()));
+            const size_t metadata_size = sizeof(epoc9_std_epoc_thread_create_info);
+            const std::size_t stack_top_slack = mem->get_page_size();
+            const std::size_t minimum_stack_size = common::align(metadata_size + stack_top_slack + mem->get_page_size(), mem->get_page_size());
+            const std::size_t requested_stack_size = common::align(static_cast<std::size_t>(common::max(0, stack_size)), mem->get_page_size());
+
+            // The emulator stores EKA2 thread startup metadata near the top of the user
+            // stack. Leave a mapped page above it so the bootstrap does not restore SP
+            // exactly on a memory-section boundary before the first user push.
+            if (requested_stack_size < minimum_stack_size) {
+                LOG_TRACE(KERNEL, "Thread {} requested too small stack size 0x{:x}, using 0x{:x}",
+                    name, stack_size, minimum_stack_size);
+                stack_size = static_cast<int>(minimum_stack_size);
+            } else {
+                stack_size = static_cast<int>(requested_stack_size);
+            }
 
             stack_chunk = kern->create<kernel::chunk>(kern->get_memory_system(), owning_process(), "", 0, static_cast<std::uint32_t>(common::align(stack_size, mem->get_page_size())), common::align(stack_size, mem->get_page_size()), prot_read_write,
                 chunk_type::normal, chunk_access::local, chunk_attrib::none, 0x00);
@@ -310,18 +471,16 @@ namespace eka2l1 {
             // or thread setup. Looks like the kernel already do it for us, but that's not good design.
             // Kernel vs userspace should be tied together, but yeah they removed it in EKA2
             // A setup code is prepared for EKA1 for this situation, which uses this struct.
-            const size_t metadata_size = sizeof(epoc9_std_epoc_thread_create_info);
-
             std::uint8_t *stack_beg_meta_ptr = reinterpret_cast<std::uint8_t *>(stack_chunk->host_base());
-            std::uint8_t *stack_top_ptr = stack_beg_meta_ptr + stack_size - metadata_size;
+            std::uint8_t *stack_top_ptr = stack_beg_meta_ptr + stack_size - metadata_size - stack_top_slack;
 
-            const address stack_top = stack_chunk->base(owner).ptr_address() + static_cast<address>(stack_size - metadata_size);
+            const address stack_top = stack_chunk->base(owner).ptr_address() + static_cast<address>(stack_size - metadata_size - stack_top_slack);
 
             // Fill the stack with garbage
             std::fill(stack_beg_meta_ptr, stack_top_ptr, 0xcc);
 
-            create_stack_metadata(stack_top_ptr, stack_top, allocator, static_cast<std::uint32_t>(name.length()),
-                name_chunk->base(owner).ptr_address(), epa);
+            create_stack_metadata(stack_top_ptr, stack_chunk->base(owner).ptr_address(), allocator,
+                static_cast<std::uint32_t>(name.length()), name_chunk->base(owner).ptr_address(), epa);
 
             metadata = reinterpret_cast<epoc9_std_epoc_thread_create_info *>(stack_top_ptr);
 
@@ -352,7 +511,7 @@ namespace eka2l1 {
                     // Anna and above add thread ID to the local storage at offset 12
                     // While the TLS heap is expected on at least OS version S60v3 to be at offset 12 instead
                     // So nullify the thread ID
-                    reinterpret_cast<thread_local_data*>(thread_free_modify_local_storage_ptr)->thread_id = 0;
+                    reinterpret_cast<thread_local_data *>(thread_free_modify_local_storage_ptr)->thread_id = 0;
                 }
 
                 thread_free_modify_local_storage_vptr = local_data_chunk->base(owner).ptr_address() + sizeof(thread_local_data);
@@ -485,9 +644,9 @@ namespace eka2l1 {
                 (sleep_nof_sts.get(owning_process()))->set(errcode, kern->is_eka1());
                 sleep_nof_sts = 0;
 
-                signal_request();
+                signal_request(1, "thread_sleep_notify");
             } else {
-                signal_request(sleep_level);
+                signal_request(sleep_level, "thread_sleep_notify");
                 sleep_level = 0;
             }
 
@@ -532,6 +691,26 @@ namespace eka2l1 {
             case kernel::entity_exit_type::panic:
                 LOG_TRACE(KERNEL, "Thread {} panicked with category: {} and exit code: {} {}", obj_name, exit_category_u8, reason,
                     exit_description ? (std::string("(") + *exit_description + ")") : "");
+                {
+                    kernel::process *pr = owning_process();
+                    std::uint32_t pc = ctx.get_pc();
+                    std::uint32_t lr = ctx.get_lr();
+                    std::uint32_t sp = ctx.get_sp();
+
+                    if (kern->crr_thread() == this && kern->get_cpu()) {
+                        pc = kern->get_cpu()->get_reg(15);
+                        lr = kern->get_cpu()->get_reg(14);
+                        sp = kern->get_cpu()->get_reg(13);
+                    }
+
+                    LOG_TRACE(KERNEL, "Panic context process={}, thread={}, pc={}, lr={}, sp=0x{:x}, stack_callers=[{}]",
+                        pr ? pr->name() : "<none>",
+                        obj_name,
+                        format_guest_addr(kern, pr, pc),
+                        format_guest_addr(kern, pr, lr),
+                        sp,
+                        collect_stack_callers(kern, pr, sp));
+                }
 
                 // Decide HLE actions to take on this thread.
                 if (!take_on_panic(category, reason)) {
@@ -631,8 +810,9 @@ namespace eka2l1 {
             request_sema->wait(0);
         }
 
-        void thread::signal_request(int count) {
+        void thread::signal_request(int count, const char *reason) {
             request_sema->signal(count);
+            record_request_signal_diag(this, count, reason);
         }
 
         std::int32_t thread::request_count() {
@@ -786,7 +966,7 @@ namespace eka2l1 {
         void thread::logon(eka2l1::ptr<epoc::request_status> logon_request, bool rendezvous) {
             if (state == thread_state::stop) {
                 (logon_request.get(kern->crr_process()))->set(exit_reason, kern->is_eka1());
-                kern->crr_thread()->signal_request();
+                kern->crr_thread()->signal_request(1, "thread_logon_immediate");
 
                 return;
             }
@@ -919,7 +1099,7 @@ namespace eka2l1 {
                 backup_state = state;
 
                 if (backup_state == thread_state::wait_fast_sema)
-                    signal_request();
+                    signal_request(1, "exception_wait_restore");
 
                 ctx.cpu_registers[0] = exec_type;
                 ctx.cpu_registers[1] = exception_handler;
@@ -1015,14 +1195,14 @@ namespace eka2l1 {
         void thread::real_time_active_end() {
             total_real_run_time += (timing->microseconds() - last_run_time);
         }
-        
+
         void thread::start_timeout(const std::uint32_t us) {
             if (!is_in_timeout) {
                 timing->schedule_event(us, wait_object_timeout_callback_type, reinterpret_cast<std::uint64_t>(this));
                 is_in_timeout = true;
             }
         }
-        
+
         void thread::end_timeout_early() {
             if (is_in_timeout) {
                 timing->unschedule_event(wait_object_timeout_callback_type, reinterpret_cast<std::uint64_t>(this));
@@ -1044,7 +1224,7 @@ namespace eka2l1 {
             if (!kern->is_eka1()) {
                 switch (wait_obj->get_object_type()) {
                 case kernel::object_type::sema:
-                    reinterpret_cast<kernel::semaphore*>(wait_obj)->timeouted(this);
+                    reinterpret_cast<kernel::semaphore *>(wait_obj)->timeouted(this);
                     break;
 
                 default:
@@ -1062,7 +1242,8 @@ namespace eka2l1 {
             stack_info info;
             info.limit_ = stack_chunk->base(owning_process()).ptr_address();
             info.expandable_limit_ = info.limit_;
-            info.base_ = info.limit_ + stack_size - sizeof(epoc9_std_epoc_thread_create_info);
+            info.base_ = info.limit_ + stack_size - static_cast<address>(mem->get_page_size())
+                - sizeof(epoc9_std_epoc_thread_create_info);
 
             return info;
         }
@@ -1081,9 +1262,9 @@ namespace eka2l1 {
                 sts_real->set(err_code, kern->is_eka1());
 
             sts = 0;
-            requester->signal_request();
+            requester->signal_request(1, "notify_complete");
         }
-        
+
         void notify_info::pending() {
             if (sts.ptr_address() == 0) {
                 return;

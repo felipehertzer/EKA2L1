@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -436,7 +436,7 @@ namespace eka2l1 {
                         list[0] = uint8_t(last);
                         last = list[c];
 
-                        memmove((void *const) & list[1], (const void *const) & list[0], (size_t)c);
+                        memmove((void *const)&list[1], (const void *const)&list[0], (size_t)c);
 
                         if (p > end) {
                             LOG_ERROR(COMMON, "Externalize error: Invalid inflate data!");

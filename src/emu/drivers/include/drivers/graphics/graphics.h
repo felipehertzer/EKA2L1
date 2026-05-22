@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -143,10 +143,7 @@ namespace eka2l1::drivers {
         /**
          * \brief Set a hook when display function is called.
          *
-         * On Vulkan, display may be done using vkQueueDisplayKHR, then you can hook to do things like for example,
-         * polling window events.
-         *
-         * On OpenGL, this hook is expected to swap buffers and also do other things.
+         * The renderer presents internally; the hook is used for frontend work such as polling window events.
          *
          * \param hook    Contains function to hook.
          */
@@ -164,7 +161,7 @@ namespace eka2l1::drivers {
 
         /**
          * \brief Submit a command list.
-         * 
+         *
          * The list object will be copied within the function, and can be safely delete after.
          *
          * \param cmd_list     Command list to submit.

@@ -33,8 +33,8 @@
 #include <kernel/kernel.h>
 #include <kernel/libmanager.h>
 
-#include <services/window/window.h>
 #include <services/init.h>
+#include <services/window/window.h>
 
 namespace eka2l1::android {
     static const char *PATCH_FOLDER_PATH = ".//patch//";
@@ -64,9 +64,8 @@ namespace eka2l1::android {
             // TODO: Clean these handles up somewhere (+ threads too!)
             eka2l1::epoc::screen *screens = winserv->get_screens();
             while (screens) {
-                std::size_t change_handle = screens->add_screen_redraw_callback(this, [](void *userdata,
-                                                                                           eka2l1::epoc::screen *scr, const bool is_dsa) {
-                    emulator *state_ptr = reinterpret_cast<emulator*>(userdata);
+                std::size_t change_handle = screens->add_screen_redraw_callback(this, [](void *userdata, eka2l1::epoc::screen *scr, const bool is_dsa) {
+                    emulator *state_ptr = reinterpret_cast<emulator *>(userdata);
                     if (!state_ptr->graphics_driver) {
                         return;
                     }
@@ -77,7 +76,7 @@ namespace eka2l1::android {
 
                     drivers::graphics_command_builder builder;
                     state_ptr->launcher->draw(builder, scr, state_ptr->window->window_fb_size().x,
-                                              state_ptr->window->window_fb_size().y);
+                        state_ptr->window->window_fb_size().y);
 
                     // Submit, present, and wait for the presenting
                     // Don't wait for present to be done, let the game during this time to do
@@ -97,7 +96,7 @@ namespace eka2l1::android {
 
     void emulator::on_system_reset(system *the_sys) {
         winserv = reinterpret_cast<eka2l1::window_server *>(the_sys->get_kernel_system()->get_by_name<eka2l1::service::server>(
-                eka2l1::get_winserv_name_by_epocver(symsys->get_symbian_version_use())));
+            eka2l1::get_winserv_name_by_epocver(symsys->get_symbian_version_use())));
 
         if (stage_two_inited) {
             register_draw_callback();
@@ -221,8 +220,8 @@ namespace eka2l1::android {
 
             // Copy additional DLLs
             std::vector<std::tuple<std::u16string, std::string, epocver>> dlls_need_to_copy = {
-                { u"Z:\\sys\\bin\\goommonitor.dll", "patch\\goommonitor_general.dll", epocver::epoc94 },
-                { u"Z:\\sys\\bin\\avkonfep.dll", "patch\\avkonfep_general.dll", epocver::epoc93fp1 }
+                { u"Z:\\sys\\bin\\goommonitor.dll", "patch/goommonitor_general.dll", epocver::epoc94 },
+                { u"Z:\\sys\\bin\\avkonfep.dll", "patch/avkonfep_general.dll", epocver::epoc93fp1 }
             };
 
             for (std::size_t i = 0; i < dlls_need_to_copy.size(); i++) {
@@ -235,14 +234,28 @@ namespace eka2l1::android {
                 auto where_to_copy = io->get_raw_path(org_file_path);
 
                 if (where_to_copy.has_value()) {
+                    std::string source_copy = std::get<1>(dlls_need_to_copy[i]);
+                    source_copy = eka2l1::absolute_path(source_copy, current_dir);
+                    if (!common::exists(source_copy)) {
+                        LOG_ERROR(FRONTEND_CMDLINE, "Replacement DLL source does not exist: {}", source_copy);
+                        continue;
+                    }
+
                     std::string where_to_copy_u8 = common::ucs2_to_utf8(where_to_copy.value());
                     std::string where_to_backup_u8 = where_to_copy_u8 + ".bak";
                     if (common::exists(where_to_copy_u8) && !common::exists(where_to_backup_u8)) {
-                        common::move_file(where_to_copy_u8, where_to_copy_u8 + ".bak");
+                        common::move_file(where_to_copy_u8, where_to_backup_u8);
                     }
-                    std::string source_copy = std::get<1>(dlls_need_to_copy[i]);
-                    source_copy = eka2l1::absolute_path(source_copy, current_dir);
-                    common::copy_file(source_copy, where_to_copy_u8, true);
+
+                    common::create_directories(eka2l1::file_directory(where_to_copy_u8));
+                    if (!common::copy_file(source_copy, where_to_copy_u8, true)) {
+                        LOG_ERROR(FRONTEND_CMDLINE, "Failed to install replacement DLL {} to {}",
+                            source_copy, where_to_copy_u8);
+
+                        if (!common::exists(where_to_copy_u8) && common::exists(where_to_backup_u8)) {
+                            common::copy_file(where_to_backup_u8, where_to_copy_u8, true);
+                        }
+                    }
                 }
             }
 

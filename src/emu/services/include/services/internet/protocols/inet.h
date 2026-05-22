@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -30,10 +30,10 @@
 
 #include <functional>
 #include <memory>
+#include <queue>
 #include <string>
 #include <thread>
 #include <vector>
-#include <queue>
 
 #include <uvlooper/uvlooper.h>
 
@@ -48,39 +48,39 @@ namespace eka2l1::epoc::internet {
     class midman;
     class inet_bridged_protocol;
 
-    struct sinet_address: public socket::saddress {
+    struct sinet_address : public socket::saddress {
         static constexpr std::uint32_t DATA_SIZE = 12;
 
         std::uint32_t *addr_long() {
-            return reinterpret_cast<std::uint32_t*>(user_data_);
+            return reinterpret_cast<std::uint32_t *>(user_data_);
         }
     };
 
-    struct sinet6_address: public socket::saddress {
+    struct sinet6_address : public socket::saddress {
         static constexpr std::uint32_t DATA_SIZE = 32;
 
         std::uint32_t *address_32x4() {
-            return reinterpret_cast<std::uint32_t*>(user_data_);
+            return reinterpret_cast<std::uint32_t *>(user_data_);
         }
 
         std::uint32_t *flow() {
-            return reinterpret_cast<std::uint32_t*>(user_data_) + 4;
+            return reinterpret_cast<std::uint32_t *>(user_data_) + 4;
         }
 
         std::uint32_t *scope() {
-            return reinterpret_cast<std::uint32_t*>(user_data_) + 5;
+            return reinterpret_cast<std::uint32_t *>(user_data_) + 5;
         }
-        
+
         const std::uint32_t *get_address_32x4() const {
-            return reinterpret_cast<const std::uint32_t*>(user_data_);
+            return reinterpret_cast<const std::uint32_t *>(user_data_);
         }
 
         std::uint32_t get_flow() const {
-            return reinterpret_cast<const std::uint32_t*>(user_data_)[4];
+            return reinterpret_cast<const std::uint32_t *>(user_data_)[4];
         }
 
         std::uint32_t get_scope() const {
-            return reinterpret_cast<const std::uint32_t*>(user_data_)[5];
+            return reinterpret_cast<const std::uint32_t *>(user_data_)[5];
         }
     };
 
@@ -119,7 +119,7 @@ namespace eka2l1::epoc::internet {
         sinet_address primary_name_server_;
         std::uint32_t secondary_name_server_len_;
         std::uint32_t secondary_name_server_max_len_;
-        sinet_address secondary_name_server_; 
+        sinet_address secondary_name_server_;
     };
 
     static_assert(sizeof(inet_interface_info) == 824);
@@ -156,7 +156,6 @@ namespace eka2l1::epoc::internet {
         explicit inet_socket_interface_iterator()
             : opaque_interface_info_(nullptr)
             , opaque_interface_info_current_(nullptr) {
-
         }
 
         ~inet_socket_interface_iterator();
@@ -179,6 +178,11 @@ namespace eka2l1::epoc::internet {
         void *opaque_write_info_;
 
         std::uint32_t protocol_;
+        bool closing_;
+        bool connect_pending_;
+        bool send_pending_;
+        common::event *close_event_;
+
         epoc::notify_info connect_done_info_;
         epoc::notify_info send_done_info_;
         epoc::notify_info recv_done_info_;
@@ -209,7 +213,7 @@ namespace eka2l1::epoc::internet {
         common::event listen_event_;
         int listen_event_result_;
 
-        std::function<void(void*)> socket_accepted_hook_;
+        std::function<void(void *)> socket_accepted_hook_;
         std::mutex hook_lock_;
         std::mutex data_lock_;
 
@@ -296,6 +300,7 @@ namespace eka2l1::epoc::internet {
         void complete_connect_done_info(const int err);
         void complete_send_done_info(const int err);
         void complete_shutdown_info(const int err);
+        void signal_close_done();
         void prepare_buffer_for_recv(const std::size_t suggested_size, void *buf_ptr);
         void handle_udp_delivery(const std::int64_t bytes_read, const void *buf_ptr, const void *addr);
         void handle_tcp_delivery(const std::int64_t bytes_read, const void *buf_ptr);
@@ -306,7 +311,7 @@ namespace eka2l1::epoc::internet {
             return opaque_handle_;
         }
 
-        void set_socket_accepted_hook(std::function<void(void*)> hook) {
+        void set_socket_accepted_hook(std::function<void(void *)> hook) {
             const std::lock_guard<std::mutex> guard(hook_lock_);
             socket_accepted_hook_ = hook;
         }
@@ -367,6 +372,6 @@ namespace eka2l1::epoc::internet {
 
     void host_sockaddr_to_guest_saddress(const sockaddr *addr, epoc::socket::saddress &dest_addr, std::uint32_t *data_len = nullptr,
         bool for_descriptor = false);
-        
+
     void addrinfo_to_name_entry(epoc::socket::name_entry &supply_and_result, addrinfo *result_info);
 }

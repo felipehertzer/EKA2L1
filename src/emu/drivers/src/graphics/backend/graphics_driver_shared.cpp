@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,8 +24,6 @@
 #include <drivers/graphics/backend/graphics_driver_shared.h>
 #include <drivers/graphics/buffer.h>
 #include <drivers/graphics/shader.h>
-
-#include <glad/glad.h>
 
 namespace eka2l1::drivers {
     static void translate_bpp_to_format(const int bpp, texture_format &internal_format, texture_format &format,
@@ -140,7 +138,8 @@ namespace eka2l1::drivers {
             source_region.size = tex->get_size();
 
             eka2l1::rect dest_region;
-            dest_region.top = { 0, 0 };;
+            dest_region.top = { 0, 0 };
+            ;
             dest_region.size = new_size;
 
             fb->blit(source_region, dest_region, draw_buffer_bit_color_buffer, filter_option::linear);
@@ -227,7 +226,7 @@ namespace eka2l1::drivers {
         translate_bpp_to_format(bmp->bpp, internal_format, data_format, data_type, is_stricted());
 
         bmp->tex->update_data(this, 0, eka2l1::vec3(offset.x, offset.y, 0), eka2l1::vec3(dim.x, dim.y, 0), pixels_per_line,
-            data_format, data_type, data, 0, 4);
+            data_format, data_type, data, size, 4);
 
         if (bmp->bpp == 12) {
             bmp->tex->set_channel_swizzle({ channel_swizzle::green, channel_swizzle::blue,
@@ -274,7 +273,7 @@ namespace eka2l1::drivers {
 
     void shared_graphics_driver::update_bitmap(command &cmd) {
         drivers::handle handle = cmd.data_[0];
-        std::uint8_t *data = reinterpret_cast<std::uint8_t*>(cmd.data_[1]);
+        std::uint8_t *data = reinterpret_cast<std::uint8_t *>(cmd.data_[1]);
         std::size_t size = static_cast<std::size_t>(cmd.data_[2]);
         eka2l1::vec2 offset;
         eka2l1::vec2 dim;
@@ -290,7 +289,7 @@ namespace eka2l1::drivers {
 
     void shared_graphics_driver::update_texture(command &cmd) {
         drivers::handle handle = cmd.data_[0];
-        std::uint8_t *data = reinterpret_cast<std::uint8_t*>(cmd.data_[1]);
+        std::uint8_t *data = reinterpret_cast<std::uint8_t *>(cmd.data_[1]);
         std::size_t size = static_cast<std::size_t>(cmd.data_[2]);
         std::uint8_t lvl = static_cast<std::uint8_t>(cmd.data_[3]);
         drivers::texture_format data_format = static_cast<drivers::texture_format>(cmd.data_[3] >> 8);
@@ -304,7 +303,7 @@ namespace eka2l1::drivers {
         unpack_u64_to_2u32(cmd.data_[5], offset.z, dim.x);
         unpack_u64_to_2u32(cmd.data_[6], dim.y, dim.z);
 
-        drivers::texture *obj = reinterpret_cast<drivers::texture*>(get_graphics_object(handle));
+        drivers::texture *obj = reinterpret_cast<drivers::texture *>(get_graphics_object(handle));
         if (!obj) {
             return;
         }
@@ -317,7 +316,7 @@ namespace eka2l1::drivers {
     void shared_graphics_driver::create_bitmap(command &cmd) {
         eka2l1::vec2 size;
         std::uint32_t bpp = static_cast<std::uint32_t>(cmd.data_[1]);
-        drivers::handle *result = reinterpret_cast<drivers::handle*>(cmd.data_[2]);
+        drivers::handle *result = reinterpret_cast<drivers::handle *>(cmd.data_[2]);
 
         unpack_u64_to_2u32(cmd.data_[0], size.x, size.y);
 
@@ -388,16 +387,13 @@ namespace eka2l1::drivers {
     }
 
     void shared_graphics_driver::set_viewport(const eka2l1::rect &new_rect) {
-        bool no_need_flip = !(!binding && (get_current_api() == drivers::graphic_api::opengl));
-
         projection_matrix = glm::identity<glm::mat4>();
-        projection_matrix = glm::ortho(0.0f, static_cast<float>(new_rect.size.x), no_need_flip ? static_cast<float>(new_rect.size.y) : 0,
-            no_need_flip ? 0.0f : static_cast<float>(new_rect.size.y), -1.0f, 1.0f);
+        projection_matrix = glm::ortho(0.0f, static_cast<float>(new_rect.size.x), static_cast<float>(new_rect.size.y), 0.0f, -1.0f, 1.0f);
     }
 
     void shared_graphics_driver::read_bitmap(command &cmd) {
         drivers::handle handle = cmd.data_[0];
-        
+
         bitmap *bmp = get_bitmap(handle);
 
         if (!bmp) {
@@ -438,7 +434,7 @@ namespace eka2l1::drivers {
             return;
         }
 
-        std::uint8_t *ptr = reinterpret_cast<std::uint8_t*>(cmd.data_[4]);
+        std::uint8_t *ptr = reinterpret_cast<std::uint8_t *>(cmd.data_[4]);
 
         if (!ptr) {
             finish(cmd.status_, 0);
@@ -486,7 +482,7 @@ namespace eka2l1::drivers {
     }
 
     void shared_graphics_driver::set_brush_color(command &cmd) {
-        std::uint32_t r,g,b,a;
+        std::uint32_t r, g, b, a;
         unpack_u64_to_2u32(cmd.data_[0], r, g);
         unpack_u64_to_2u32(cmd.data_[1], b, a);
 
@@ -494,13 +490,20 @@ namespace eka2l1::drivers {
     }
 
     void shared_graphics_driver::create_module(command &cmd) {
-        const char *data = reinterpret_cast<const char*>(cmd.data_[0]);
+        const char *data = reinterpret_cast<const char *>(cmd.data_[0]);
         std::size_t data_size = static_cast<std::size_t>(cmd.data_[1]);
         drivers::shader_module_type mod_type = static_cast<drivers::shader_module_type>(cmd.data_[2]);
-        std::string *compile_log = reinterpret_cast<std::string*>(cmd.data_[4]);
-        drivers::handle *store = reinterpret_cast<drivers::handle*>(cmd.data_[3]);
+        std::string *compile_log = reinterpret_cast<std::string *>(cmd.data_[4]);
+        drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[3]);
 
         auto obj = make_shader_module(this);
+        if (!obj) {
+            LOG_ERROR(DRIVER_GRAPHICS, "Graphics backend does not support shader modules");
+            *store = 0;
+            finish(cmd.status_, -1);
+            return;
+        }
+
         if (!obj->create(this, data, data_size, mod_type, compile_log)) {
             LOG_ERROR(DRIVER_GRAPHICS, "Fail to create shader module!");
             *store = 0;
@@ -520,13 +523,23 @@ namespace eka2l1::drivers {
     void shared_graphics_driver::create_program(command &cmd) {
         drivers::handle vert_module_handle = static_cast<drivers::handle>(cmd.data_[0]);
         drivers::handle frag_module_handle = static_cast<drivers::handle>(cmd.data_[1]);
-        void **metadata = reinterpret_cast<void**>(cmd.data_[2]);
-        std::string *link_log = reinterpret_cast<std::string*>(cmd.data_[4]);
+        void **metadata = reinterpret_cast<void **>(cmd.data_[2]);
+        std::string *link_log = reinterpret_cast<std::string *>(cmd.data_[4]);
 
         auto obj = make_shader_program(this);
+        if (!obj) {
+            drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[3]);
+            if (store) {
+                *store = 0;
+            }
 
-        shader_module *vert_module_obj = reinterpret_cast<shader_module*>(get_graphics_object(vert_module_handle));
-        shader_module *frag_module_obj = reinterpret_cast<shader_module*>(get_graphics_object(frag_module_handle));
+            LOG_ERROR(DRIVER_GRAPHICS, "Graphics backend does not support shader programs");
+            finish(cmd.status_, -1);
+            return;
+        }
+
+        shader_module *vert_module_obj = reinterpret_cast<shader_module *>(get_graphics_object(vert_module_handle));
+        shader_module *frag_module_obj = reinterpret_cast<shader_module *>(get_graphics_object(frag_module_handle));
 
         if (!obj->create(this, vert_module_obj, frag_module_obj, link_log)) {
             LOG_ERROR(DRIVER_GRAPHICS, "Fail to create shader program!");
@@ -541,7 +554,7 @@ namespace eka2l1::drivers {
         std::unique_ptr<graphics_object> obj_casted = std::move(obj);
         drivers::handle res = append_graphics_object(obj_casted);
 
-        drivers::handle *store = reinterpret_cast<drivers::handle*>(cmd.data_[3]);
+        drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[3]);
 
         *store = res;
         finish(cmd.status_, 0);
@@ -554,7 +567,7 @@ namespace eka2l1::drivers {
         drivers::texture_format internal_format = static_cast<drivers::texture_format>(cmd.data_[0] >> 16);
         drivers::texture_format data_format = static_cast<drivers::texture_format>(cmd.data_[0] >> 32);
         drivers::texture_data_type data_type = static_cast<drivers::texture_data_type>(cmd.data_[0] >> 48);
-        void *data = reinterpret_cast<void*>(cmd.data_[1]);
+        void *data = reinterpret_cast<void *>(cmd.data_[1]);
         std::size_t data_size = static_cast<std::size_t>(cmd.data_[2]);
 
         std::size_t pixels_per_line = static_cast<std::size_t>(cmd.data_[3]);
@@ -570,13 +583,22 @@ namespace eka2l1::drivers {
         drivers::texture_ptr obj_inst = nullptr;
 
         if (h != 0) {
-            obj = reinterpret_cast<drivers::texture*>(get_graphics_object(h));
+            obj = reinterpret_cast<drivers::texture *>(get_graphics_object(h));
             if (!obj) {
                 LOG_ERROR(DRIVER_GRAPHICS, "Texture object with handle {} does not exist!", h);
+                if (data != nullptr) {
+                    delete[] reinterpret_cast<std::uint8_t *>(data);
+                }
                 return;
             }
         } else {
             obj_inst = make_texture(this);
+            if (!obj_inst) {
+                LOG_ERROR(DRIVER_GRAPHICS, "Graphics backend does not support textures");
+                finish(cmd.status_, -1);
+                return;
+            }
+
             obj = obj_inst.get();
         }
 
@@ -587,11 +609,11 @@ namespace eka2l1::drivers {
             std::unique_ptr<graphics_object> obj_casted = std::move(obj_inst);
             drivers::handle res = append_graphics_object(obj_casted);
 
-            drivers::handle *store = reinterpret_cast<drivers::handle*>(cmd.data_[8]);
+            drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[8]);
             *store = res;
         } else {
             if (data != nullptr) {
-                std::uint8_t *data_org = reinterpret_cast<std::uint8_t*>(data);
+                std::uint8_t *data_org = reinterpret_cast<std::uint8_t *>(data);
                 delete[] data_org;
             }
         }
@@ -600,7 +622,7 @@ namespace eka2l1::drivers {
     }
 
     void shared_graphics_driver::create_buffer(command &cmd) {
-        void *initial_data = reinterpret_cast<void*>(cmd.data_[0]);
+        void *initial_data = reinterpret_cast<void *>(cmd.data_[0]);
         std::size_t initial_size = static_cast<std::size_t>(cmd.data_[1]);
         buffer_upload_hint upload_hint = static_cast<buffer_upload_hint>(cmd.data_[2]);
         drivers::handle existing_handle = static_cast<drivers::handle>(cmd.data_[3]);
@@ -609,12 +631,21 @@ namespace eka2l1::drivers {
         std::unique_ptr<drivers::buffer> obj_inst = nullptr;
 
         if (existing_handle != 0) {
-            obj = reinterpret_cast<drivers::buffer*>(get_graphics_object(existing_handle));
+            obj = reinterpret_cast<drivers::buffer *>(get_graphics_object(existing_handle));
             if (!obj) {
+                if (initial_data != nullptr) {
+                    delete[] reinterpret_cast<std::uint8_t *>(initial_data);
+                }
                 return;
             }
-        } else {    
+        } else {
             obj_inst = make_buffer(this);
+            if (!obj_inst) {
+                LOG_ERROR(DRIVER_GRAPHICS, "Graphics backend does not support buffers");
+                finish(cmd.status_, -1);
+                return;
+            }
+
             obj = obj_inst.get();
         }
 
@@ -624,18 +655,18 @@ namespace eka2l1::drivers {
             std::unique_ptr<graphics_object> obj_casted = std::move(obj_inst);
             drivers::handle res = append_graphics_object(obj_casted);
 
-            drivers::handle *store = reinterpret_cast<drivers::handle*>(cmd.data_[4]);
+            drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[4]);
             *store = res;
 
             finish(cmd.status_, 0);
         } else if ((initial_data != nullptr) && (existing_handle)) {
-            std::uint8_t *data_casted = reinterpret_cast<std::uint8_t*>(initial_data);
+            std::uint8_t *data_casted = reinterpret_cast<std::uint8_t *>(initial_data);
             delete[] data_casted;
         }
     }
 
     void shared_graphics_driver::create_input_descriptors(command &cmd) {
-        drivers::input_descriptor *descs = reinterpret_cast<drivers::input_descriptor*>(cmd.data_[0]);
+        drivers::input_descriptor *descs = reinterpret_cast<drivers::input_descriptor *>(cmd.data_[0]);
         std::uint32_t count = static_cast<std::uint32_t>(cmd.data_[1]);
         drivers::handle existing_handle = static_cast<drivers::handle>(cmd.data_[2]);
 
@@ -643,12 +674,21 @@ namespace eka2l1::drivers {
         std::unique_ptr<drivers::input_descriptors> obj_inst = nullptr;
 
         if (existing_handle != 0) {
-            obj = reinterpret_cast<drivers::input_descriptors*>(get_graphics_object(existing_handle));
+            obj = reinterpret_cast<drivers::input_descriptors *>(get_graphics_object(existing_handle));
             if (!obj) {
+                if (descs != nullptr) {
+                    delete[] reinterpret_cast<std::uint8_t *>(descs);
+                }
                 return;
             }
         } else {
             obj_inst = make_input_descriptors(this);
+            if (!obj_inst) {
+                LOG_ERROR(DRIVER_GRAPHICS, "Graphics backend does not support input descriptors");
+                finish(cmd.status_, -1);
+                return;
+            }
+
             obj = obj_inst.get();
         }
 
@@ -658,12 +698,12 @@ namespace eka2l1::drivers {
             std::unique_ptr<graphics_object> obj_casted = std::move(obj_inst);
             drivers::handle res = append_graphics_object(obj_casted);
 
-            drivers::handle *store = reinterpret_cast<drivers::handle*>(cmd.data_[3]);
+            drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[3]);
             *store = res;
 
             finish(cmd.status_, 0);
         } else if ((descs != nullptr) && (existing_handle)) {
-            std::uint8_t *data_casted = reinterpret_cast<std::uint8_t*>(descs);
+            std::uint8_t *data_casted = reinterpret_cast<std::uint8_t *>(descs);
             delete[] data_casted;
         }
     }
@@ -675,27 +715,33 @@ namespace eka2l1::drivers {
 
         unpack_u64_to_2u32(cmd.data_[0], size.x, size.y);
         internal_format = static_cast<drivers::texture_format>(cmd.data_[1]);
-        
+
         drivers::renderbuffer *obj = nullptr;
         std::unique_ptr<drivers::renderbuffer> obj_inst = nullptr;
 
         if (existing_handle != 0) {
-            obj = reinterpret_cast<drivers::renderbuffer*>(get_graphics_object(existing_handle));
+            obj = reinterpret_cast<drivers::renderbuffer *>(get_graphics_object(existing_handle));
             if (!obj) {
                 return;
             }
-        } else {    
+        } else {
             obj_inst = make_renderbuffer(this);
+            if (!obj_inst) {
+                LOG_ERROR(DRIVER_GRAPHICS, "Graphics backend does not support renderbuffers");
+                finish(cmd.status_, -1);
+                return;
+            }
+
             obj = obj_inst.get();
         }
 
         obj->create(this, size, internal_format);
-        
+
         if (obj_inst) {
             std::unique_ptr<graphics_object> obj_casted = std::move(obj_inst);
             drivers::handle res = append_graphics_object(obj_casted);
 
-            drivers::handle *store = reinterpret_cast<drivers::handle*>(cmd.data_[3]);
+            drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[3]);
             *store = res;
 
             finish(cmd.status_, 0);
@@ -703,8 +749,8 @@ namespace eka2l1::drivers {
     }
 
     void shared_graphics_driver::create_framebuffer(command &cmd) {
-        drivers::handle *color_buffers = reinterpret_cast<drivers::handle*>(cmd.data_[0]);
-        int *color_face_indicies = reinterpret_cast<int*>(cmd.data_[1]);
+        drivers::handle *color_buffers = reinterpret_cast<drivers::handle *>(cmd.data_[0]);
+        int *color_face_indicies = reinterpret_cast<int *>(cmd.data_[1]);
         std::uint32_t color_buffer_count = static_cast<std::uint32_t>(cmd.data_[2]);
         drivers::handle depth_buffer = static_cast<drivers::handle>(cmd.data_[3]);
         drivers::handle stencil_buffer = static_cast<drivers::handle>(cmd.data_[4]);
@@ -712,13 +758,13 @@ namespace eka2l1::drivers {
         int depth_face_index, stencil_face_index;
         unpack_u64_to_2u32(cmd.data_[5], depth_face_index, stencil_face_index);
 
-        std::vector<drawable*> color_buffer_objs;
+        std::vector<drawable *> color_buffer_objs;
         std::vector<int> color_face_indicies_v;
 
         drawable *temp = nullptr;
 
         for (std::uint32_t i = 0; i < color_buffer_count; i++) {
-            temp = reinterpret_cast<drawable*>(get_graphics_object(color_buffers[i]));
+            temp = reinterpret_cast<drawable *>(get_graphics_object(color_buffers[i]));
             if (!temp) {
                 return;
             }
@@ -731,14 +777,14 @@ namespace eka2l1::drivers {
         drawable *stencil_buffer_obj = nullptr;
 
         if (depth_buffer) {
-            depth_buffer_obj = reinterpret_cast<drawable*>(get_graphics_object(depth_buffer));
+            depth_buffer_obj = reinterpret_cast<drawable *>(get_graphics_object(depth_buffer));
             if (!depth_buffer_obj) {
                 return;
             }
         }
 
         if (stencil_buffer) {
-            stencil_buffer_obj = reinterpret_cast<drawable*>(get_graphics_object(stencil_buffer));
+            stencil_buffer_obj = reinterpret_cast<drawable *>(get_graphics_object(stencil_buffer));
             if (!stencil_buffer_obj) {
                 return;
             }
@@ -746,11 +792,16 @@ namespace eka2l1::drivers {
 
         framebuffer_ptr new_fb = make_framebuffer(this, color_buffer_objs, color_face_indicies_v, depth_buffer_obj,
             depth_face_index, stencil_buffer_obj, stencil_face_index);
+        if (!new_fb) {
+            LOG_ERROR(DRIVER_GRAPHICS, "Graphics backend does not support framebuffers");
+            finish(cmd.status_, -1);
+            return;
+        }
 
         std::unique_ptr<graphics_object> obj_casted = std::move(new_fb);
         drivers::handle res = append_graphics_object(obj_casted);
 
-        drivers::handle *store = reinterpret_cast<drivers::handle*>(cmd.data_[6]);
+        drivers::handle *store = reinterpret_cast<drivers::handle *>(cmd.data_[6]);
         *store = res;
 
         finish(cmd.status_, 0);
@@ -821,7 +872,7 @@ namespace eka2l1::drivers {
 
     void shared_graphics_driver::update_buffer(command &cmd) {
         drivers::handle num = static_cast<drivers::handle>(cmd.data_[0]);
-        std::uint8_t *data = reinterpret_cast<std::uint8_t*>(cmd.data_[1]);
+        std::uint8_t *data = reinterpret_cast<std::uint8_t *>(cmd.data_[1]);
         std::size_t offset = static_cast<std::size_t>(cmd.data_[2]);
         std::size_t size = static_cast<std::size_t>(cmd.data_[3]);
 
@@ -959,22 +1010,16 @@ namespace eka2l1::drivers {
             current_fb_height = swapchain_size.y;
         }
 
-        bool no_need_flip = !(!binding && (get_current_api() == drivers::graphic_api::opengl));
-
         projection_matrix = glm::identity<glm::mat4>();
-        projection_matrix = glm::ortho(0.0f, static_cast<float>(swapchain_size.x), no_need_flip ? static_cast<float>(swapchain_size.y) : 0.0f,
-            no_need_flip ? 0.0f : static_cast<float>(swapchain_size.y), -1.0f, 1.0f);
+        projection_matrix = glm::ortho(0.0f, static_cast<float>(swapchain_size.x), static_cast<float>(swapchain_size.y), 0.0f, -1.0f, 1.0f);
     }
 
     void shared_graphics_driver::set_ortho_size(command &cmd) {
         eka2l1::vec2 size;
         unpack_u64_to_2u32(cmd.data_[0], size.x, size.y);
 
-        bool no_need_flip = !(!binding && (get_current_api() == drivers::graphic_api::opengl));
-
         projection_matrix = glm::identity<glm::mat4>();
-        projection_matrix = glm::ortho(0.0f, static_cast<float>(size.x), no_need_flip ? static_cast<float>(size.y) : 0,
-            no_need_flip ? 0.0f : static_cast<float>(swapchain_size.y), -1.0f, 1.0f);
+        projection_matrix = glm::ortho(0.0f, static_cast<float>(size.x), static_cast<float>(size.y), 0.0f, -1.0f, 1.0f);
     }
 
     void shared_graphics_driver::set_fb_color_buffer(command &cmd) {
@@ -988,7 +1033,7 @@ namespace eka2l1::drivers {
         int face_index = static_cast<int>(cmd.data_[2]);
         std::int32_t pos = static_cast<std::int32_t>(cmd.data_[3]);
 
-        drivers::framebuffer *fb = reinterpret_cast<drivers::framebuffer*>(get_graphics_object(h));
+        drivers::framebuffer *fb = reinterpret_cast<drivers::framebuffer *>(get_graphics_object(h));
         if (!fb) {
             return;
         }
@@ -996,7 +1041,7 @@ namespace eka2l1::drivers {
         drivers::drawable *obj = nullptr;
 
         if (color_buffer != 0) {
-            obj = reinterpret_cast<drivers::drawable*>(get_graphics_object(color_buffer));
+            obj = reinterpret_cast<drivers::drawable *>(get_graphics_object(color_buffer));
             if (!obj) {
                 return;
             }
@@ -1020,19 +1065,19 @@ namespace eka2l1::drivers {
         int depth_face_index, stencil_face_index;
         unpack_u64_to_2u32(cmd.data_[3], depth_face_index, stencil_face_index);
 
-        drivers::framebuffer *fb = reinterpret_cast<drivers::framebuffer*>(get_graphics_object(h));
+        drivers::framebuffer *fb = reinterpret_cast<drivers::framebuffer *>(get_graphics_object(h));
         drivers::drawable *depth_buffer_obj = nullptr;
         drivers::drawable *stencil_buffer_obj = nullptr;
 
         if (depth_buffer != 0) {
-            depth_buffer_obj = reinterpret_cast<drivers::drawable*>(get_graphics_object(depth_buffer));
+            depth_buffer_obj = reinterpret_cast<drivers::drawable *>(get_graphics_object(depth_buffer));
             if (!depth_buffer_obj) {
                 return;
             }
         }
 
         if (stencil_buffer != 0) {
-            stencil_buffer_obj = reinterpret_cast<drivers::drawable*>(get_graphics_object(stencil_buffer));
+            stencil_buffer_obj = reinterpret_cast<drivers::drawable *>(get_graphics_object(stencil_buffer));
             if (!stencil_buffer_obj) {
                 return;
             }

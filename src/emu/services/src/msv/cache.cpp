@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -88,8 +88,8 @@ namespace eka2l1::epoc::msv {
         if (!no_need_look_too_much) {
             for (std::size_t i = start_index; i <= end_index; i++) {
                 if (!std::binary_search(entries_.begin(), entries_.end(), ents[i], [](const entry &lhs, const entry &rhs) {
-                    return lhs.id_ < rhs.id_;
-                })) {
+                        return lhs.id_ < rhs.id_;
+                    })) {
                     // Continue with our lifes
                     entries_.push_back(ents[i]);
                 }
@@ -97,7 +97,7 @@ namespace eka2l1::epoc::msv {
         } else {
             entries_.insert(entries_.begin(), ents.begin() + start_index, ents.begin() + end_index + 1);
         }
-        
+
         std::sort(entries_.begin(), entries_.end(), [](const entry &lhs, const entry &rhs) {
             return lhs.id_ < rhs.id_;
         });
@@ -162,7 +162,7 @@ namespace eka2l1::epoc::msv {
     }
 
     bool entry_range_table::do_split(const msv_id parent_splitter) {
-        // Take the middle entry 
+        // Take the middle entry
         entry_range_table *new_table = new entry_range_table;
         const std::size_t middle_wards = entries_.size() / 2;
 
@@ -204,11 +204,11 @@ namespace eka2l1::epoc::msv {
             delete table;
         }
     }
-    
+
     entry *visible_folder::add(entry &ent) {
         if (tables_.empty()) {
             entry_range_table *table = new entry_range_table;
-            
+
             table->min_range(ent.id_);
             table->max_range(ent.id_);
 
@@ -219,7 +219,7 @@ namespace eka2l1::epoc::msv {
             if (ent.parent_id_ != myid_) {
                 table->grand_child_present(true);
             }
-            
+
             return fin;
         }
 
@@ -310,7 +310,7 @@ namespace eka2l1::epoc::msv {
         }
 
         auto make_tables_and_add = [&](const std::size_t starting_index, const std::size_t size) {
-            for (std::size_t i = 0; i < (size + CACHE_THRESHOLD - 1) / CACHE_THRESHOLD; i++) {    
+            for (std::size_t i = 0; i < (size + CACHE_THRESHOLD - 1) / CACHE_THRESHOLD; i++) {
                 entry_range_table *table = new entry_range_table;
                 table->add_tons(entries, starting_index + i * CACHE_THRESHOLD, common::min<std::size_t>(entries.size() - 1, starting_index + (i + 1) * CACHE_THRESHOLD - 1));
 
@@ -462,12 +462,12 @@ namespace eka2l1::epoc::msv {
     }
 
     std::vector<entry *> visible_folder::get_children_by_parent(const msv_id parent_id, visible_folder_children_query_error *error) {
-        std::vector<entry*> ents;
+        std::vector<entry *> ents;
 
         if (error) {
             *error = visible_folder_children_query_ok;
         }
-        
+
         if (parent_id == myid_) {
             // With the creation of visible folder, there may be only some entries which got added to the cache.
             // That does not gurantee the visible folder is complete.

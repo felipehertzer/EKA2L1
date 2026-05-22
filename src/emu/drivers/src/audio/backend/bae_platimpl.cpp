@@ -1,39 +1,41 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <BAE_Source/Platform/BAE_API.h>
+#include <chrono>
+#include <cstdarg>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
-#include <chrono>
-#include <cstdio>
 #include <thread>
 
-#include <drivers/audio/stream.h>
 #include <drivers/audio/audio.h>
+#include <drivers/audio/stream.h>
 
 #include <common/container.h>
-#include <common/fileutils.h>
-#include <common/platform.h>
 #include <common/cvt.h>
+#include <common/fileutils.h>
 #include <common/log.h>
 #include <common/path.h>
+#include <common/platform.h>
 
 #include <fcntl.h>
 
@@ -47,21 +49,29 @@
 
 #include <pthread.h>
 #include <unistd.h>
+#if !EKA2L1_PLATFORM(VITA)
 #include <sys/uio.h>
+#endif
 #endif
 
 static std::unique_ptr<eka2l1::drivers::audio_output_stream> global_baeout_stream;
 static eka2l1::drivers::audio_driver *global_baedriver = nullptr;
 static std::vector<std::int16_t> bae_11ms_buffer;
-static eka2l1::common::ring_buffer<std::int16_t, 0x40000> bae_buffer_queue; 
+static eka2l1::common::ring_buffer<std::int16_t, 0x40000> bae_buffer_queue;
 static float global_originalvolume = -1.0f;
 
 extern "C" {
+void BAE_PRINTF(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+}
+
 void BAE_PrintHexDump(void *address, long length) {
 }
 
 void BAE_DisplayMemoryUsage(int detailLevel) {
-
 }
 
 int BAE_Setup() {
@@ -148,13 +158,15 @@ unsigned long BAE_Microseconds() {
 
     if (!first_recorded) {
         last_recorded = std::chrono::duration_cast<std::chrono::microseconds>(
-           std::chrono::system_clock::now().time_since_epoch()).count();
+            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
 
         first_recorded = true;
     }
 
     std::uint64_t now = std::chrono::duration_cast<std::chrono::microseconds>(
-           std::chrono::system_clock::now().time_since_epoch()).count();
+        std::chrono::system_clock::now().time_since_epoch())
+                            .count();
 
     return static_cast<unsigned long>(now - last_recorded);
 }
@@ -168,8 +180,8 @@ void BAE_CopyFileNameNative(void *fileNameSource, void *fileNameDest) {
     const char *src = nullptr;
 
     if (fileNameSource && fileNameDest) {
-        dest = reinterpret_cast<char*>(fileNameDest);
-        src = reinterpret_cast<char*>(fileNameSource);
+        dest = reinterpret_cast<char *>(fileNameDest);
+        src = reinterpret_cast<char *>(fileNameSource);
         if (src == NULL) {
             src = "";
         }
@@ -183,7 +195,7 @@ void BAE_CopyFileNameNative(void *fileNameSource, void *fileNameDest) {
 }
 
 long BAE_FileCreate(void *fileName) {
-    FILE *f = eka2l1::common::open_c_file(reinterpret_cast<const char*>(fileName), "wb");
+    FILE *f = eka2l1::common::open_c_file(reinterpret_cast<const char *>(fileName), "wb");
     if (!f) {
         return -1;
     }
@@ -193,11 +205,11 @@ long BAE_FileCreate(void *fileName) {
 }
 
 long BAE_FileDelete(void *fileName) {
-    return (eka2l1::common::remove(reinterpret_cast<const char*>(fileName)) ? 0 : -1);
+    return (eka2l1::common::remove(reinterpret_cast<const char *>(fileName)) ? 0 : -1);
 }
 
 long BAE_FileOpenForRead(void *fileName) {
-    const char *fname_casted = reinterpret_cast<const char*>(fileName);
+    const char *fname_casted = reinterpret_cast<const char *>(fileName);
 
 #if EKA2L1_PLATFORM(WIN32)
     std::wstring name_unicode = eka2l1::common::utf8_to_wstr(fname_casted);
@@ -218,7 +230,7 @@ long BAE_FileOpenForRead(void *fileName) {
 }
 
 long BAE_FileOpenForWrite(void *fileName) {
-    const char *fname_casted = reinterpret_cast<const char*>(fileName);
+    const char *fname_casted = reinterpret_cast<const char *>(fileName);
 
 #if EKA2L1_PLATFORM(WIN32)
     std::wstring name_unicode = eka2l1::common::utf8_to_wstr(fname_casted);
@@ -239,7 +251,7 @@ long BAE_FileOpenForWrite(void *fileName) {
 }
 
 long BAE_FileOpenForReadWrite(void *fileName) {
-    const char *fname_casted = reinterpret_cast<const char*>(fileName);
+    const char *fname_casted = reinterpret_cast<const char *>(fileName);
 
 #if EKA2L1_PLATFORM(WIN32)
     std::wstring name_unicode = eka2l1::common::utf8_to_wstr(fname_casted);
@@ -263,25 +275,33 @@ void BAE_FileClose(long fileReference) {
 #if EKA2L1_PLATFORM(WIN32)
     _close(fileReference);
 #elif EKA2L1_PLATFORM(POSIX)
-    close(fileReference);
+    close(static_cast<int>(fileReference));
 #endif
 }
 
 long BAE_ReadFile(long fileReference, void *pBuffer, long bufferLength) {
+    if (bufferLength < 0) {
+        return -1;
+    }
+
 #if EKA2L1_PLATFORM(WIN32)
     return _read(fileReference, pBuffer, bufferLength);
 #elif EKA2L1_PLATFORM(POSIX)
-    return read(fileReference, pBuffer, bufferLength);
+    return static_cast<long>(read(static_cast<int>(fileReference), pBuffer, static_cast<std::size_t>(bufferLength)));
 #endif
 }
 
 // Write a block of memory from a file
 // Return -1 if error, otherwise length of data written.
 long BAE_WriteFile(long fileReference, void *pBuffer, long bufferLength) {
+    if (bufferLength < 0) {
+        return -1;
+    }
+
 #if EKA2L1_PLATFORM(WIN32)
     return _write(fileReference, pBuffer, bufferLength);
 #elif EKA2L1_PLATFORM(POSIX)
-    return write(fileReference, pBuffer, bufferLength);
+    return static_cast<long>(write(static_cast<int>(fileReference), pBuffer, static_cast<std::size_t>(bufferLength)));
 #endif
 }
 
@@ -290,7 +310,7 @@ long BAE_SetFilePosition(long fileReference, unsigned long filePosition) {
 #if EKA2L1_PLATFORM(WIN32)
     return (_lseek(fileReference, filePosition, SEEK_SET) == -1) ? -1 : 0;
 #elif EKA2L1_PLATFORM(POSIX)
-    return (lseek(fileReference, filePosition, SEEK_SET) == -1) ? -1 : 0;
+    return (lseek(static_cast<int>(fileReference), static_cast<off_t>(filePosition), SEEK_SET) == -1) ? -1 : 0;
 #endif
 }
 
@@ -299,7 +319,7 @@ unsigned long BAE_GetFilePosition(long fileReference) {
 #if EKA2L1_PLATFORM(WIN32)
     return _lseek(fileReference, 0, SEEK_CUR);
 #elif EKA2L1_PLATFORM(POSIX)
-    return lseek(fileReference, 0, SEEK_CUR);
+    return static_cast<unsigned long>(lseek(static_cast<int>(fileReference), 0, SEEK_CUR));
 #endif
 }
 
@@ -311,8 +331,8 @@ unsigned long BAE_GetFileLength(long fileReference) {
     pos = _lseek(fileReference, 0, SEEK_END);
     _lseek(fileReference, 0, SEEK_SET);
 #elif EKA2L1_PLATFORM(POSIX)
-    pos = lseek(fileReference, 0, SEEK_END);
-    lseek(fileReference, 0, SEEK_SET);
+    pos = static_cast<unsigned long>(lseek(static_cast<int>(fileReference), 0, SEEK_END));
+    lseek(static_cast<int>(fileReference), 0, SEEK_SET);
 #endif
 
     return pos;
@@ -387,7 +407,11 @@ int BAE_AquireAudioCard(void *threadContext, unsigned long sampleRate, unsigned 
         return -1;
     }
 
-    auto new_stream = global_baedriver->new_output_stream(sampleRate, static_cast<std::uint8_t>(channels), minibae_data_callback);
+    if (sampleRate > std::numeric_limits<std::uint32_t>::max()) {
+        return -1;
+    }
+
+    auto new_stream = global_baedriver->new_output_stream(static_cast<std::uint32_t>(sampleRate), static_cast<std::uint8_t>(channels), minibae_data_callback);
     if (!new_stream) {
         return -1;
     }
@@ -429,25 +453,20 @@ int BAE_IsMuted(void) {
 }
 
 void BAE_ProcessRouteBus(int currentRoute, long *pChannels, int count) {
-
 }
 
 void BAE_Idle(void *userContext) {
-
 }
 
 void BAE_UnlockAudioFrameThread(void) {
-
 }
 
 // lock
 void BAE_LockAudioFrameThread(void) {
-
 }
 
 // block
 void BAE_BlockAudioFrameThread(void) {
-
 }
 
 unsigned long BAE_GetDeviceSamplesPlayedPosition(void) {
@@ -467,7 +486,6 @@ long BAE_MaxDevices(void) {
 //          in order for the change to take place. deviceParameter is a device specific
 //          pointer. Pass NULL if you don't know what to use.
 void BAE_SetDeviceID(long deviceID, void *deviceParameter) {
-
 }
 
 // return current device ID, and fills in the deviceParameter with a device specific
@@ -477,7 +495,7 @@ long BAE_GetDeviceID(void *deviceParameter) {
     return 0;
 }
 
-// get deviceID name 
+// get deviceID name
 // NOTE:    This function needs to function before any other calls may have happened.
 //          Format of string is a zero terminated comma delinated C string.
 //          "platform,method,misc"
@@ -487,7 +505,6 @@ long BAE_GetDeviceID(void *deviceParameter) {
 //          "WinOS,VxD,low level hardware"
 //          "WinOS,plugin,Director"
 void BAE_GetDeviceName(long deviceID, char *cName, unsigned long cNameLength) {
-    
 }
 
 int BAE_GetAudioBufferCount(void) {
@@ -499,16 +516,16 @@ long BAE_GetAudioByteBufferSize(void) {
     return 4096;
 }
 
-int BAE_NewMutex(BAE_Mutex* lock, char *name, char *file, int lineno) {
+int BAE_NewMutex(BAE_Mutex *lock, char *name, char *file, int lineno) {
 #if EKA2L1_PLATFORM(POSIX)
-    pthread_mutex_t *pMutex = (pthread_mutex_t *) BAE_Allocate(sizeof(pthread_mutex_t));
+    pthread_mutex_t *pMutex = (pthread_mutex_t *)BAE_Allocate(sizeof(pthread_mutex_t));
     pthread_mutexattr_t attrib;
     pthread_mutexattr_init(&attrib);
     pthread_mutexattr_settype(&attrib, PTHREAD_MUTEX_RECURSIVE);
     // Create reentrant (within same thread) mutex.
     pthread_mutex_init(pMutex, &attrib);
     pthread_mutexattr_destroy(&attrib);
-    *lock = (BAE_Mutex) pMutex;
+    *lock = (BAE_Mutex)pMutex;
     return 1; // ok
 #else
     *lock = CreateMutex(NULL, FALSE, NULL);
@@ -518,29 +535,29 @@ int BAE_NewMutex(BAE_Mutex* lock, char *name, char *file, int lineno) {
 
 void BAE_AcquireMutex(BAE_Mutex mutex) {
 #if EKA2L1_PLATFORM(POSIX)
-    pthread_mutex_t *pMutex = (pthread_mutex_t*) mutex;
+    pthread_mutex_t *pMutex = (pthread_mutex_t *)mutex;
     pthread_mutex_lock(pMutex);
 #else
-    WaitForSingleObject(reinterpret_cast<HANDLE*>(mutex), INFINITE);
+    WaitForSingleObject(reinterpret_cast<HANDLE *>(mutex), INFINITE);
 #endif
 }
 
 void BAE_ReleaseMutex(BAE_Mutex mutex) {
 #if EKA2L1_PLATFORM(POSIX)
-    pthread_mutex_t *pMutex = (pthread_mutex_t*) mutex;
+    pthread_mutex_t *pMutex = (pthread_mutex_t *)mutex;
     pthread_mutex_unlock(pMutex);
 #else
-    ReleaseMutex(reinterpret_cast<HANDLE*>(mutex));
+    ReleaseMutex(reinterpret_cast<HANDLE *>(mutex));
 #endif
 }
 
 void BAE_DestroyMutex(BAE_Mutex mutex) {
 #if EKA2L1_PLATFORM(POSIX)
-    pthread_mutex_t *pMutex = (pthread_mutex_t*) mutex;
+    pthread_mutex_t *pMutex = (pthread_mutex_t *)mutex;
     pthread_mutex_destroy(pMutex);
     BAE_Deallocate(pMutex);
 #else
-    CloseHandle(reinterpret_cast<HANDLE*>(mutex));
+    CloseHandle(reinterpret_cast<HANDLE *>(mutex));
 #endif
 }
 }

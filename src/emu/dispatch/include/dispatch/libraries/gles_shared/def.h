@@ -1,28 +1,28 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
+#include <dispatch/def.h>
+#include <dispatch/libraries/buffer_pusher.h>
 #include <dispatch/libraries/egl/def.h>
 #include <dispatch/libraries/gles_shared/consts.h>
-#include <dispatch/libraries/buffer_pusher.h>
-#include <dispatch/def.h>
 
 #include <common/container.h>
 #include <common/linked.h>
@@ -33,13 +33,14 @@
 #include <optional>
 #include <stack>
 #include <tuple>
+#include <vector>
 
 namespace eka2l1 {
     class system;
 }
 
 namespace eka2l1::dispatch {
-    #define FIXED_32_TO_FLOAT(x) (float)(x) / 65536.0f
+#define FIXED_32_TO_FLOAT(x) (float)(x) / 65536.0f
 
     static const std::uint32_t GLES_EMU_COMPRESSED_TEX_FORMATS[] = {
         GL_COMPRESSED_RGB_PVRTC_2BPPV1_EMU,
@@ -233,6 +234,7 @@ namespace eka2l1::dispatch {
     struct gles_driver_buffer : public gles_driver_object {
     private:
         std::uint32_t data_size_;
+        std::vector<std::uint8_t> data_;
 
     public:
         explicit gles_driver_buffer(egl_context_es_shared &ctx);
@@ -245,6 +247,13 @@ namespace eka2l1::dispatch {
         const std::uint32_t data_size() const {
             return data_size_;
         }
+
+        const std::vector<std::uint8_t> &data() const {
+            return data_;
+        }
+
+        void assign_data(const void *data, const std::uint32_t size);
+        void update_data(const std::uint32_t offset, const void *data, const std::uint32_t size);
 
         gles_object_type object_type() const override {
             return GLES_OBJECT_BUFFER;
@@ -270,7 +279,7 @@ namespace eka2l1::dispatch {
 
     struct egl_context_es_shared : public egl_context {
     protected:
-        virtual bool retrieve_vertex_buffer_slot(std::vector<drivers::handle> &vertex_buffers_alloc, drivers::graphics_driver *drv,
+        virtual bool retrieve_vertex_buffer_slot(std::vector<drivers::handle> &vertex_buffers_alloc, std::vector<std::size_t> &vertex_buffer_offsets_alloc, drivers::graphics_driver *drv,
             kernel::process *crr_process, const gles_vertex_attrib &attrib, const std::int32_t first_index, const std::int32_t vcount,
             std::uint32_t &res, int &offset, bool &attrib_not_persistent);
 
@@ -278,7 +287,7 @@ namespace eka2l1::dispatch {
         float clear_color_[4];
         float clear_depth_;
         std::int32_t clear_stencil_;
-        
+
         std::uint32_t active_texture_unit_;
         std::uint32_t binded_array_buffer_handle_;
         std::uint32_t binded_element_array_buffer_handle_;
@@ -297,7 +306,7 @@ namespace eka2l1::dispatch {
         std::stack<drivers::handle> texture_pools_2d_;
         std::stack<drivers::handle> texture_pools_cube_;
         std::stack<drivers::handle> buffer_pools_;
-        
+
         // Viewport
         eka2l1::rect viewport_bl_;
         eka2l1::rect scissor_bl_;
@@ -342,7 +351,7 @@ namespace eka2l1::dispatch {
 
         std::uint64_t non_shader_statuses_;
         std::uint64_t state_change_tracker_;
-        
+
         std::uint8_t color_mask_;
         std::uint32_t stencil_mask_front_;
         std::uint32_t stencil_mask_back_;
@@ -360,7 +369,7 @@ namespace eka2l1::dispatch {
         std::uint32_t stencil_fail_action_back_;
         std::uint32_t stencil_depth_fail_action_back_;
         std::uint32_t stencil_depth_pass_action_back_;
-        
+
         float polygon_offset_factor_;
         float polygon_offset_units_;
 
@@ -390,7 +399,7 @@ namespace eka2l1::dispatch {
         void return_handle_to_pool(const gles_object_type type, const drivers::handle h, const int subtype = 0);
         void on_surface_changed(drivers::graphics_driver *driver, egl_surface *prev_read, egl_surface *prev_draw) override;
         void flush_state_changes();
-        
+
         virtual void flush_to_driver(egl_controller &controller, drivers::graphics_driver *driver, const bool is_frame_swap_flush = false) override;
         virtual void destroy(drivers::graphics_driver *driver, drivers::graphics_command_builder &builder) override;
         virtual bool prepare_for_draw(drivers::graphics_driver *driver, egl_controller &controller, kernel::process *crr_process,

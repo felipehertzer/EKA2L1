@@ -19,13 +19,15 @@
 
 #pragma once
 
-#include <drivers/camera/camera.h>
 #include <cstdint>
+#include <drivers/camera/camera.h>
 #include <memory>
 
 namespace eka2l1::drivers::camera {
     class collection {
     public:
+        virtual ~collection() = default;
+
         virtual std::uint32_t count() const = 0;
         virtual std::unique_ptr<instance> make_camera(const std::uint32_t camera_index) = 0;
     };

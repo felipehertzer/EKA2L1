@@ -38,7 +38,7 @@ namespace eka2l1::drivers::android {
 
     void register_camera_callbacks(JNIEnv *env) {
         jclass temp_camera_class = env->FindClass("com/github/eka2l1/emu/EmulatorCamera");
-        camera_class = (jclass) env->NewGlobalRef(temp_camera_class);
+        camera_class = (jclass)env->NewGlobalRef(temp_camera_class);
         env->DeleteLocalRef(temp_camera_class);
 
         camera_count_method = env->GetStaticMethodID(camera_class, "getCameraCount", "()I");
@@ -46,7 +46,7 @@ namespace eka2l1::drivers::android {
         camera_release_method = env->GetStaticMethodID(camera_class, "releaseCamera", "(I)V");
         camera_destroy_method = env->GetStaticMethodID(camera_class, "destroyCamera", "(I)V");
         camera_supported_output_image_format_method = env->GetStaticMethodID(camera_class,
-             "getSupportedImageOutputFormats", "()[I");
+            "getSupportedImageOutputFormats", "()[I");
         camera_get_flash_mode_method = env->GetStaticMethodID(camera_class, "getFlashMode", "(I)I");
         camera_set_flash_mode_method = env->GetStaticMethodID(camera_class, "setFlashMode", "(II)Z");
         camera_is_facing_front_method = env->GetStaticMethodID(camera_class, "isCameraFacingFront", "(I)Z");
@@ -84,7 +84,7 @@ namespace eka2l1::drivers::android {
     std::vector<int> emulator_camera_get_supported_image_output_formats() {
         JNIEnv *env = common::jni::environment();
         jintArray support_array = reinterpret_cast<jintArray>(env->CallStaticObjectMethod(
-                camera_class, camera_supported_output_image_format_method));
+            camera_class, camera_supported_output_image_format_method));
 
         std::vector<int> support_list_native(env->GetArrayLength(support_array));
         env->GetIntArrayRegion(support_array, 0, static_cast<jsize>(support_list_native.size()), &support_list_native[0]);
@@ -107,7 +107,7 @@ namespace eka2l1::drivers::android {
         JNIEnv *env = common::jni::environment();
 
         jobjectArray size_array = static_cast<jobjectArray>(env->CallStaticObjectMethod(
-                camera_class, camera_get_output_image_size_method, handle));
+            camera_class, camera_get_output_image_size_method, handle));
 
         result.resize(env->GetArrayLength(size_array));
 
@@ -139,6 +139,5 @@ namespace eka2l1::drivers::android {
     void emulator_camera_stop_viewfinder_feed(int handle) {
         JNIEnv *env = common::jni::environment();
         env->CallStaticVoidMethod(camera_class, camera_stop_viewfinder_feed_method, handle);
-
     }
 }

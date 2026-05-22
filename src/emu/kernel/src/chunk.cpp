@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -250,6 +250,32 @@ namespace eka2l1 {
             }
 
             return mmc_impl_->adjust(static_cast<address>(nbottom), static_cast<address>(ntop));
+        }
+
+        bool chunk::ensure_committed(std::uint32_t offset, std::size_t size) {
+            if (!mmc_impl_ || size == 0) {
+                return true;
+            }
+
+            const std::uint32_t page_size = static_cast<std::uint32_t>(mem->get_page_size());
+            const std::uint32_t start = offset & ~(page_size - 1);
+            const std::uint32_t end = common::min<std::uint32_t>(
+                static_cast<std::uint32_t>(max_size()),
+                common::align<std::uint32_t>(offset + static_cast<std::uint32_t>(size), page_size));
+
+            if (end <= start) {
+                return false;
+            }
+
+            if ((type != kernel::chunk_type::disconnected) && (start >= bottom_offset()) && (end <= top_offset())) {
+                return true;
+            }
+
+            if ((type == kernel::chunk_type::normal) && (end > top_offset())) {
+                return adjust(end);
+            }
+
+            return mmc_impl_->commit(start, end - start) != 0;
         }
 
         std::int32_t chunk::allocate(size_t size) {

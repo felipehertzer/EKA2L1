@@ -1,48 +1,48 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <qt/update_dialog.h>
 #include "ui_update_dialog.h"
+#include <qt/update_dialog.h>
 
+#include <QMessageBox>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
-#include <QtCore/QJsonDocument>
-#include <QtCore/QJsonArray>
-#include <QtCore/QJsonObject>
-#include <QMessageBox>
 
 #include <common/algorithm.h>
 #include <common/configure.h>
-#include <common/version.h>
 #include <common/fileutils.h>
-#include <common/platform.h>
-#include <common/path.h>
 #include <common/log.h>
+#include <common/path.h>
+#include <common/platform.h>
+#include <common/version.h>
 
 #include <miniz.h>
 
-#include <cstring>
-#include <QFile>
 #include <QDir>
+#include <QFile>
 #include <QProcess>
 #include <QSettings>
+#include <cstring>
 
 #if EKA2L1_PLATFORM(WIN32) && BUILD_FOR_USER
 #define ENABLE_UPDATER 1
@@ -88,6 +88,11 @@ update_dialog::update_dialog(QWidget *parent)
     setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    connect(ui_->update_button, &QPushButton::clicked, this, &update_dialog::on_update_button_clicked);
+    connect(ui_->ignore_button, &QPushButton::clicked, this, &update_dialog::on_ignore_button_clicked);
+    connect(ui_->cancel_button, &QPushButton::clicked, this, &update_dialog::on_cancel_button_clicked);
+    connect(ui_->manual_check_checkbox, &QCheckBox::toggled, this, &update_dialog::on_manual_check_checkbox_toggled);
+
     setVisible(false);
 }
 
@@ -128,11 +133,11 @@ void update_dialog::on_tag_request_complete(QNetworkReply *reply) {
             bool found = false;
 
             QJsonArray doc_array = doc.array();
-            for (const QJsonValue &tag_info: doc_array) {
+            for (const QJsonValue &tag_info : doc_array) {
                 if (tag_info["name"].toString() == UPDATE_TAG_NAME) {
                     const std::string &current_sha = tag_info["commit"].toObject()["sha"].toString().toStdString();
                     const int commit_length = eka2l1::common::min<int>(static_cast<int>(current_sha.length()),
-                                                                       static_cast<int>(strlen(GIT_COMMIT_HASH)));
+                        static_cast<int>(strlen(GIT_COMMIT_HASH)));
 
                     if (current_sha.substr(0, commit_length) != (std::string(GIT_COMMIT_HASH).substr(0, commit_length))) {
                         // Hash different, need update
@@ -175,7 +180,7 @@ void update_dialog::on_tag_download_link_request_complete(QNetworkReply *reply) 
 
             bool found_plat = false;
 
-            for (const QJsonValue &asset: asset_array) {
+            for (const QJsonValue &asset : asset_array) {
                 if (asset["name"].toString() == platform_asset_name) {
                     download_url_ = asset["browser_download_url"].toString();
                     found_plat = true;
@@ -224,7 +229,7 @@ void update_dialog::on_changelog_request_complete(QNetworkReply *reply) {
 
             QJsonArray commit_array = doc["commits"].toArray();
 
-            for (const QJsonValue &commit: commit_array) {
+            for (const QJsonValue &commit : commit_array) {
                 QJsonValue value_arr = commit["commit"].toObject();
                 QString author = value_arr["author"].toObject()["name"].toString();
                 QString message = value_arr["message"].toString();
@@ -440,11 +445,11 @@ void update_dialog::on_new_update_download_finished(QNetworkReply *reply) {
             return;
         }
 
-        // Launch update process 
+        // Launch update process
         QStringList arguments;
         arguments << QString::number(QCoreApplication::applicationPid());
 
-        QProcess* update_process = new QProcess();
+        QProcess *update_process = new QProcess();
         update_process->setProgram(UPDATER_EXEC_LAUNCH_PATH);
         update_process->setArguments(arguments);
         update_process->setWorkingDirectory(QDir::currentPath() + "\\" + UPDATER_FOLDER);

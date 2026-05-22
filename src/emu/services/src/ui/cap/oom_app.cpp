@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -28,6 +28,8 @@
 #include <utils/bafl.h>
 
 #include <services/centralrepo/centralrepo.h>
+#include <services/notifier/notifier.h>
+#include <services/notifier/queries.h>
 #include <services/ui/cap/consts.h>
 #include <services/ui/cap/oom_app.h>
 #include <services/window/classes/wingroup.h>
@@ -38,7 +40,14 @@
 #include <system/epoc.h>
 #include <vfs/vfs.h>
 
+#include <algorithm>
+#include <cstdlib>
+
 namespace eka2l1 {
+    static bool trace_ui_layout() {
+        return std::getenv("EKA2L1_WINDOW_TRACE") != nullptr;
+    }
+
     oom_ui_app_server::oom_ui_app_server(eka2l1::system *sys)
         : service::typical_server(sys, OOM_APP_UI_SERVER_NAME) {
     }
@@ -54,6 +63,23 @@ namespace eka2l1 {
         }
 
         return sgc.get();
+    }
+
+    epoc::notifier::plugin_base *oom_ui_app_server::get_notifier_plugin(const epoc::uid id) {
+        if (notifier_plugins_.empty()) {
+            epoc::notifier::add_builtin_plugins(sys->get_kernel_system(), notifier_plugins_);
+        }
+
+        auto result = std::lower_bound(notifier_plugins_.begin(), notifier_plugins_.end(), id,
+            [](const epoc::notifier::plugin_instance &lhs, const epoc::uid rhs) {
+                return lhs->unique_id() < rhs;
+            });
+
+        if ((result == notifier_plugins_.end()) || ((*result)->unique_id() != id)) {
+            return nullptr;
+        }
+
+        return result->get();
     }
 
     oom_ui_app_session::oom_ui_app_session(service::typical_server *svr, kernel::uid client_ss_uid, epoc::version client_version, const bool is_old_layout)
@@ -89,6 +115,45 @@ namespace eka2l1 {
         ctx->complete(epoc::error_none);
     }
 
+    void oom_ui_app_session::start_notifier(service::ipc_context *ctx) {
+        std::optional<epoc::uid> plugin_uid = ctx->get_argument_value<epoc::uid>(0);
+        if (!plugin_uid) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        epoc::notifier::plugin_base *plugin = server<oom_ui_app_server>()->get_notifier_plugin(plugin_uid.value());
+        if (!plugin) {
+            LOG_WARN(SERVICE_UI, "AKNCAP notifier plugin 0x{:X} is not implemented; completing as handled", plugin_uid.value());
+            ctx->complete(epoc::error_none);
+            return;
+        }
+
+        kernel::process *caller_pr = ctx->msg->own_thr->owning_process();
+        epoc::desc8 *request_data = eka2l1::ptr<epoc::desc8>(ctx->msg->args.args[1]).get(caller_pr);
+        epoc::des8 *response_data = eka2l1::ptr<epoc::des8>(ctx->msg->args.args[2]).get(caller_pr);
+
+        if (!request_data) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        epoc::notify_info complete_info(ctx->msg->request_sts, ctx->msg->own_thr);
+        plugin->handle(request_data, response_data, complete_info);
+    }
+
+    void oom_ui_app_session::cancel_notifier(service::ipc_context *ctx) {
+        std::optional<epoc::uid> plugin_uid = ctx->get_argument_value<epoc::uid>(0);
+        if (plugin_uid) {
+            epoc::notifier::plugin_base *plugin = server<oom_ui_app_server>()->get_notifier_plugin(plugin_uid.value());
+            if (plugin) {
+                plugin->cancel();
+            }
+        }
+
+        ctx->complete(epoc::error_none);
+    }
+
     void oom_ui_app_session::fetch(service::ipc_context *ctx) {
         if (ctx->sys->get_symbian_version_use() <= epocver::epoc93fp2) {
             // Move app in z order does not exist. Forward to other message
@@ -98,6 +163,28 @@ namespace eka2l1 {
         }
 
         switch (ctx->msg->function) {
+        case notifier_notify:
+        case notifier_info_print:
+            ctx->complete(epoc::error_none);
+            break;
+
+        case notifier_start:
+        case notifier_update:
+        case notfiier_start_and_get_response:
+        case notifier_update_and_get_response:
+            start_notifier(ctx);
+            break;
+
+        case notifier_cancel:
+        case notifier_notify_cancel:
+            cancel_notifier(ctx);
+            break;
+
+        case notifier_start_from_dll:
+        case notifier_start_from_dll_and_get_response:
+            ctx->complete(epoc::error_not_supported);
+            break;
+
         case akn_eik_app_ui_layout_config_size: {
             server<oom_ui_app_server>()->get_layout_config_size(*ctx);
             break;
@@ -128,6 +215,13 @@ namespace eka2l1 {
             break;
         }
 
+        case akn_eik_app_ui_prepare_for_app_exit:
+        case akn_eik_app_ui_set_system_faded:
+        case akn_eik_app_ui_is_system_faded:
+        case akn_eik_app_ui_relinquish_priority_to_foreground_app:
+            ctx->complete(epoc::error_none);
+            break;
+
         case akns_update_key_block_mode:
             server<oom_ui_app_server>()->update_key_block_mode(*ctx);
             break;
@@ -137,8 +231,31 @@ namespace eka2l1 {
             ctx->complete(epoc::error_none);
             break;
 
+        case akns_set_status_pane_flags:
+        case akns_set_status_pane_layout:
+        case akns_status_pane_resource_id:
+        case akns_status_pane_app_resource_id:
+        case akns_set_status_pane_app_resource_id:
+            if (trace_ui_layout()) {
+                LOG_INFO(SERVICE_UI,
+                    "AKNCAP status-pane opcode 0x{:X} args=[{}, {}, {}, {}]",
+                    ctx->msg->function,
+                    ctx->get_argument_value<std::uint32_t>(0).value_or(0),
+                    ctx->get_argument_value<std::uint32_t>(1).value_or(0),
+                    ctx->get_argument_value<std::uint32_t>(2).value_or(0),
+                    ctx->get_argument_value<std::uint32_t>(3).value_or(0));
+            }
+            ctx->complete(epoc::error_none);
+            break;
+
         default: {
-            LOG_WARN(SERVICE_UI, "Unimplemented opcode for OOM AKNCAP server: 0x{:X}, fake return with epoc::error_none", ctx->msg->function);
+            LOG_WARN(SERVICE_UI,
+                "Unimplemented opcode for OOM AKNCAP server: 0x{:X}, args=[0x{:X}, 0x{:X}, 0x{:X}, 0x{:X}], fake return with epoc::error_none",
+                ctx->msg->function,
+                ctx->get_argument_value<std::uint32_t>(0).value_or(0),
+                ctx->get_argument_value<std::uint32_t>(1).value_or(0),
+                ctx->get_argument_value<std::uint32_t>(2).value_or(0),
+                ctx->get_argument_value<std::uint32_t>(3).value_or(0));
             ctx->complete(epoc::error_none);
         }
         }
@@ -244,6 +361,17 @@ namespace eka2l1 {
                 ctx.complete(epoc::error_argument);
                 return;
             }
+        }
+
+        if (trace_ui_layout()) {
+            LOG_INFO(SERVICE_UI,
+                "AKNCAP set_sgc_params wg={} flags=0x{:X} sp_layout={} sp_flags={} app_screen_mode={} old_layout={}",
+                params->window_group_id,
+                params->bit_flags,
+                params->sp_layout,
+                params->sp_flag,
+                params->app_screen_mode,
+                old_layout);
         }
 
         get_sgc_server()->change_wg_param(params->window_group_id, *reinterpret_cast<epoc::cap::sgc_server::wg_state::wg_state_flags *>(&(params->bit_flags)), params->sp_layout,

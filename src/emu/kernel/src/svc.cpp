@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -30,6 +30,7 @@
 
 #include <common/common.h>
 #include <common/configure.h>
+#include <cpu/arm_interface.h>
 #include <kernel/kernel.h>
 #include <kernel/svc.h>
 
@@ -47,10 +48,177 @@
 #include <utils/locale.h>
 #include <utils/system.h>
 
+#include <array>
+#include <atomic>
+#include <cstdlib>
 #include <ctime>
 #include <utils/err.h>
 
 namespace eka2l1::epoc {
+    namespace {
+        enum timer_after_diag_source : std::size_t {
+            timer_after_diag_source_user_after = 0,
+            timer_after_diag_source_timer_after,
+            timer_after_diag_source_timer_after_eka1,
+            timer_after_diag_source_timer_after_ticks_eka1,
+            timer_after_diag_source_timer_at_utc,
+            timer_after_diag_source_timer_at_eka1,
+            timer_after_diag_source_count
+        };
+
+        constexpr std::array<const char *, timer_after_diag_source_count> TIMER_AFTER_DIAG_SOURCE_NAMES = {
+            "user_after",
+            "timer_after",
+            "timer_after_eka1",
+            "timer_after_ticks_eka1",
+            "timer_at_utc",
+            "timer_at_eka1"
+        };
+
+        bool timing_diag_enabled() {
+            static const bool enabled = (std::getenv("EKA2L1_FPS_DIAG") != nullptr)
+                || (std::getenv("EKA2L1_TIMING_DIAG") != nullptr);
+            return enabled;
+        }
+
+        struct timing_diag_state {
+            std::atomic_uint64_t timer_after_calls{ 0 };
+            std::atomic_uint64_t timer_after_us{ 0 };
+            std::atomic_uint64_t timer_after_lt_1ms{ 0 };
+            std::atomic_uint64_t timer_after_1_10ms{ 0 };
+            std::atomic_uint64_t timer_after_10_20ms{ 0 };
+            std::atomic_uint64_t timer_after_20_40ms{ 0 };
+            std::atomic_uint64_t timer_after_40_60ms{ 0 };
+            std::atomic_uint64_t timer_after_60_75ms{ 0 };
+            std::atomic_uint64_t timer_after_ge_75ms{ 0 };
+            std::array<std::atomic_uint64_t, timer_after_diag_source_count> timer_after_source_calls{};
+            std::array<std::atomic_uint64_t, timer_after_diag_source_count> timer_after_source_us{};
+            std::atomic_uint64_t timer_lock_calls{ 0 };
+            std::atomic_uint64_t timer_lock_us{ 0 };
+            std::atomic_uint64_t fast_counter_calls{ 0 };
+            std::atomic_uint64_t ntick_count_calls{ 0 };
+            std::atomic_uint64_t tick_count_calls{ 0 };
+            std::atomic_uint64_t last_report_wall_us{ 0 };
+            std::atomic_uint64_t last_report_guest_us{ 0 };
+        };
+
+        timing_diag_state &timing_diag() {
+            static timing_diag_state state;
+            return state;
+        }
+
+        void record_timer_after_diag(const timer_after_diag_source source, const std::uint64_t us_after) {
+            if (!timing_diag_enabled()) {
+                return;
+            }
+
+            timing_diag_state &diag = timing_diag();
+            diag.timer_after_calls.fetch_add(1, std::memory_order_relaxed);
+            diag.timer_after_us.fetch_add(us_after, std::memory_order_relaxed);
+            diag.timer_after_source_calls[source].fetch_add(1, std::memory_order_relaxed);
+            diag.timer_after_source_us[source].fetch_add(us_after, std::memory_order_relaxed);
+
+            if (us_after < 1000) {
+                diag.timer_after_lt_1ms.fetch_add(1, std::memory_order_relaxed);
+            } else if (us_after < 10000) {
+                diag.timer_after_1_10ms.fetch_add(1, std::memory_order_relaxed);
+            } else if (us_after < 20000) {
+                diag.timer_after_10_20ms.fetch_add(1, std::memory_order_relaxed);
+            } else if (us_after < 40000) {
+                diag.timer_after_20_40ms.fetch_add(1, std::memory_order_relaxed);
+            } else if (us_after < 60000) {
+                diag.timer_after_40_60ms.fetch_add(1, std::memory_order_relaxed);
+            } else if (us_after < 75000) {
+                diag.timer_after_60_75ms.fetch_add(1, std::memory_order_relaxed);
+            } else {
+                diag.timer_after_ge_75ms.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+
+        void record_timer_lock_diag(const std::uint64_t us_after) {
+            if (!timing_diag_enabled()) {
+                return;
+            }
+
+            timing_diag_state &diag = timing_diag();
+            diag.timer_lock_calls.fetch_add(1, std::memory_order_relaxed);
+            diag.timer_lock_us.fetch_add(us_after, std::memory_order_relaxed);
+        }
+
+        void report_timing_diag(kernel_system *kern) {
+            if (!timing_diag_enabled() || !kern || !kern->get_ntimer()) {
+                return;
+            }
+
+            timing_diag_state &diag = timing_diag();
+            const std::uint64_t wall_now = common::get_current_utc_time_in_microseconds_since_epoch();
+            std::uint64_t last_wall = diag.last_report_wall_us.load(std::memory_order_relaxed);
+
+            if (last_wall == 0) {
+                if (diag.last_report_wall_us.compare_exchange_strong(last_wall, wall_now, std::memory_order_relaxed)) {
+                    diag.last_report_guest_us.store(kern->get_ntimer()->microseconds(), std::memory_order_relaxed);
+                }
+                return;
+            }
+
+            if (wall_now - last_wall < common::microsecs_per_sec) {
+                return;
+            }
+
+            if (!diag.last_report_wall_us.compare_exchange_strong(last_wall, wall_now, std::memory_order_relaxed)) {
+                return;
+            }
+
+            const std::uint64_t guest_now = kern->get_ntimer()->microseconds();
+            const std::uint64_t guest_prev = diag.last_report_guest_us.exchange(guest_now, std::memory_order_relaxed);
+            const std::uint64_t after_calls = diag.timer_after_calls.exchange(0, std::memory_order_relaxed);
+            const std::uint64_t after_us = diag.timer_after_us.exchange(0, std::memory_order_relaxed);
+            const std::uint64_t lock_calls = diag.timer_lock_calls.exchange(0, std::memory_order_relaxed);
+            const std::uint64_t lock_us = diag.timer_lock_us.exchange(0, std::memory_order_relaxed);
+            std::string source_summary;
+
+            for (std::size_t i = 0; i < timer_after_diag_source_count; i++) {
+                const std::uint64_t source_calls = diag.timer_after_source_calls[i].exchange(0, std::memory_order_relaxed);
+                const std::uint64_t source_us = diag.timer_after_source_us[i].exchange(0, std::memory_order_relaxed);
+
+                if (!source_calls) {
+                    continue;
+                }
+
+                if (!source_summary.empty()) {
+                    source_summary += ";";
+                }
+
+                source_summary += TIMER_AFTER_DIAG_SOURCE_NAMES[i];
+                source_summary += "=";
+                source_summary += common::to_string(source_calls);
+                source_summary += "@";
+                source_summary += common::to_string(source_us / source_calls);
+                source_summary += "us";
+            }
+
+            LOG_WARN(KERNEL,
+                "Timing diag wall_ms={} guest_ms={} timer_after={} avg_after_us={} after_sources=[{}] after_bins(<1,1-10,10-20,20-40,40-60,60-75,>=75ms)={},{},{},{},{},{},{} timer_lock={} avg_lock_us={} fast_counter={} ntick_count={} tick_count={}",
+                (wall_now - last_wall) / 1000,
+                (guest_now - guest_prev) / 1000,
+                after_calls,
+                after_calls ? (after_us / after_calls) : 0,
+                source_summary,
+                diag.timer_after_lt_1ms.exchange(0, std::memory_order_relaxed),
+                diag.timer_after_1_10ms.exchange(0, std::memory_order_relaxed),
+                diag.timer_after_10_20ms.exchange(0, std::memory_order_relaxed),
+                diag.timer_after_20_40ms.exchange(0, std::memory_order_relaxed),
+                diag.timer_after_40_60ms.exchange(0, std::memory_order_relaxed),
+                diag.timer_after_60_75ms.exchange(0, std::memory_order_relaxed),
+                diag.timer_after_ge_75ms.exchange(0, std::memory_order_relaxed),
+                lock_calls,
+                lock_calls ? (lock_us / lock_calls) : 0,
+                diag.fast_counter_calls.exchange(0, std::memory_order_relaxed),
+                diag.ntick_count_calls.exchange(0, std::memory_order_relaxed),
+                diag.tick_count_calls.exchange(0, std::memory_order_relaxed));
+        }
+    }
+
     static security_policy server_exclamation_point_name_policy({ cap_prot_serv });
     static security_policy kill_process_policy({ cap_power_mgmt });
 
@@ -83,6 +251,53 @@ namespace eka2l1::epoc {
         return nullptr;
     }
 
+    static const char *object_type_to_string(const kernel::object_type type) {
+        switch (type) {
+        case kernel::object_type::thread:
+            return "thread";
+        case kernel::object_type::process:
+            return "process";
+        case kernel::object_type::chunk:
+            return "chunk";
+        case kernel::object_type::library:
+            return "library";
+        case kernel::object_type::sema:
+            return "sema";
+        case kernel::object_type::mutex:
+            return "mutex";
+        case kernel::object_type::timer:
+            return "timer";
+        case kernel::object_type::server:
+            return "server";
+        case kernel::object_type::session:
+            return "session";
+        case kernel::object_type::logical_device:
+            return "logical_device";
+        case kernel::object_type::physical_device:
+            return "physical_device";
+        case kernel::object_type::logical_channel:
+            return "logical_channel";
+        case kernel::object_type::change_notifier:
+            return "change_notifier";
+        case kernel::object_type::undertaker:
+            return "undertaker";
+        case kernel::object_type::msg_queue:
+            return "msg_queue";
+        case kernel::object_type::prop_ref:
+            return "prop_ref";
+        case kernel::object_type::condvar:
+            return "condvar";
+        case kernel::object_type::codeseg:
+            return "codeseg";
+        case kernel::object_type::prop:
+            return "prop";
+        case kernel::object_type::unk:
+            return "unk";
+        default:
+            return "unknown";
+        }
+    }
+
     static std::optional<std::u16string> get_dll_full_path(kernel_system *kern, const std::uint32_t addr) {
         codeseg_ptr ss = get_codeseg_from_addr(kern, kern->crr_process(), addr, true);
         if (ss) {
@@ -108,9 +323,9 @@ namespace eka2l1::epoc {
         return 0;
     }
 
-    /* TODO:                                       
+    /* TODO:
      * 1. (pent0) Implement global user data. Global user data should be allocated in global memory region.
-    */
+     */
 
     /********************************/
     /*    GET/SET EXECUTIVE CALLS   */
@@ -164,6 +379,9 @@ namespace eka2l1::epoc {
 
     BRIDGE_FUNC(void, after, std::int32_t micro_secs, eka2l1::ptr<epoc::request_status> status) {
         kernel::thread *thr = kern->crr_thread();
+        record_timer_after_diag(timer_after_diag_source_user_after, static_cast<std::uint64_t>(common::max(0, micro_secs)));
+        report_timing_diag(kern);
+
         thr->sleep_nof(status, micro_secs);
     }
 
@@ -348,7 +566,7 @@ namespace eka2l1::epoc {
             return epoc::error_argument;
         }
 
-        const bool result = pr->set_arg_slot(static_cast<std::uint8_t>(slot_num), reinterpret_cast<std::uint8_t*>(&target), 4, true);
+        const bool result = pr->set_arg_slot(static_cast<std::uint8_t>(slot_num), reinterpret_cast<std::uint8_t *>(&target), 4, true);
 
         if (!result) {
             LOG_ERROR(KERNEL, "Parameter slot used, slot number: {}", slot_num);
@@ -611,15 +829,15 @@ namespace eka2l1::epoc {
         return eka2l1::ptr<void>(0);
     }
 
-    BRIDGE_FUNC(std::int32_t, dll_set_tls, kernel::handle h, std::int32_t dll_uid, eka2l1::ptr<void> data_set) {        
+    BRIDGE_FUNC(std::int32_t, dll_set_tls, kernel::handle h, std::int32_t dll_uid, eka2l1::ptr<void> data_set) {
         kernel::thread *thr = kern->crr_thread();
 
         if (!thr->set_tls_slot(h, dll_uid, data_set)) {
             return epoc::error_no_memory;
         }
 
-        //LOG_TRACE(KERNEL, "TLS set for 0x{:x}, ptr: 0x{:x}, thread {}", static_cast<std::uint32_t>(h), data_set.ptr_address(),
-        //    thr->name());
+        // LOG_TRACE(KERNEL, "TLS set for 0x{:x}, ptr: 0x{:x}, thread {}", static_cast<std::uint32_t>(h), data_set.ptr_address(),
+        //     thr->name());
 
         return epoc::error_none;
     }
@@ -628,15 +846,15 @@ namespace eka2l1::epoc {
         kernel::thread *thr = kern->crr_thread();
         thr->close_tls_slot(h);
 
-        //LOG_TRACE(KERNEL, "TLS slot closed for 0x{:x}, thread {}", static_cast<std::uint32_t>(h), thr->name());
+        // LOG_TRACE(KERNEL, "TLS slot closed for 0x{:x}, thread {}", static_cast<std::uint32_t>(h), thr->name());
     }
 
-    BRIDGE_FUNC(void, dll_filename, std::int32_t entry_addr, eka2l1::ptr<epoc::des8> full_path_ptr) {
+    BRIDGE_FUNC(std::int32_t, dll_filename, std::int32_t entry_addr, eka2l1::ptr<epoc::des8> full_path_ptr) {
         std::optional<std::u16string> dll_full_path = get_dll_full_path(kern, entry_addr);
 
         if (!dll_full_path) {
             LOG_WARN(KERNEL, "Unable to find DLL name for address: 0x{:x}", entry_addr);
-            return;
+            return epoc::error_not_found;
         }
 
         std::string path_utf8 = common::ucs2_to_utf8(*dll_full_path);
@@ -645,6 +863,7 @@ namespace eka2l1::epoc {
 
         kernel::process *crr_pr = kern->crr_process();
         full_path_ptr.get(crr_pr)->assign(crr_pr, path_utf8);
+        return epoc::error_none;
     }
 
     /***********************************/
@@ -652,8 +871,8 @@ namespace eka2l1::epoc {
     /**********************************/
 
     /*
-    * Warning: It's not possible to set the UTC time and offset in the emulator at the moment.
-    */
+     * Warning: It's not possible to set the UTC time and offset in the emulator at the moment.
+     */
 
     BRIDGE_FUNC(std::int32_t, utc_offset) {
         return kern->utc_offset();
@@ -725,7 +944,7 @@ namespace eka2l1::epoc {
             if (status)
                 status->set(val, kern->is_eka1());
 
-            msg->own_thr->signal_request();
+            msg->own_thr->signal_request(1, "message_complete");
             if (kern->get_config()->log_ipc)
                 LOG_TRACE(KERNEL, "Message completed with code: {}, thread to signal: {}", val, msg->own_thr->name());
         }
@@ -748,7 +967,7 @@ namespace eka2l1::epoc {
 
         if (msg->request_sts) {
             (msg->request_sts.get(msg->own_thr->owning_process()))->set(static_cast<std::int32_t>(dup_handle), kern->is_eka1());
-            msg->own_thr->signal_request();
+            msg->own_thr->signal_request(1, "message_complete_handle");
         }
 
         if (kern->get_config()->log_ipc)
@@ -1005,7 +1224,7 @@ namespace eka2l1::epoc {
     static void query_security_info(kernel::process *process, epoc::security_info *info) {
         assert(process);
 
-        *info = std::move(process->get_sec_info());
+        *info = process->get_sec_info();
     }
 
     BRIDGE_FUNC(void, process_security_info, kernel::handle h, eka2l1::ptr<epoc::security_info> info) {
@@ -1052,7 +1271,7 @@ namespace eka2l1::epoc {
             LOG_TRACE(KERNEL, "Process is a wild child, has no parents. Creator info is empty.");
             *info = epoc::security_info{};
         } else {
-            *info = std::move(owner->get_sec_info());
+            *info = owner->get_sec_info();
         }
     }
 
@@ -1211,7 +1430,7 @@ namespace eka2l1::epoc {
         const service::share_mode prev_share = ss->get_share_mode();
         ss->set_share_mode(static_cast<service::share_mode>(share));
 
-        if ((prev_share >= service::share_mode::SHARE_MODE_SHAREABLE) && (share == service::share_mode::SHARE_MODE_UNSHAREABLE)
+        if (((prev_share >= service::share_mode::SHARE_MODE_SHAREABLE) && (share == service::share_mode::SHARE_MODE_UNSHAREABLE))
             || ((prev_share == service::share_mode::SHARE_MODE_UNSHAREABLE) && (share >= service::SHARE_MODE_SHAREABLE))) {
             // Create new handle
             const std::uint32_t res = kern->mirror(ss, get_session_owner_type_from_share(static_cast<service::share_mode>(share)));
@@ -1296,7 +1515,56 @@ namespace eka2l1::epoc {
 
     BRIDGE_FUNC(eka2l1::ptr<void>, leave_start) {
         kernel::thread *thr = kern->crr_thread();
-        LOG_TRACE(KERNEL, "Leave started! Guess leave code: {}", static_cast<std::int32_t>(kern->get_cpu()->get_reg(0)));
+        kernel::process *pr = kern->crr_process();
+        const auto leave_code = static_cast<std::int32_t>(kern->get_cpu()->get_reg(0));
+        const auto pc = kern->get_cpu()->get_reg(15);
+        const auto lr = kern->get_cpu()->get_reg(14);
+        const auto sp = kern->get_cpu()->get_reg(13);
+        const auto r1 = kern->get_cpu()->get_reg(1);
+        const auto r2 = kern->get_cpu()->get_reg(2);
+        const auto r3 = kern->get_cpu()->get_reg(3);
+        codeseg_ptr lr_seg = get_codeseg_from_addr(kern, pr, lr, false);
+        const auto lr_seg_base = lr_seg ? lr_seg->get_code_run_addr(pr) : 0;
+        std::string stack_callers;
+
+        if (pr) {
+            for (std::uint32_t offset = 0; offset < 0x100 && stack_callers.size() < 240; offset += 4) {
+                std::uint8_t *stack_ptr = reinterpret_cast<std::uint8_t *>(pr->get_ptr_on_addr_space(sp + offset));
+
+                if (!stack_ptr) {
+                    continue;
+                }
+
+                std::uint32_t value = 0;
+                std::memcpy(&value, stack_ptr, sizeof(value));
+                value &= ~1U;
+
+                codeseg_ptr stack_seg = get_codeseg_from_addr(kern, pr, value, false);
+                if (!stack_seg || stack_seg->raw_name() == "euser.dll") {
+                    continue;
+                }
+
+                const auto stack_seg_base = stack_seg->get_code_run_addr(pr);
+                stack_callers += fmt::format("{}{}+0x{:x}@sp+0x{:x}",
+                    stack_callers.empty() ? "" : ", ",
+                    stack_seg->raw_name(),
+                    value - stack_seg_base,
+                    offset);
+            }
+        }
+
+        LOG_TRACE(KERNEL, "Leave started! process={}, thread={}, code={}, r1=0x{:x}, r2=0x{:x}, r3=0x{:x}, pc=0x{:x}, lr=0x{:x} ({}+0x{:x}), stack_callers=[{}]",
+            pr ? pr->name() : "<none>",
+            thr ? thr->name() : "<none>",
+            leave_code,
+            r1,
+            r2,
+            r3,
+            pc,
+            lr,
+            lr_seg ? lr_seg->raw_name() : "<unknown>",
+            lr_seg ? lr - lr_seg_base : 0,
+            stack_callers);
 
         thr->increase_leave_depth();
 
@@ -1710,7 +1978,7 @@ namespace eka2l1::epoc {
 
         return mut->count();
     }
-    
+
     BRIDGE_FUNC(std::int32_t, condvar_create, eka2l1::ptr<desc8> mutex_name_des, epoc::owner_type owner) {
         process_ptr pr = kern->crr_process();
 
@@ -1718,9 +1986,9 @@ namespace eka2l1::epoc {
         kernel::owner_type owner_kern = (owner == epoc::owner_process) ? kernel::owner_type::process : kernel::owner_type::thread;
 
         const kernel::handle cv = kern->create_and_add<kernel::condvar>(owner_kern, kern->get_ntimer(), pr,
-                                           !desname ? "" : desname->to_std_string(pr),
-                                           !desname ? kernel::access_type::local_access : kernel::access_type::global_access)
-                                       .first;
+                                          !desname ? "" : desname->to_std_string(pr),
+                                          !desname ? kernel::access_type::local_access : kernel::access_type::global_access)
+                                      .first;
 
         if (cv == kernel::INVALID_HANDLE) {
             return epoc::error_general;
@@ -1739,7 +2007,7 @@ namespace eka2l1::epoc {
 
         return (cv->wait(kern->crr_thread(), mut, timeout) ? epoc::error_none : epoc::error_general);
     }
-    
+
     BRIDGE_FUNC(void, condvar_signal, kernel::handle condvar_h) {
         kernel::condvar *cv = kern->get<kernel::condvar>(condvar_h);
         if (cv) {
@@ -1748,7 +2016,7 @@ namespace eka2l1::epoc {
             LOG_ERROR(KERNEL, "Condition variable is null (handle={})", condvar_h);
         }
     }
-    
+
     BRIDGE_FUNC(void, condvar_broadcast, kernel::handle condvar_h) {
         kernel::condvar *cv = kern->get<kernel::condvar>(condvar_h);
         if (cv) {
@@ -1763,7 +2031,7 @@ namespace eka2l1::epoc {
     }
 
     BRIDGE_FUNC(void, request_signal, std::int32_t signal_count) {
-        kern->crr_thread()->signal_request(signal_count);
+        kern->crr_thread()->signal_request(signal_count, "self_request_signal");
     }
 
     /***********************************************/
@@ -1780,7 +2048,7 @@ namespace eka2l1::epoc {
 
         const std::string name = name_des_ptr->to_std_string(pr);
 
-        //LOG_TRACE(KERNEL, "Finding object name: {}", name);
+        // LOG_TRACE(KERNEL, "Finding object name: {}", name);
         if (handle->handle < 0) {
             return epoc::error_argument;
         }
@@ -1821,7 +2089,7 @@ namespace eka2l1::epoc {
             return epoc::error_argument;
         }
 
-        //LOG_TRACE(KERNEL, "Finding object name: {}", name);
+        // LOG_TRACE(KERNEL, "Finding object name: {}", name);
         std::optional<eka2l1::find_handle> info = kern->find_object(match_str, handle_start_searching,
             static_cast<kernel::object_type>(obj_type), true);
 
@@ -1873,7 +2141,22 @@ namespace eka2l1::epoc {
             static_cast<kernel::object_type>(obj_type));
 
         if (!obj) {
-            LOG_ERROR(KERNEL, "Can't open object: {}", obj_name);
+            const auto type = static_cast<kernel::object_type>(obj_type);
+            kernel::thread *thr = kern->crr_thread();
+            const auto lr = kern->get_cpu()->get_reg(14) & ~1U;
+            codeseg_ptr lr_seg = get_codeseg_from_addr(kern, pr, lr, false);
+            const auto lr_seg_base = lr_seg ? lr_seg->get_code_run_addr(pr) : 0;
+
+            LOG_TRACE(KERNEL, "Open object returned KErrNotFound: {} (type={}#{}, owner={}, process={}, thread={}, lr=0x{:x} {}+0x{:x})",
+                obj_name,
+                object_type_to_string(type),
+                obj_type,
+                owner,
+                pr ? pr->name() : "<none>",
+                thr ? thr->name() : "<none>",
+                lr,
+                lr_seg ? lr_seg->raw_name() : "<unknown>",
+                lr_seg ? lr - lr_seg_base : 0);
             return epoc::error_not_found;
         }
 
@@ -2098,7 +2381,7 @@ namespace eka2l1::epoc {
     }
 
     BRIDGE_FUNC(std::uint32_t, library_entry_call_start, const address addr) {
-        //LOG_TRACE(KERNEL, "Starting address 0x{:X}", addr);
+        // LOG_TRACE(KERNEL, "Starting address 0x{:X}", addr);
         return epoc::error_none;
     }
 
@@ -2112,7 +2395,7 @@ namespace eka2l1::epoc {
         const std::u16string lib_filename = lib->get_codeseg()->get_full_path();
         path_to_fill->assign(kern->crr_process(), lib_filename);
     }
-    
+
     BRIDGE_FUNC(void, library_filename, kernel::handle h, epoc::des8 *path_to_fill) {
         kernel::library *lib = kern->get<kernel::library>(h);
 
@@ -2254,7 +2537,7 @@ namespace eka2l1::epoc {
             return;
         }
 
-        thr->signal_request();
+        thr->signal_request(1, "thread_request_signal");
     }
 
     BRIDGE_FUNC(std::int32_t, thread_rename, kernel::handle h, eka2l1::ptr<desc8> name_des) {
@@ -2498,11 +2781,33 @@ namespace eka2l1::epoc {
     /* PROPERTY */
     /****************************/
 
+    static std::int32_t normalise_property_category(kernel_system *kern, const std::int32_t category) {
+        if (category != -1) {
+            return category;
+        }
+
+        kernel::process *process = kern->crr_process();
+        if (!process) {
+            return category;
+        }
+
+        const security_info info = process->get_sec_info();
+        const std::uint32_t secure_id = info.secure_id ? info.secure_id : process->get_uid();
+        return static_cast<std::int32_t>(secure_id);
+    }
+
     BRIDGE_FUNC(std::int32_t, property_find_get_int, std::int32_t cage, std::int32_t key, eka2l1::ptr<std::int32_t> value) {
-        property_ptr prop = kern->get_prop(cage, key);
+        const std::int32_t category = normalise_property_category(kern, cage);
+        property_ptr prop = kern->get_prop(category, key);
+
+        if (kern->get_config()->log_svc) {
+            LOG_TRACE(KERNEL, "Get int property: category = 0x{:x} (requested 0x{:x}), key = 0x{:x}",
+                static_cast<std::uint32_t>(category), static_cast<std::uint32_t>(cage), key);
+        }
 
         if (!prop || !prop->is_defined()) {
-            LOG_WARN(KERNEL, "Property not found: category = 0x{:x}, key = 0x{:x}", cage, key);
+            LOG_WARN(KERNEL, "Property not found: category = 0x{:x}, key = 0x{:x}",
+                static_cast<std::uint32_t>(category), key);
             return epoc::error_not_found;
         }
 
@@ -2515,10 +2820,17 @@ namespace eka2l1::epoc {
     BRIDGE_FUNC(std::int32_t, property_find_get_bin, std::int32_t cage, std::int32_t key, eka2l1::ptr<std::uint8_t> data, std::int32_t datlength) {
         process_ptr crr_pr = kern->crr_process();
 
-        property_ptr prop = kern->get_prop(cage, key);
+        const std::int32_t category = normalise_property_category(kern, cage);
+        property_ptr prop = kern->get_prop(category, key);
+
+        if (kern->get_config()->log_svc) {
+            LOG_TRACE(KERNEL, "Get bin property: category = 0x{:x} (requested 0x{:x}), key = 0x{:x}, max length = {}",
+                static_cast<std::uint32_t>(category), static_cast<std::uint32_t>(cage), key, datlength);
+        }
 
         if (!prop || !prop->is_defined()) {
-            LOG_WARN(KERNEL, "Property not found: category = 0x{:x}, key = 0x{:x}", cage, key);
+            LOG_WARN(KERNEL, "Property not found: category = 0x{:x}, key = 0x{:x}",
+                static_cast<std::uint32_t>(category), key);
             return epoc::error_not_found;
         }
 
@@ -2540,16 +2852,30 @@ namespace eka2l1::epoc {
             return return_code;
         }
 
-        return datlength;
+        return epoc::error_none;
     }
 
     BRIDGE_FUNC(std::int32_t, property_attach, std::int32_t cage, std::int32_t val, epoc::owner_type owner) {
-        property_ptr prop = kern->get_prop(cage, val);
+        const std::int32_t category = normalise_property_category(kern, cage);
+        property_ptr prop = kern->get_prop(category, val);
 
-        LOG_TRACE(KERNEL, "Attach to property with category: 0x{:x}, key: 0x{:x}", cage, val);
+        LOG_TRACE(KERNEL, "Attach to property with category: 0x{:x} (requested 0x{:x}), key: 0x{:x}",
+            static_cast<std::uint32_t>(category), static_cast<std::uint32_t>(cage), val);
 
         if (!prop) {
-            LOG_WARN(KERNEL, "Property (0x{:x}, 0x{:x}) has not been defined before, undefined behavior may rise", cage, val);
+            kernel::process *pr = kern->crr_process();
+            const auto lr = kern->get_cpu()->get_reg(14);
+            codeseg_ptr lr_seg = get_codeseg_from_addr(kern, pr, lr, false);
+            const auto lr_seg_base = lr_seg ? lr_seg->get_code_run_addr(pr) : 0;
+
+            LOG_WARN(KERNEL,
+                "Property (0x{:x}, 0x{:x}) has not been defined before, undefined behavior may rise; process={}, thread={}, lr=0x{:x} ({}+0x{:x})",
+                static_cast<std::uint32_t>(category), val,
+                pr ? pr->name() : "<none>",
+                kern->crr_thread() ? kern->crr_thread()->name() : "<none>",
+                lr,
+                lr_seg ? lr_seg->raw_name() : "<unknown>",
+                lr_seg ? lr - lr_seg_base : 0);
 
             prop = kern->create<service::property>();
 
@@ -2557,7 +2883,7 @@ namespace eka2l1::epoc {
                 return epoc::error_general;
             }
 
-            prop->first = cage;
+            prop->first = category;
             prop->second = val;
         }
 
@@ -2575,6 +2901,7 @@ namespace eka2l1::epoc {
         process_ptr pr = kern->crr_process();
 
         epoc::property_info *info = prop_info_ptr.get(pr);
+        const std::int32_t category = normalise_property_category(kern, cage);
 
         service::property_type prop_type;
 
@@ -2594,10 +2921,11 @@ namespace eka2l1::epoc {
         }
         }
 
-        LOG_TRACE(KERNEL, "Define to property with category: 0x{:x}, key: 0x{:x}, type: {}", cage, key,
+        LOG_TRACE(KERNEL, "Define to property with category: 0x{:x} (requested 0x{:x}), key: 0x{:x}, type: {}",
+            static_cast<std::uint32_t>(category), static_cast<std::uint32_t>(cage), key,
             prop_type == service::property_type::int_data ? "int" : "bin");
 
-        property_ptr prop = kern->get_prop(cage, key);
+        property_ptr prop = kern->get_prop(category, key);
 
         if (!prop) {
             prop = kern->create<service::property>();
@@ -2606,7 +2934,7 @@ namespace eka2l1::epoc {
                 return epoc::error_general;
             }
 
-            prop->first = cage;
+            prop->first = category;
             prop->second = key;
         }
 
@@ -2616,7 +2944,8 @@ namespace eka2l1::epoc {
     }
 
     BRIDGE_FUNC(std::int32_t, property_delete, std::int32_t cage, std::int32_t key) {
-        property_ptr prop = kern->delete_prop(cage, key);
+        const std::int32_t category = normalise_property_category(kern, cage);
+        property_ptr prop = kern->delete_prop(category, key);
 
         if (!prop || !prop->is_defined()) {
             return epoc::error_not_found;
@@ -2690,10 +3019,6 @@ namespace eka2l1::epoc {
 
         *value_ptr.get(pr) = prop->get_property_object()->get_int();
 
-        if (prop->get_property_object()->get_int() == -1) {
-            return epoc::error_argument;
-        }
-
         return epoc::error_none;
     }
 
@@ -2707,7 +3032,7 @@ namespace eka2l1::epoc {
         std::vector<uint8_t> dat = prop->get_property_object()->get_bin();
 
         if (dat.size() == 0) {
-            return epoc::error_argument;
+            return epoc::error_none;
         }
 
         const std::size_t size_to_copy = std::min<std::size_t>(dat.size(), buffer_size);
@@ -2725,17 +3050,23 @@ namespace eka2l1::epoc {
             return return_code;
         }
 
-        return buffer_size;
+        return epoc::error_none;
     }
 
     BRIDGE_FUNC(std::int32_t, property_find_set_int, std::int32_t cage, std::int32_t key, std::int32_t value) {
-        property_ptr prop = kern->get_prop(cage, key);
+        const std::int32_t category = normalise_property_category(kern, cage);
+        property_ptr prop = kern->get_prop(category, key);
+
+        if (kern->get_config()->log_svc) {
+            LOG_TRACE(KERNEL, "Set int property: category = 0x{:x} (requested 0x{:x}), key = 0x{:x}, value = {}",
+                static_cast<std::uint32_t>(category), static_cast<std::uint32_t>(cage), key, value);
+        }
 
         if (!prop || !prop->is_defined()) {
             return epoc::error_not_found;
         }
 
-        const bool res = prop->set(value);
+        const bool res = prop->set_int(value);
 
         if (!res) {
             return epoc::error_argument;
@@ -2745,7 +3076,13 @@ namespace eka2l1::epoc {
     }
 
     BRIDGE_FUNC(std::int32_t, property_find_set_bin, std::int32_t cage, std::int32_t key, eka2l1::ptr<std::uint8_t> data_ptr, std::int32_t size) {
-        property_ptr prop = kern->get_prop(cage, key);
+        const std::int32_t category = normalise_property_category(kern, cage);
+        property_ptr prop = kern->get_prop(category, key);
+
+        if (kern->get_config()->log_svc) {
+            LOG_TRACE(KERNEL, "Set bin property: category = 0x{:x} (requested 0x{:x}), key = 0x{:x}, size = {}",
+                static_cast<std::uint32_t>(category), static_cast<std::uint32_t>(cage), key, size);
+        }
 
         if (!prop || !prop->is_defined()) {
             return epoc::error_not_found;
@@ -2777,11 +3114,11 @@ namespace eka2l1::epoc {
             .first;
     }
 
-    /* 
-    * Note: the difference between At and After on hardware is At request still actives when the phone shutdown.
-    * At is extremely important to implement the alarm in S60 (i believe S60v4 is a part based on S60 so it maybe related).
-    * In emulator, it's the same, so i implement it as TimerAffter.
-    */
+    /*
+     * Note: the difference between At and After on hardware is At request still actives when the phone shutdown.
+     * At is extremely important to implement the alarm in S60 (i believe S60v4 is a part based on S60 so it maybe related).
+     * In emulator, it's the same, so i implement it as TimerAffter.
+     */
 
     BRIDGE_FUNC(void, timer_after, kernel::handle h, eka2l1::ptr<epoc::request_status> req_sts, std::int32_t us_after) {
         timer_ptr timer = kern->get<kernel::timer>(h);
@@ -2789,6 +3126,9 @@ namespace eka2l1::epoc {
         if (!timer) {
             return;
         }
+
+        record_timer_after_diag(timer_after_diag_source_timer_after, static_cast<std::uint64_t>(common::max(0, us_after)));
+        report_timing_diag(kern);
 
         timer->after(kern->crr_thread(), req_sts, us_after);
     }
@@ -2805,8 +3145,12 @@ namespace eka2l1::epoc {
         if (second_fraction_enum >= 12) {
             second_fraction_enum = 12;
         }
-        
-        timer->after(kern->crr_thread(), req_sts, common::microsecs_per_sec * second_fraction_enum / 12);
+
+        const std::uint64_t us_after = common::microsecs_per_sec * second_fraction_enum / 12;
+        record_timer_lock_diag(us_after);
+        report_timing_diag(kern);
+
+        timer->after(kern->crr_thread(), req_sts, us_after);
     }
 
     BRIDGE_FUNC(void, timer_after_eka1, eka2l1::ptr<epoc::request_status> req_sts, std::int32_t us_after, kernel::handle h) {
@@ -2816,15 +3160,22 @@ namespace eka2l1::epoc {
             return;
         }
 
+        record_timer_after_diag(timer_after_diag_source_timer_after_eka1, static_cast<std::uint64_t>(common::max(0, us_after)));
+        report_timing_diag(kern);
+
         timer->after(kern->crr_thread(), req_sts, us_after);
     }
-    
+
     BRIDGE_FUNC(void, timer_after_ticks_eka1, eka2l1::ptr<epoc::request_status> req_sts, std::int32_t ticks_after, kernel::handle h) {
         timer_ptr timer = kern->get<kernel::timer>(h);
 
         if (!timer) {
             return;
         }
+
+        record_timer_after_diag(timer_after_diag_source_timer_after_ticks_eka1,
+            static_cast<std::uint64_t>(common::max(0, ticks_after)) * (common::microsecs_per_sec / epoc::TICK_TIMER_HZ));
+        report_timing_diag(kern);
 
         timer->after_ticks(kern->crr_thread(), req_sts, ticks_after);
     }
@@ -2841,12 +3192,16 @@ namespace eka2l1::epoc {
 
         if (*us_at < stamp) {
             sts_real->set(epoc::error_underflow, kern->is_eka1());
-            kern->crr_thread()->signal_request();
+            kern->crr_thread()->signal_request(1, "timer_at_underflow");
 
             return;
         }
 
-        timer->after(kern->crr_thread(), req_sts, *us_at - stamp);
+        const std::uint64_t us_after = *us_at - stamp;
+        record_timer_after_diag(timer_after_diag_source_timer_at_utc, us_after);
+        report_timing_diag(kern);
+
+        timer->after(kern->crr_thread(), req_sts, us_after);
     }
 
     BRIDGE_FUNC(void, timer_at_eka1, eka2l1::ptr<epoc::request_status> req_sts, std::uint64_t *us_at, kernel::handle h) {
@@ -2862,12 +3217,16 @@ namespace eka2l1::epoc {
 
         if (req_utc_time < stamp) {
             sts_real->set(epoc::error_underflow, kern->is_eka1());
-            kern->crr_thread()->signal_request();
+            kern->crr_thread()->signal_request(1, "timer_at_underflow");
 
             return;
         }
 
-        timer->after(kern->crr_thread(), req_sts, req_utc_time - stamp);
+        const std::uint64_t us_after = req_utc_time - stamp;
+        record_timer_after_diag(timer_after_diag_source_timer_at_eka1, us_after);
+        report_timing_diag(kern);
+
+        timer->after(kern->crr_thread(), req_sts, us_after);
     }
 
     BRIDGE_FUNC(void, timer_cancel, kernel::handle h) {
@@ -2880,9 +3239,12 @@ namespace eka2l1::epoc {
         timer->cancel_request();
     }
 
-    static constexpr std::uint32_t TICK_MASK = ~0b1;
-
     BRIDGE_FUNC(std::uint32_t, fast_counter) {
+        if (timing_diag_enabled()) {
+            timing_diag().fast_counter_calls.fetch_add(1, std::memory_order_relaxed);
+            report_timing_diag(kern);
+        }
+
         const std::uint64_t DEFAULT_FAST_COUNTER_PERIOD = (common::microsecs_per_sec / epoc::HIGH_RES_TIMER_HZ);
 
         ntimer *timing = kern->get_ntimer();
@@ -2890,6 +3252,11 @@ namespace eka2l1::epoc {
     }
 
     BRIDGE_FUNC(std::uint32_t, ntick_count) {
+        if (timing_diag_enabled()) {
+            timing_diag().ntick_count_calls.fetch_add(1, std::memory_order_relaxed);
+            report_timing_diag(kern);
+        }
+
         const std::uint64_t DEFAULT_NTICK_PERIOD = (common::microsecs_per_sec / epoc::NANOKERNEL_HZ);
 
         ntimer *timing = kern->get_ntimer();
@@ -2897,19 +3264,15 @@ namespace eka2l1::epoc {
     }
 
     BRIDGE_FUNC(std::uint32_t, tick_count) {
+        if (timing_diag_enabled()) {
+            timing_diag().tick_count_calls.fetch_add(1, std::memory_order_relaxed);
+            report_timing_diag(kern);
+        }
+
         const std::uint64_t DEFAULT_TICK_PERIOD = (common::microsecs_per_sec / epoc::TICK_TIMER_HZ);
 
         ntimer *timing = kern->get_ntimer();
-        std::uint32_t res = static_cast<std::uint32_t>((timing->microseconds() / DEFAULT_TICK_PERIOD));
-
-        if (kern->is_eka1()) {
-            // TODO: This is unverified mask used for compatible with Worms War party
-            // At least because the check is pretty non-sense that I think it's intentional behaviour.
-            // Two checks: if tick count is odd and then the actual check for unrelated category. Lol
-            res &= TICK_MASK;
-        }
-
-        return res;
+        return static_cast<std::uint32_t>((timing->microseconds() / DEFAULT_TICK_PERIOD));
     }
 
     /**********************/
@@ -3112,10 +3475,10 @@ namespace eka2l1::epoc {
         }
 
         std::uint8_t *buf_ptr = reinterpret_cast<std::uint8_t *>(buf->get_pointer_raw(crr));
-        
+
         if (len == 4) {
             if (is_write) {
-                std::uint32_t data = *reinterpret_cast<std::uint32_t*>(buf_ptr);
+                std::uint32_t data = *reinterpret_cast<std::uint32_t *>(buf_ptr);
 
                 if (!crr->write_dword_data_to(process_to_operate, addr, data)) {
                     return epoc::error_general;
@@ -3211,9 +3574,18 @@ namespace eka2l1::epoc {
         return epoc::error_permission_denied;
     }
 
-    BRIDGE_FUNC(eka2l1::ptr<void>, get_global_userdata) {
-        //LOG_INFO(KERNEL, "get_global_userdata stubbed with zero");
-        return 0;
+    BRIDGE_FUNC(eka2l1::ptr<void>, get_global_userdata, const std::int32_t slot) {
+        switch (slot) {
+        case 0: // ELocaleDefaultCharSet
+        case 1: // ELocalePreferredCharSet
+            return eka2l1::ptr<void>(0);
+
+        default: {
+            kernel::process *pr = kern->crr_process();
+            LOG_TRACE(KERNEL, "GetGlobalUserData unhandled slot={} process={} returns 0", slot, pr ? pr->name() : "<none>");
+            return eka2l1::ptr<void>(0);
+        }
+        }
     }
 
     BRIDGE_FUNC(address, exception_descriptor, address in_addr) {
@@ -3308,34 +3680,41 @@ namespace eka2l1::epoc {
         return is_exception_handled(kern, h, type, true);
     }
 
-    BRIDGE_FUNC(std::int32_t, safe_inc_32, eka2l1::ptr<std::int32_t> val_ptr) {
+    static std::int32_t update_user_int32(kernel_system *kern, eka2l1::ptr<std::int32_t> val_ptr,
+        const std::int32_t delta, const bool only_if_positive, const char *name) {
         std::int32_t *val = val_ptr.get(kern->crr_process());
-        std::int32_t org_val = *val;
-        *val > 0 ? val++ : 0;
 
-        return org_val;
+        if (!val && kern->get_cpu()->exception_handler(arm::exception_type_access_violation_write, val_ptr.ptr_address())) {
+            val = val_ptr.get(kern->crr_process());
+        }
+
+        if (!val) {
+            LOG_ERROR(KERNEL, "{} received invalid value pointer 0x{:X}", name, val_ptr.ptr_address());
+            return 0;
+        }
+
+        const std::int32_t before = *val;
+        if (!only_if_positive || (before > 0)) {
+            *val = before + delta;
+        }
+
+        return before;
+    }
+
+    BRIDGE_FUNC(std::int32_t, safe_inc_32, eka2l1::ptr<std::int32_t> val_ptr) {
+        return update_user_int32(kern, val_ptr, 1, true, "safe_inc_32");
     }
 
     BRIDGE_FUNC(std::int32_t, safe_dec_32, eka2l1::ptr<std::int32_t> val_ptr) {
-        std::int32_t *val = val_ptr.get(kern->crr_process());
-        std::int32_t org_val = *val;
-        *val > 0 ? val-- : 0;
-
-        return org_val;
+        return update_user_int32(kern, val_ptr, -1, true, "safe_dec_32");
     }
 
-    BRIDGE_FUNC(std::int32_t, locked_dec_32, std::int32_t *val_ptr) {
-        const std::int32_t before = *val_ptr;
-        (*val_ptr)--;
-
-        return before;
+    BRIDGE_FUNC(std::int32_t, locked_dec_32, eka2l1::ptr<std::int32_t> val_ptr) {
+        return update_user_int32(kern, val_ptr, -1, false, "locked_dec_32");
     }
 
-    BRIDGE_FUNC(std::int32_t, locked_inc_32, std::int32_t *val_ptr) {
-        const std::int32_t before = *val_ptr;
-        (*val_ptr)++;
-
-        return before;
+    BRIDGE_FUNC(std::int32_t, locked_inc_32, eka2l1::ptr<std::int32_t> val_ptr) {
+        return update_user_int32(kern, val_ptr, 1, false, "locked_inc_32");
     }
 
     /// HLE
@@ -3382,7 +3761,7 @@ namespace eka2l1::epoc {
     /* ================ EKA1 ROUTES ================== */
     static void finish_status_request_eka1(kernel::thread *target_thread, epoc::request_status *sts, const std::int32_t code) {
         sts->set(code, true);
-        target_thread->signal_request();
+        target_thread->signal_request(1, "eka1_finish_status_request");
     }
 
     static kernel::owner_type get_handle_owner_from_eka1_attribute(const std::uint32_t attrib) {
@@ -3421,16 +3800,17 @@ namespace eka2l1::epoc {
         do_hal_by_data_num(kern->get_system(), kernel::hal_data_eka1_screen_info, the_des);
     }
 
-    BRIDGE_FUNC(void, user_svr_dll_filename, std::int32_t entry_addr, epoc::des16 *full_path_ptr) {
+    BRIDGE_FUNC(std::int32_t, user_svr_dll_filename, std::int32_t entry_addr, epoc::des16 *full_path_ptr) {
         std::optional<std::u16string> dll_full_path = get_dll_full_path(kern, entry_addr);
 
         if (!dll_full_path) {
             LOG_WARN(KERNEL, "Unable to find DLL name for address: 0x{:x}", entry_addr);
-            return;
+            return epoc::error_not_found;
         }
 
         LOG_TRACE(KERNEL, "Find DLL for address 0x{:x} with name: {}", static_cast<std::uint32_t>(entry_addr), common::ucs2_to_utf8(*dll_full_path));
         full_path_ptr->assign(kern->crr_process(), dll_full_path.value());
+        return epoc::error_none;
     }
 
     // NOTE(pent0): This call may be slow when the OS kernel is crowded.
@@ -3438,7 +3818,11 @@ namespace eka2l1::epoc {
         kernel_obj_ptr the_object = kern->get_kernel_obj_raw(h, kern->crr_thread());
 
         if (!the_object) {
-            LOG_WARN(KERNEL, "Trying to get handle info of an invalid handle: 0x{:X}, ignored", h);
+            if (h == 0) {
+                LOG_TRACE(KERNEL, "Trying to get handle info of a null handle, ignored");
+            } else {
+                LOG_WARN(KERNEL, "Trying to get handle info of an invalid handle: 0x{:X}, ignored", h);
+            }
             return;
         }
 
@@ -3449,12 +3833,16 @@ namespace eka2l1::epoc {
 
         kern->get_info(the_object, *info);
     }
-    
+
     BRIDGE_FUNC(void, handle_info, const kernel::handle h, kernel::handle_info *info) {
         kernel_obj_ptr the_object = kern->get_kernel_obj_raw(h, kern->crr_thread());
 
         if (!the_object) {
-            LOG_WARN(KERNEL, "Trying to get handle info of an invalid handle: 0x{:X}, ignored", h);
+            if (h == 0) {
+                LOG_TRACE(KERNEL, "Trying to get handle info of a null handle, ignored");
+            } else {
+                LOG_WARN(KERNEL, "Trying to get handle info of an invalid handle: 0x{:X}, ignored", h);
+            }
             return;
         }
 
@@ -3847,7 +4235,7 @@ namespace eka2l1::epoc {
         }
 
         if (!obj_ptr) {
-            LOG_ERROR(KERNEL, "Unable to find object with name: {}", obj_name);
+            LOG_TRACE(KERNEL, "Unable to find object with name: {}", obj_name);
 
             finish_status_request_eka1(target_thread, finish_signal, epoc::error_not_found);
             return epoc::error_not_found;
@@ -4715,7 +5103,7 @@ namespace eka2l1::epoc {
         finish_status_request_eka1(target_thread, finish_signal, epoc::error_none);
         return epoc::error_none;
     }
-    
+
     std::int32_t change_notifier_create_eka1(kernel_system *kern, const std::uint32_t attribute, epoc::eka1_executor *create_info,
         epoc::request_status *finish_signal, kernel::thread *target_thread) {
         // arg1 = global/local, arg0 = handle
@@ -5219,6 +5607,21 @@ namespace eka2l1::epoc {
 
     BRIDGE_FUNC(void, heap_created, std::uint32_t max_size, const std::uint32_t used_size, const std::uint32_t addr) {
         LOG_TRACE(KERNEL, "New heap created at address = 0x{:X}, allocated size = 0x{:X}, max size = 0x{:X}", addr, used_size, max_size);
+
+        if (kern->is_eka1() && addr && max_size) {
+            kernel::process *process = kern->crr_process();
+            const std::uint32_t page_size = static_cast<std::uint32_t>(kern->get_memory_system()->get_page_size());
+            const std::uint32_t commit_size = common::align(common::max(max_size, used_size), page_size);
+
+            if (process && process->get_mem_model()) {
+                if (process->get_mem_model()->adjust_chunk(addr, commit_size)) {
+                    process->get_mem_model()->remap_to_cpu(kern->get_memory_system()->get_mmu(kern->get_cpu()));
+                    kern->get_cpu()->flush_tlb();
+                } else {
+                    LOG_WARN(KERNEL, "Unable to commit initial EKA1 heap chunk pages at 0x{:X}, size 0x{:X}", addr, commit_size);
+                }
+            }
+        }
     }
 
     BRIDGE_FUNC(address, push_trap_frame, eka2l1::ptr<kernel::trap> new_trap_frame) {
@@ -5331,7 +5734,8 @@ namespace eka2l1::epoc {
             return;
         }
 
-        epoc::request_status *sts = eka2l1::ptr<epoc::request_status>(*sts_addr).get(thr->owning_process());
+        const address completed_status_addr = *sts_addr;
+        epoc::request_status *sts = eka2l1::ptr<epoc::request_status>(completed_status_addr).get(thr->owning_process());
 
         if (!sts) {
             LOG_ERROR(KERNEL, "Status for request complete is null!");
@@ -5341,7 +5745,8 @@ namespace eka2l1::epoc {
         sts->set(code, true);
         *sts_addr = 0; // Empty out the address as the behavior in the document.
 
-        thr->signal_request();
+        thr->signal_request(1, "eka1_thread_request_complete");
+        kern->call_request_complete_callbacks(thr, completed_status_addr);
     }
 
     BRIDGE_FUNC(void, process_command_line_eka1, epoc::des16 *cmd_line, kernel::handle h) {
@@ -5785,6 +6190,7 @@ namespace eka2l1::epoc {
         BRIDGE_REGISTER(0xBA, message_queue_notify_data_available),
         BRIDGE_REGISTER(0xBB, message_queue_cancel_notify_available),
         BRIDGE_REGISTER(0xBD, property_define),
+        BRIDGE_REGISTER(0xBE, property_delete),
         BRIDGE_REGISTER(0xBF, property_attach),
         BRIDGE_REGISTER(0xC0, property_subscribe),
         BRIDGE_REGISTER(0xC1, property_cancel),
@@ -6162,6 +6568,9 @@ namespace eka2l1::epoc {
         BRIDGE_REGISTER(0xDD, mutex_is_held),
         BRIDGE_REGISTER(0xDE, leave_start),
         BRIDGE_REGISTER(0xDF, leave_end),
+        // Some S60v3 FP2 ROM-side servers use the newer leave_end SVC number
+        // even though the rest of the device identifies as Symbian 9.3.
+        BRIDGE_REGISTER(0xE1, leave_end),
         BRIDGE_REGISTER(0xE4, session_security_info),
         BRIDGE_REGISTER(0xE7, btrace_out)
     };

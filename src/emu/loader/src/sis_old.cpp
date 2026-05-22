@@ -1,28 +1,28 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <loader/sis_old.h>
 
+#include <common/buffer.h>
 #include <common/cvt.h>
 #include <common/log.h>
-#include <common/buffer.h>
 
 #include <algorithm>
 #include <cctype>
@@ -78,7 +78,7 @@ namespace eka2l1::loader {
             stream.seek(4, common::seek_where::cur);
             return std::make_unique<sis_old_number_expression>(value);
         }
-        
+
         case sis_old_file_expression_type_attribute: {
             std::uint32_t attrib = 0;
             if (stream.read(&attrib, 4) != 4) {
@@ -137,7 +137,7 @@ namespace eka2l1::loader {
         sold.epoc_ver = (sold.header.uid2 == static_cast<uint32_t>(epoc_sis_type::epocu6)) ? epocver::epocu6 : epocver::epoc6;
         stream.seek(sold.header.file_ptr, common::seek_where::beg);
 
-        std::stack<sis_old_block*> active_blocks;
+        std::stack<sis_old_block *> active_blocks;
         active_blocks.push(&sold.root_block);
 
         for (uint32_t i = 0; i < sold.header.num_files; i++) {
@@ -260,7 +260,7 @@ namespace eka2l1::loader {
                     else
                         active_blocks.top()->recording_mode = 0;
                 }
-                
+
                 if (file_record_type == file_record_type_elseif) {
                     active_blocks.top()->recording_mode = 1;
                 }
@@ -268,7 +268,7 @@ namespace eka2l1::loader {
                 const std::uint64_t crr = stream.tell();
 
                 std::unique_ptr<sis_old_file_record> new_if_block = std::make_unique<sis_old_block>();
-                sis_old_block *new_if_block_raw_ptr = reinterpret_cast<sis_old_block*>(new_if_block.get());
+                sis_old_block *new_if_block_raw_ptr = reinterpret_cast<sis_old_block *>(new_if_block.get());
                 new_if_block_raw_ptr->condition = parse_sis_old_expression(stream);
 
                 if ((stream.tell() - crr) != cond_expression_size) {

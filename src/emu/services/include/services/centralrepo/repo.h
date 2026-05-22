@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -116,28 +116,28 @@ namespace eka2l1 {
 
         /**
          * \brief Query all entries that match given bit pattern.
-         * 
+         *
          * The mask marks bit which is mandatory, and partial key is the pattern to be matched.
-         * 
+         *
          * For example, let say we have these keys:
-         * 
+         *
          * 0x02B30B11                       0x07B10B52
-         * 
+         *
          * If the mask is 0xF0FF0000, these will be ignored.
-         * 
+         *
          * 0x02B30B11                       0x07B10B52
          *    ^  ^^^^                          ^  ^^^^
          *    i  iiii                          i  iiii
-         * 
+         *
          * Than, the partial key comes in, which is the pattern for the rest of the available bits
          * to be matched. If partial key = 0x03B100000. (v is match, x is not match, i is ignored)
-         * 
+         *
          * 0x0-B3----                       0x0-B1----
          *   vivxiiii                         vivviiii
          * 0x03B10000                       0x03B10000
-         * 
+         *
          * As you can see, the one that match our description is 0x07B10B52
-         * 
+         *
          * \param partial_key     The bit pattern to be matched.
          * \param mask            The mask that requires which bit is mandatory.
          * \param matched_entries Reference to vector containing entries.
@@ -159,7 +159,7 @@ namespace eka2l1 {
      *
      * This cacher are likely to be used to store original backup repo.
      * Once the map reach its limit, the oldest one got removed.
-    */
+     */
     struct central_repos_cacher {
         struct cache_entry {
             std::uint64_t last_access;
@@ -209,15 +209,16 @@ namespace eka2l1 {
         void notify_cancel(service::ipc_context *ctx);
         void get_find_result(service::ipc_context *ctx);
         void start_transaction(service::ipc_context *ctx);
+        void commit_transaction(service::ipc_context *ctx);
         void cancel_transaction(service::ipc_context *ctx);
         void create_value(service::ipc_context *ctx);
 
         /**
          * \brief Append new key to find equal list.
-         * 
+         *
          * If the number of the array exceed the already defined border, than it will be appended
          * to a temporary list in the subsession, which later IPC call can acquire the data.
-         * 
+         *
          * \param array The target array to append. First element contains the count
          * \param key   The key to append.
          */
@@ -269,24 +270,24 @@ namespace eka2l1 {
 
         /*! \brief Get a pointer to an entry
          *
-         * Do the following: 
+         * Do the following:
          * - Check if a transaction is active.
          * - If transaction actives, check if the key is in the transactor entry, and returns
          * - Else, fallback to default
-         * 
+         *
          * Mode are matters:
          * 0: Read mode: if no entry in transactor, fallback to repo entries
          * 1: Write mode: if no entry, create new
-         * 
+         *
          * Of course, transaction mode are checked.
          * If we get the entry for write purpose but the transaction mode is read-only, we won't allow that
-        */
+         */
         central_repo_entry *get_entry(const std::uint32_t key, int mode);
 
         /*! \brief Notify that a modification has success.
          *
          * This iters through all notify requests, if it matchs than notify request client.
-        */
+         */
         void modification_success(const std::uint32_t key);
 
         /*! \brief Request to notify when a group of key have changed.
@@ -294,10 +295,10 @@ namespace eka2l1 {
          * \param info  Info of the notify request
          * \param mask  The mask to extract bit pattern
          * \param match The bit pattern to be match.
-         * 
+         *
          * \returns     0 if success.
          *              -1 if request already exists
-        */
+         */
         int add_notify_request(epoc::notify_info &info, const std::uint32_t mask, const std::uint32_t match);
 
         /**
@@ -307,7 +308,7 @@ namespace eka2l1 {
 
         /**
          * \brief Cancel all watches to the given key.
-         * 
+         *
          * \param match_key The key to erase notify requests.
          */
         void cancel_notify_request(const std::uint32_t match_key, const std::uint32_t mask);

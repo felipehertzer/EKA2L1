@@ -20,43 +20,45 @@
 #ifndef __GNUVG_MEMCLASSES_HH
 #define __GNUVG_MEMCLASSES_HH
 
+#include <map>
 #include <stdlib.h>
 #include <string.h>
-#include <map>
 #include <vector>
 
 namespace gnuVG {
-	struct GvgArray {
-		void* data;
-		size_t size;
+    struct GvgArray {
+        void *data;
+        size_t size;
 
-		GvgArray(size_t first_size) : size(first_size) {
-			data = (void*)malloc(size);
-		}
+        GvgArray(size_t first_size)
+            : size(first_size) {
+            data = (void *)malloc(size);
+        }
 
-		~GvgArray() {
-			free(data);
-		}
+        ~GvgArray() {
+            free(data);
+        }
 
-		void resize(size_t new_size) {
-			if(new_size <= size) return;
+        void resize(size_t new_size) {
+            if (new_size <= size)
+                return;
 
-			void* new_data = (void*)realloc(data, new_size);
-			data = new_data;
-			size = new_size;
-		}
-	};
+            void *new_data = (void *)realloc(data, new_size);
+            data = new_data;
+            size = new_size;
+        }
+    };
 
-	class GvgAllocator {
-	private:
-		static std::map<void*, GvgArray*> active_arrays;
-		static std::vector<GvgArray*> unused_arrays;
+    class GvgAllocator {
+    private:
+        static std::map<void *, GvgArray *> active_arrays;
+        static std::vector<GvgArray *> unused_arrays;
 
-	public:
-		static void* gvg_alloc(void* /*ignored*/, unsigned int size);
-		static void* gvg_realloc(void* /*ignored*/, void* ptr, unsigned int new_size);
-		static void gvg_free(void* /*ignored*/, void* ptr);
-	};
+    public:
+        static void *gvg_alloc(void * /*ignored*/, unsigned int size);
+        static void *gvg_realloc(void * /*ignored*/, void *ptr, unsigned int new_size);
+        static void gvg_free(void * /*ignored*/, void *ptr);
+    };
 
 };
 

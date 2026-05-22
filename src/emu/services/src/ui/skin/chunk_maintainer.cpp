@@ -939,7 +939,7 @@ namespace eka2l1::epoc {
         effect_queue.ref_major = 0;
         effect_queue.ref_minor = 0;
         effect_queue.input_layer_index = 0;
-        effect_queue.input_layer_mode = 2;  // RGB
+        effect_queue.input_layer_mode = 2; // RGB
         effect_queue.output_layer_index = 0;
         effect_queue.output_layer_mode = 2; // RGB
 

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -80,7 +80,7 @@ namespace eka2l1::loader {
 
         /**
          * @brief       Check if the header for a bitmap has been loaded yet?
-         * 
+         *
          * @param       index         The index of the bitmap to check.
          * @returns     True on loaded.
          */
@@ -88,21 +88,21 @@ namespace eka2l1::loader {
 
         /**
          * \brief Read a bitmap to a buffer at given index in the MBM.
-         * 
+         *
          * Failure may be caused if the header is not yet loaded for the bitmap.
-         * 
+         *
          * \returns On success, returns true, and dest_max is written back with total
          *          of bytes written in.
-         *          On failure, dest_max should contains the uncompress size of the bitmap data. 
+         *          On failure, dest_max should contains the uncompress size of the bitmap data.
          */
         bool read_single_bitmap(const std::size_t index, std::uint8_t *dest,
             std::size_t &dest_max);
 
         /**
          * \brief Read raw bitmap data to a buffer with given bitmap index.
-         * 
+         *
          * Failure may be caused if the header is not yet loaded for the bitmap.
-         * 
+         *
          * \returns On success, returns true, and dest_max is written back with total
          *          of bytes written in.
          *          On failure, dest_max should contains the size of the bitmap data.
@@ -112,16 +112,16 @@ namespace eka2l1::loader {
 
         /**
          * \brief Save bitmap at specified index to a file as a BMP file.
-         * 
+         *
          * \returns True on success
          */
         bool save_bitmap_to_file(const std::size_t index, const char *name);
 
         /**
          * @brief       Get the offset from the beginning of the file to the bitmap data.
-         * 
+         *
          * @param       index           The index of the bitmap we want to get bitmap data offset
-         * 
+         *
          * \returns     The offset in bytes from the beginning of the file.
          */
         std::size_t bitmap_data_offset(const std::size_t index);

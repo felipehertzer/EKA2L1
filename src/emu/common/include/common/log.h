@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -25,13 +25,14 @@
 
 #include <memory>
 #include <string>
+#include <type_traits>
 
-template<typename T>
-struct fmt::formatter<T, std::enable_if_t<std::is_enum_v<std::decay_t<T>>, char> >
+template <typename T>
+struct fmt::formatter<T, std::enable_if_t<std::is_enum_v<std::decay_t<T>>, char>>
     : ::fmt::formatter<std::underlying_type_t<T>> {
-    template<class VT, class FormatContext>
-    auto format(VT& data, FormatContext& ctx) const {
-        return ::fmt::formatter<std::underlying_type_t<T>>::format(fmt::underlying(data), ctx);
+    template <class VT, class FormatContext>
+    auto format(VT &data, FormatContext &ctx) const {
+        return ::fmt::formatter<std::underlying_type_t<T>>::format(static_cast<std::underlying_type_t<T>>(data), ctx);
     }
 };
 
@@ -74,7 +75,7 @@ namespace eka2l1 {
         /**
          * \brief Set up the logging.
          * \param extra_logger The extra logger you want to provide to the emulator.
-		*/
+         */
         void setup_log(std::shared_ptr<base_logger> extra_logger);
         void toggle_console();
         bool is_console_enabled();
@@ -95,7 +96,7 @@ namespace eka2l1 {
 #define LOG_ERROR_IF(class, flag, fmt, ...)
 #define LOG_CRITICAL_IF(class, flag, fmt, ...)
 #else
-#ifdef ENABLE_SCRIPTING
+#if ENABLE_SCRIPTING
 #define COND_CHECK(class, serv) if (eka2l1::log::spd_logger && eka2l1::log::filterings->is_passed(class, spdlog::level::serv))
 #define COND_CHECK_AND(class, serv) &&eka2l1::log::spd_logger &&eka2l1::log::filterings->is_passed(class, spdlog::level::serv)
 #else
@@ -103,18 +104,24 @@ namespace eka2l1 {
 #define COND_CHECK_AND(class, serv) &&eka2l1::log::filterings->is_passed(class, spdlog::level::serv)
 #endif
 
-#define LOG_TRACE(class, fmt, ...) COND_CHECK(class, trace) \
-                                   eka2l1::log::spd_logger->trace("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
-#define LOG_DEBUG(class, fmt, ...) COND_CHECK(class, debug) \
-                                   eka2l1::log::spd_logger->debug("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
-#define LOG_INFO(class, fmt, ...) COND_CHECK(class, info) \
-                                  eka2l1::log::spd_logger->info("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
-#define LOG_WARN(class, fmt, ...) COND_CHECK(class, warn) \
-                                  eka2l1::log::spd_logger->warn("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
-#define LOG_ERROR(class, fmt, ...) COND_CHECK(class, err) \
-                                   eka2l1::log::spd_logger->error("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
-#define LOG_CRITICAL(class, fmt, ...) COND_CHECK(class, critical) \
-                                      eka2l1::log::spd_logger->critical("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
+#define LOG_TRACE(class, fmt, ...) \
+    COND_CHECK(class, trace)       \
+    eka2l1::log::spd_logger->trace("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
+#define LOG_DEBUG(class, fmt, ...) \
+    COND_CHECK(class, debug)       \
+    eka2l1::log::spd_logger->debug("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
+#define LOG_INFO(class, fmt, ...) \
+    COND_CHECK(class, info)       \
+    eka2l1::log::spd_logger->info("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
+#define LOG_WARN(class, fmt, ...) \
+    COND_CHECK(class, warn)       \
+    eka2l1::log::spd_logger->warn("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
+#define LOG_ERROR(class, fmt, ...) \
+    COND_CHECK(class, err)         \
+    eka2l1::log::spd_logger->error("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
+#define LOG_CRITICAL(class, fmt, ...) \
+    COND_CHECK(class, critical)       \
+    eka2l1::log::spd_logger->critical("{:s}:{} [{:s}]: " fmt, __FILE__, __LINE__, log_class_to_string(class), ##__VA_ARGS__)
 
 #define LOG_TRACE_IF(class, flag, fmt, ...) \
     if (flag COND_CHECK_AND(class, trace))  \

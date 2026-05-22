@@ -1,23 +1,23 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include <common/buffer.h>
 #include <common/runlen.h>
 
@@ -27,10 +27,34 @@ using namespace eka2l1;
 
 TEST_CASE("eight_bit_compression_small", "rle_compression") {
     static std::array<std::int8_t, 27> source = {
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 18 zeros
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00, // 18 zeros
 
-        0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, // Non-consecutive sequence
+        0x05,
+        0x06,
+        0x07,
+        0x08,
+        0x09,
+        0x10,
+        0x11,
+        0x12,
+        0x13, // Non-consecutive sequence
     };
 
     static std::array<std::int8_t, 12> expected = {

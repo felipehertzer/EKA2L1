@@ -22,7 +22,7 @@
     <string name="screenshot">Screenshot</string>
     <string name="take_screenshot_success">Screenshot saved to %s!</string>
     <string name="take_screenshot_fail">Failed to take screenshot!</string>
-    <string name="opengl_required">このアプリには OpenGL ES 3.0+ が必要です。</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">注意</string>
     <string name="scoped_storage_warning">あなたのユーザーデータは <b>アプリのアンインストール時に</b> 削除される場所に保存されます\n</string>
     <string name="install_ng_game">Install N-Gage game</string>

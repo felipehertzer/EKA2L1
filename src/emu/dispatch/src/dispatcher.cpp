@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <config/config.h>
 #include <dispatch/dispatcher.h>
-#include <dispatch/libraries/register.h>
 #include <dispatch/libraries/gles1/def.h>
 #include <dispatch/libraries/gles2/def.h>
+#include <dispatch/libraries/register.h>
 #include <dispatch/libraries/vg/consts.h>
 #include <dispatch/register.h>
 #include <dispatch/screen.h>
@@ -72,7 +72,7 @@ namespace eka2l1::dispatch {
 
     dispatcher::~dispatcher() {
     }
-    
+
     void dispatcher::set_graphics_driver(drivers::graphics_driver *driver) {
         if (!graphics_string_added_) {
             // Add static strings
@@ -144,7 +144,7 @@ namespace eka2l1::dispatch {
             return 0;
         }
 
-        char *base = reinterpret_cast<char*>(static_data_chunk_->host_base());
+        char *base = reinterpret_cast<char *>(static_data_chunk_->host_base());
         address base_virt = static_data_chunk_->base(nullptr).ptr_address();
 
         std::memcpy(base + static_data_allocated_, value.data(), value.length());
@@ -211,12 +211,12 @@ namespace eka2l1::dispatch {
                 + trampoline_allocated_);
 
             start_base[0] = 0xEFC10001;
-            start_base[1] = 0xE12FFF1E;     // BX LR
+            start_base[1] = 0xE12FFF1E; // BX LR
             start_base[2] = patches[i].dispatch_number_;
 
             // TODO!!! Export table is fixed as a whole, not as an individual, this is bad for HLEing only some functions!
             seg->set_export(patches[i].ordinal_number_, entryentry);
-            
+
             // Check if symbols exist for this libraries
             auto ite = dispatch::dispatch_funcs.find(patches[i].dispatch_number_);
             if ((ite != dispatch::dispatch_funcs.end()) && (ite->second.second != nullptr)) {

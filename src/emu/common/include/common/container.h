@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
  * Copyright (c) 2018 yuzu emulator team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * ring_buffer class is a part of the Yuzu emulator project, originally licensed
  * under GPLv2 license.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -61,8 +61,8 @@ namespace eka2l1::common {
 
             typedef std::size_t difference_type;
             typedef T value_type;
-            typedef T* pointer;
-            typedef T& reference;
+            typedef T *pointer;
+            typedef T &reference;
             typedef std::forward_iterator_tag iterator_category;
 
             iterator(identity_container *container, typename std::vector<T>::iterator ite)
@@ -138,7 +138,7 @@ namespace eka2l1::common {
             data_.clear();
         }
     };
-        
+
     /// SPSC ring buffer
     /// @tparam T            Element type
     /// @tparam capacity     Number of slots in ring buffer
@@ -159,7 +159,7 @@ namespace eka2l1::common {
         /// @param new_slots   Pointer to the slots to push
         /// @param slot_count  Number of slots to push
         /// @returns The number of slots actually pushed
-        std::size_t push(const void* new_slots, std::size_t slot_count) {
+        std::size_t push(const void *new_slots, std::size_t slot_count) {
             const std::size_t write_index = write_index_.load();
             const std::size_t slots_free = capacity_ + read_index_.load() - write_index;
             const std::size_t push_count = std::min(slot_count, slots_free);
@@ -168,7 +168,7 @@ namespace eka2l1::common {
             const std::size_t first_copy = std::min(capacity_ - pos, push_count);
             const std::size_t second_copy = push_count - first_copy;
 
-            const char* in = static_cast<const char*>(new_slots);
+            const char *in = static_cast<const char *>(new_slots);
             std::memcpy(data_.data() + pos, in, first_copy * slot_size);
             in += first_copy * slot_size;
             std::memcpy(data_.data(), in, second_copy * slot_size);
@@ -178,7 +178,7 @@ namespace eka2l1::common {
             return push_count;
         }
 
-        std::size_t push(const std::vector<T>& input) {
+        std::size_t push(const std::vector<T> &input) {
             return push(input.data(), input.size());
         }
 
@@ -186,7 +186,7 @@ namespace eka2l1::common {
         /// @param output     Where to store the popped slots
         /// @param max_slots  Maximum number of slots to pop
         /// @returns The number of slots actually popped
-        std::size_t pop(void* output, std::size_t max_slots = ~std::size_t(0)) {
+        std::size_t pop(void *output, std::size_t max_slots = ~std::size_t(0)) {
             const std::size_t read_index = read_index_.load();
             const std::size_t slots_filled = write_index_.load() - read_index;
             const std::size_t pop_count = std::min(slots_filled, max_slots);
@@ -195,7 +195,7 @@ namespace eka2l1::common {
             const std::size_t first_copy = std::min(capacity_ - pos, pop_count);
             const std::size_t second_copy = pop_count - first_copy;
 
-            char* out = static_cast<char*>(output);
+            char *out = static_cast<char *>(output);
             std::memcpy(out, data_.data() + pos, first_copy * slot_size);
             out += first_copy * slot_size;
             std::memcpy(out, data_.data(), second_copy * slot_size);
@@ -232,13 +232,13 @@ namespace eka2l1::common {
         // Having them on the same cache-line would result in false-sharing between them.
         // TODO: Remove this ifdef whenever clang and GCC support
         //       std::hardware_destructive_interference_size.
-    #if defined(_MSC_VER) && _MSC_VER >= 1911
-        alignas(std::hardware_destructive_interference_size) std::atomic_size_t read_index_{0};
-        alignas(std::hardware_destructive_interference_size) std::atomic_size_t write_index_{0};
-    #else
-        alignas(128) std::atomic_size_t read_index_{0};
-        alignas(128) std::atomic_size_t write_index_{0};
-    #endif
+#if defined(_MSC_VER) && _MSC_VER >= 1911
+        alignas(std::hardware_destructive_interference_size) std::atomic_size_t read_index_{ 0 };
+        alignas(std::hardware_destructive_interference_size) std::atomic_size_t write_index_{ 0 };
+#else
+        alignas(128) std::atomic_size_t read_index_{ 0 };
+        alignas(128) std::atomic_size_t write_index_{ 0 };
+#endif
 
         std::array<T, capacity_> data_;
     };

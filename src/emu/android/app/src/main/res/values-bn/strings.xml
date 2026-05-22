@@ -22,7 +22,7 @@
     <string name="screenshot">স্ক্রিনশট</string>
     <string name="take_screenshot_success">\'%s\' এ স্ক্রিনশট সংরক্ষিত!</string>
     <string name="take_screenshot_fail">স্ক্রিনশট তুলতে ব্যর্থ!</string>
-    <string name="opengl_required">এই অ্যাপ চালাতে ওপেনজিএল ইএস ৩.০+ লাগবে।</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">সতর্কতা</string>
     <string name="scoped_storage_warning">আপনার ইউজার ডেটা যে জায়গায় সংরক্ষণ করা হয়েছিলো সেটা <b>মুছে ফেলা হবে</b> যখন আপনি এই অ্যাপটি আনইনস্টল করবেন:\n</string>
     <string name="install_ng_game">এন-গেইজ গেম ইনস্টল করুন</string>

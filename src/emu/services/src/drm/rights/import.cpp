@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -93,20 +93,20 @@ namespace eka2l1::epoc::drm {
                         LOG_ERROR(SERVICE_DRMSYS, "Key in DR file is not 24 base64 string!");
                     } else {
                         final_result.encrypt_key_.resize(16);
-                        crypt::base64_decode(reinterpret_cast<const std::uint8_t*>(key_in_base64), 24, final_result.encrypt_key_.data(), 16);
+                        crypt::base64_decode(reinterpret_cast<const std::uint8_t *>(key_in_base64), 24, final_result.encrypt_key_.data(), 16);
                     }
                 }
             }
         }
 
         // Permission is optional
-        for (pugi::xml_node &perm_node: agreement_node.children("o-ex:permission")) {
+        for (pugi::xml_node &perm_node : agreement_node.children("o-ex:permission")) {
             rights_permission perm;
             perm.version_rights_main_ = main_version;
             perm.version_rights_sub_ = minor_version;
             perm.insert_time_ = common::get_current_utc_time_in_microseconds_since_0ad();
 
-            for (pugi::xml_node &section_node: perm_node.children()) {
+            for (pugi::xml_node &section_node : perm_node.children()) {
                 // Check if we can fill in any section
                 rights_type the_type = rights_type_none;
                 rights_constraint *the_constraint = nullptr;
@@ -132,14 +132,14 @@ namespace eka2l1::epoc::drm {
                     continue;
                 }
 
-                for (pugi::xml_node &constraint_root: section_node.children("o-ex:constraint")) {
+                for (pugi::xml_node &constraint_root : section_node.children("o-ex:constraint")) {
                     // Search for properties
-                    for (pugi::xml_node &container_node: constraint_root.children("o-ex:container")) {
-                        for (pugi::xml_node &software_node: container_node.children("o-dd:software")) {
-                            for (pugi::xml_node &context_node: software_node.children("o-ex:context")) {
-                                for (pugi::xml_node &property_node: context_node.children("property")) {
+                    for (pugi::xml_node &container_node : constraint_root.children("o-ex:container")) {
+                        for (pugi::xml_node &software_node : container_node.children("o-dd:software")) {
+                            for (pugi::xml_node &context_node : software_node.children("o-ex:context")) {
+                                for (pugi::xml_node &property_node : context_node.children("property")) {
                                     pugi::xml_attribute attrib = property_node.attribute("schema");
-                                    if (!attrib) {    
+                                    if (!attrib) {
                                         attrib = property_node.attribute("scheme");
                                     }
                                     if (strcmp(attrib.value(), "symbianvid") == 0) {

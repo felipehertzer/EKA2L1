@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -126,6 +126,18 @@ namespace eka2l1 {
 
         case eik_app_ui_unblank_screen:
             cap_session_->unblank_screen(ctx);
+            break;
+
+        case eik_app_ui_launch_task_list:
+        case eik_app_ui_cycle_tasks:
+        case eik_app_ui_set_status_pane_flags:
+        case eik_app_ui_set_status_pane_layout:
+        case eik_app_ui_resolve_error:
+        case eik_app_ui_resolve_error_with_title_text:
+        case eik_app_ui_extension:
+        case eik_app_ui_enable_task_list:
+            LOG_TRACE(SERVICE_UI, "AppUi opcode 0x{:X} acknowledged", ctx->msg->function);
+            ctx->complete(epoc::error_none);
             break;
 
         default:

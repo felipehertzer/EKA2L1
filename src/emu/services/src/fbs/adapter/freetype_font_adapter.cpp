@@ -1,27 +1,27 @@
 /*
-* Copyright (c) 2019 EKA2L1 Team.
-*
-* This file is part of EKA2L1 project
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2019 EKA2L1 Team.
+ *
+ * This file is part of EKA2L1 project
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <common/cvt.h>
 #include <common/log.h>
 
-#include <services/fbs/adapter/freetype_font_adapter.h>
 #include <memory>
+#include <services/fbs/adapter/freetype_font_adapter.h>
 
 #include <freetype/tttables.h>
 
@@ -47,29 +47,25 @@ namespace eka2l1::epoc::adapter {
     // Source: https://lists.gnu.org/archive/html/freetype/2005-06/msg00033.html
     // Don't know if Symbian dev made this code, or they copy it
     // Symbian Source: https://github.com/SymbianSource/oss.FCL.sf.os.textandloc/blob/59666d6704fee305b0fdd74974f7b4f42659c6a6/fontservices/freetypefontrasteriser/src/FTRAST2.CPP#L934
-    static int derive_design_height_from_max_height(const FT_Face& aFace, int aMaxHeightInPixel)
-    {
+    static int derive_design_height_from_max_height(const FT_Face &aFace, int aMaxHeightInPixel) {
         const int boundingBoxHeightInFontUnit = aFace->bbox.yMax - aFace->bbox.yMin;
-        int designHeightInPixels = ( ( aMaxHeightInPixel *
-                                        aFace->units_per_EM ) / boundingBoxHeightInFontUnit );
+        int designHeightInPixels = ((aMaxHeightInPixel * aFace->units_per_EM) / boundingBoxHeightInFontUnit);
 
         const int maxHeightInFontUnit = aMaxHeightInPixel << 6;
-        FT_Set_Pixel_Sizes( aFace, designHeightInPixels, designHeightInPixels );
+        FT_Set_Pixel_Sizes(aFace, designHeightInPixels, designHeightInPixels);
         int currentMaxHeightInFontUnit = FT_MulFix(
-            boundingBoxHeightInFontUnit, aFace->size->metrics.y_scale );
-        while ( currentMaxHeightInFontUnit < maxHeightInFontUnit )
-        {
+            boundingBoxHeightInFontUnit, aFace->size->metrics.y_scale);
+        while (currentMaxHeightInFontUnit < maxHeightInFontUnit) {
             designHeightInPixels++;
-            FT_Set_Pixel_Sizes( aFace, designHeightInPixels, designHeightInPixels );
+            FT_Set_Pixel_Sizes(aFace, designHeightInPixels, designHeightInPixels);
             currentMaxHeightInFontUnit = FT_MulFix(
-                boundingBoxHeightInFontUnit, aFace->size->metrics.y_scale );
+                boundingBoxHeightInFontUnit, aFace->size->metrics.y_scale);
         }
-        while ( currentMaxHeightInFontUnit > maxHeightInFontUnit )
-        {
+        while (currentMaxHeightInFontUnit > maxHeightInFontUnit) {
             designHeightInPixels--;
-            FT_Set_Pixel_Sizes( aFace, designHeightInPixels, designHeightInPixels );
+            FT_Set_Pixel_Sizes(aFace, designHeightInPixels, designHeightInPixels);
             currentMaxHeightInFontUnit = FT_MulFix(
-                boundingBoxHeightInFontUnit, aFace->size->metrics.y_scale );
+                boundingBoxHeightInFontUnit, aFace->size->metrics.y_scale);
         }
         return designHeightInPixels;
     }
@@ -190,13 +186,13 @@ namespace eka2l1::epoc::adapter {
             face_attrib.style |= open_font_face_attrib::mono_width;
         }
 
-        auto header = reinterpret_cast<TT_Header*>(FT_Get_Sfnt_Table(face, FT_SFNT_HEAD));
+        auto header = reinterpret_cast<TT_Header *>(FT_Get_Sfnt_Table(face, FT_SFNT_HEAD));
 
         if (header) {
             face_attrib.min_size_in_pixels = header->Lowest_Rec_PPEM;
         }
 
-        auto os2 = reinterpret_cast<TT_OS2*>(FT_Get_Sfnt_Table(face, FT_SFNT_OS2));
+        auto os2 = reinterpret_cast<TT_OS2 *>(FT_Get_Sfnt_Table(face, FT_SFNT_OS2));
 
         if (os2) {
             face_attrib.coverage[0] = os2->ulUnicodeRange1;
@@ -281,8 +277,6 @@ namespace eka2l1::epoc::adapter {
 
         stbrp_init_target(&pack_state->atlas_context_, atlas_size.x, atlas_size.y, pack_state->atlas_node_.data(),
             static_cast<int>(pack_state->atlas_node_.size()));
-        std::memset(pack_state->atlas_base_, 0, atlas_size.x * atlas_size.y);
-
         return static_cast<std::int32_t>(pack_states_.add(pack_state));
     }
 
@@ -339,7 +333,7 @@ namespace eka2l1::epoc::adapter {
             err = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_LCD);
             if (err) {
                 LOG_WARN(SERVICE_FBS, "Failed to render character code 0x{:X} for face to get glyph atlas, error: {}",
-                static_cast<int>(char_code), FT_Error_String(err));
+                    static_cast<int>(char_code), FT_Error_String(err));
             }
 
             auto glyph = face->glyph;
@@ -350,12 +344,10 @@ namespace eka2l1::epoc::adapter {
 
             for (auto y = 0; y < bitmap.rows; y++) {
                 for (auto x = 0; x < bitmap.width / 3; x++) {
-                    auto average = static_cast<float>(bitmap.buffer[x * 3 + y * bitmap.pitch] +
-                        bitmap.buffer[x * 3 + y * bitmap.pitch + 1] +
-                        bitmap.buffer[x * 3 + y * bitmap.pitch + 2]) / 3.0f;
+                    auto average = static_cast<float>(bitmap.buffer[x * 3 + y * bitmap.pitch] + bitmap.buffer[x * 3 + y * bitmap.pitch + 1] + bitmap.buffer[x * 3 + y * bitmap.pitch + 2]) / 3.0f;
 
                     eka2l1::vec4 color(bitmap.buffer[x * 3 + y * bitmap.pitch], bitmap.buffer[x * 3 + y * bitmap.pitch + 1],
-                       bitmap.buffer[x * 3 + y * bitmap.pitch +2], static_cast<std::uint8_t>(average));
+                        bitmap.buffer[x * 3 + y * bitmap.pitch + 2], static_cast<std::uint8_t>(average));
 
                     float max = (static_cast<float>(std::max({ color.x, color.y, color.z })) / 255.0f);
                     int min = std::min({ color.x, color.y, color.z });
@@ -366,7 +358,6 @@ namespace eka2l1::epoc::adapter {
                     dest[x * 4 + y * pack_state_ptr->atlas_size_.x * 4 + 1] = color.y;
                     dest[x * 4 + y * pack_state_ptr->atlas_size_.x * 4 + 2] = color.z;
                     dest[x * 4 + y * pack_state_ptr->atlas_size_.x * 4 + 3] = color.w;
-
                 }
             }
 
@@ -440,8 +431,7 @@ namespace eka2l1::epoc::adapter {
         }
 
         auto face = faces_[face_index];
-        auto adjusted_font_size = is_design_font_size ? (static_cast<int>(static_cast<float>(targeted_font_size) * DESIGN_SIZE_SCALE)) :
-            derive_design_height_from_max_height(face, targeted_font_size);
+        auto adjusted_font_size = is_design_font_size ? (static_cast<int>(static_cast<float>(targeted_font_size) * DESIGN_SIZE_SCALE)) : derive_design_height_from_max_height(face, targeted_font_size);
 
         auto fake_design_height = is_design_font_size ? targeted_font_size : adjusted_font_size;
 
@@ -491,7 +481,6 @@ namespace eka2l1::epoc::adapter {
 
         auto glyph = face->glyph;
 
-        return vertical ? ft_convention_to_int_pixel(glyph->metrics.vertAdvance) :
-                          ft_convention_to_int_pixel(glyph->metrics.horiAdvance);
+        return vertical ? ft_convention_to_int_pixel(glyph->metrics.vertAdvance) : ft_convention_to_int_pixel(glyph->metrics.horiAdvance);
     }
 }

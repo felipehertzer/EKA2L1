@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -442,7 +442,7 @@ namespace eka2l1::arm::r12l1 {
                                 big_block_->ADD(ALWAYS_SCRATCH1, guest_addr_reg, size_per_occupation);
                             }
                             big_block_->ANDI2R(ALWAYS_SCRATCH1, need_add_before_check ? ALWAYS_SCRATCH1 : guest_addr_reg,
-                                               CPAGE_MASK, ALWAYS_SCRATCH2);
+                                CPAGE_MASK, ALWAYS_SCRATCH2);
                             big_block_->CMP(ALWAYS_SCRATCH1, 0);
                         }
 
@@ -1353,19 +1353,17 @@ namespace eka2l1::arm::r12l1 {
     }
 
     static inline bool is_reg_in_scalar_bank(const common::armgen::arm_reg reg) {
-        return (((reg >= common::armgen::S0) && (reg <= common::armgen::S7)) ||
-                ((reg >= common::armgen::D0) && (reg <= common::armgen::D3)) ||
-                ((reg >= common::armgen::D16) && (reg <= common::armgen::D19)));
+        return (((reg >= common::armgen::S0) && (reg <= common::armgen::S7)) || ((reg >= common::armgen::D0) && (reg <= common::armgen::D3)) || ((reg >= common::armgen::D16) && (reg <= common::armgen::D19)));
     }
 
     bool visit_session::vfp_vectorize(const bool sz, common::armgen::arm_reg vd, common::armgen::arm_reg vm,
-                                           const std::uint32_t custom_dest_flags, vfp_vectorize_emit_func func) {
+        const std::uint32_t custom_dest_flags, vfp_vectorize_emit_func func) {
         return vfp_vectorize(sz, vd, common::armgen::INVALID_REG, vm, custom_dest_flags, func);
     }
 
     bool visit_session::vfp_vectorize(const bool sz, common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                           common::armgen::arm_reg vm, const std::uint32_t custom_dest_flags,
-                                           vfp_vectorize_emit_func func) {
+        common::armgen::arm_reg vm, const std::uint32_t custom_dest_flags,
+        vfp_vectorize_emit_func func) {
         // Looking at Dynarmic as reference!
         const std::uint32_t fpscr = big_block_->current_compiling_fpscr();
         std::uint32_t len = ((fpscr >> 16) & 0b111) + 1;

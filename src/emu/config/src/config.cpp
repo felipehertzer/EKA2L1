@@ -1,34 +1,34 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <common/algorithm.h>
 #include <common/buffer.h>
+#include <common/configure.h>
 #include <common/fileutils.h>
 #include <common/log.h>
 #include <common/path.h>
-#include <common/configure.h>
 
 #include <config/config.h>
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 
-namespace eka2l1::config {    
+namespace eka2l1::config {
     screen_buffer_sync_option get_screen_buffer_sync_option_from_string(std::string str) {
         str = common::lowercase_string(str);
 
@@ -46,7 +46,7 @@ namespace eka2l1::config {
 
         return screen_buffer_sync_option_preferred;
     }
-    
+
     const char *get_string_from_screen_buffer_sync_option(const screen_buffer_sync_option opt) {
         switch (opt) {
         case screen_buffer_sync_option_preferred:
@@ -199,7 +199,7 @@ namespace eka2l1::config {
 #undef OPTION
 
         emitter << YAML::Key << "internet-bluetooth-friends" << YAML::Value;
-        
+
         {
             emitter << YAML::BeginSeq;
             {
@@ -209,7 +209,7 @@ namespace eka2l1::config {
                         emitter << YAML::Key << "address" << YAML::Value << friend_addresses[i].addr_;
                         emitter << YAML::Key << "port" << YAML::Value << friend_addresses[i].port_;
                     }
-                    emitter<< YAML::EndMap;
+                    emitter << YAML::EndMap;
                 }
             }
             emitter << YAML::EndSeq;
@@ -256,8 +256,8 @@ namespace eka2l1::config {
 
         try {
             auto net_bluetooth_friend_nodes = node["internet-bluetooth-friends"];
-            
-            for (auto friend_node: net_bluetooth_friend_nodes) {
+
+            for (auto friend_node : net_bluetooth_friend_nodes) {
                 friend_address addr;
                 addr.addr_ = friend_node["address"].as<std::string>();
                 try {
@@ -277,7 +277,7 @@ namespace eka2l1::config {
         if (!eka2l1::common::exists(hsb_bank_path)) {
             hsb_bank_path = "resources/defaultbank.hsb";
         }
-        
+
         if (!eka2l1::common::exists(sf2_bank_path)) {
             hsb_bank_path = "resources/defaultbank.sf2";
         }

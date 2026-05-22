@@ -27,7 +27,7 @@ target_link_libraries(epoc PRIVATE
         epocloader
         epocpkg
         epocservs
-        FAT
+        FAT16
         gdbstub
         j2me
         miniz

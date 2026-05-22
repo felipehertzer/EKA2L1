@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -132,11 +132,11 @@ about_dialog::about_dialog(QWidget *parent)
 
     QString special_thanks_str = tr("<b>Special thanks:</b><br>");
     special_thanks_str += tr("- nikita36708 for publishing the Android version on Play Store and for his help!<br>"
-        "- Symbian/N-Gage OG sceners: BinPDA, pSyGAGE, Engage, zg, eskMaemo, BodyZ, Ilya Dianov, iCodeRUS, huellif, ... for wonderful contributions!<br>"
-        "- Phone manufacturers for creating wonderful Symbian devices: Nokia, Sony Ericsson, Samsung, Siemens, ...<br>"
-        "- The N-Gage Discord community<br>"
-        "- vk.com/Symbian_zone community<br>"
-        "- EKA2L1 Discord community");
+                             "- Symbian/N-Gage OG sceners: BinPDA, pSyGAGE, Engage, zg, eskMaemo, BodyZ, Ilya Dianov, iCodeRUS, huellif, ... for wonderful contributions!<br>"
+                             "- Phone manufacturers for creating wonderful Symbian devices: Nokia, Sony Ericsson, Samsung, Siemens, ...<br>"
+                             "- The N-Gage Discord community<br>"
+                             "- vk.com/Symbian_zone community<br>"
+                             "- EKA2L1 Discord community");
 
     special_thanks_label_ = new QLabel(special_thanks_str);
     ui_->credit_layout->addWidget(special_thanks_label_);

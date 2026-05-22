@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -26,7 +26,6 @@
 #include <common/algorithm.h>
 #include <common/cvt.h>
 #include <common/fileutils.h>
-#include <common/path.h>
 #include <common/flate.h>
 #include <common/log.h>
 #include <common/path.h>
@@ -41,7 +40,7 @@ namespace eka2l1::loader {
         switch (attrib_val) {
         case 0x1000:
             return static_cast<std::uint32_t>(choosen_lang);
-        
+
         default:
             break;
         }
@@ -55,23 +54,23 @@ namespace eka2l1::loader {
 
     std::uint32_t sis_old_evaluate_numeric_expression(sis_old_expression &expression, io_system *io, var_value_resolver_func resolver_cb,
         const language choosen_lang) {
-        switch (expression.expression_type)  {
+        switch (expression.expression_type) {
         case sis_old_file_expression_type_number:
-            return static_cast<sis_old_number_expression&>(expression).value;
+            return static_cast<sis_old_number_expression &>(expression).value;
 
         case sis_old_file_expression_type_attribute:
-            return sis_old_get_attribute_value(static_cast<sis_old_attribute_expression&>(expression).attribute,
+            return sis_old_get_attribute_value(static_cast<sis_old_attribute_expression &>(expression).attribute,
                 resolver_cb, choosen_lang);
 
         case sis_old_file_expression_type_exists: {
-            sis_old_unary_expression &exist_expr = static_cast<sis_old_unary_expression&>(expression);
+            sis_old_unary_expression &exist_expr = static_cast<sis_old_unary_expression &>(expression);
             if (!exist_expr.target_expression || (exist_expr.target_expression->expression_type != sis_old_file_expression_type_string)) {
                 LOG_ERROR(PACKAGE, "Invalid argument to function FILEEXIST(path). Expect path to be string, but expression type is {}",
                     (exist_expr.target_expression ? "not even exist" : common::to_string(exist_expr.target_expression->expression_type)));
                 break;
             }
 
-            return io->exist(static_cast<sis_old_string_expression&>(*exist_expr.target_expression).value);
+            return io->exist(static_cast<sis_old_string_expression &>(*exist_expr.target_expression).value);
         }
 
         case sis_old_file_expression_type_devcap:
@@ -80,7 +79,7 @@ namespace eka2l1::loader {
             break;
 
         case sis_old_file_expression_type_not: {
-            sis_old_unary_expression &not_expr = static_cast<sis_old_unary_expression&>(expression);
+            sis_old_unary_expression &not_expr = static_cast<sis_old_unary_expression &>(expression);
             if (!not_expr.target_expression) {
                 LOG_ERROR(PACKAGE, "No expression passed to logic operator NOT!");
                 break;
@@ -96,13 +95,13 @@ namespace eka2l1::loader {
         case sis_old_file_expression_type_less:
         case sis_old_file_expression_type_not_equal:
         case sis_old_file_expression_type_or: {
-            sis_old_binary_expression &bin_expr = static_cast<sis_old_binary_expression&>(expression);
+            sis_old_binary_expression &bin_expr = static_cast<sis_old_binary_expression &>(expression);
             std::uint32_t lhs = 0;
             std::uint32_t rhs = 0;
 
             if (bin_expr.lhs)
                 lhs = sis_old_evaluate_numeric_expression(*bin_expr.lhs, io, resolver_cb, choosen_lang);
-                
+
             if (bin_expr.rhs)
                 rhs = sis_old_evaluate_numeric_expression(*bin_expr.rhs, io, resolver_cb, choosen_lang);
 
@@ -154,8 +153,8 @@ namespace eka2l1::loader {
 
         return (sis_old_evaluate_numeric_expression(*expression, io, resolver_cb, choosen_lang) != 0);
     }
-    
-    void sis_old_evaluate_block(sis_old_block &block, std::vector<sis_old_file*> &files, io_system *io, var_value_resolver_func resolver_cb,
+
+    void sis_old_evaluate_block(sis_old_block &block, std::vector<sis_old_file *> &files, io_system *io, var_value_resolver_func resolver_cb,
         const language choosen_lang) {
         std::vector<std::unique_ptr<sis_old_file_record>> *record_to_iterate = &block.false_commands;
 
@@ -166,12 +165,12 @@ namespace eka2l1::loader {
         for (std::size_t i = 0; i < record_to_iterate->size(); i++) {
             switch (record_to_iterate->at(i)->file_record_type) {
             case file_record_type_block:
-                sis_old_evaluate_block(*reinterpret_cast<sis_old_block*>(record_to_iterate->at(i).get()), files, io, resolver_cb, choosen_lang);
+                sis_old_evaluate_block(*reinterpret_cast<sis_old_block *>(record_to_iterate->at(i).get()), files, io, resolver_cb, choosen_lang);
                 break;
 
             case file_record_type_simple_file:
             case file_record_type_multiple_lang_file:
-                files.push_back(reinterpret_cast<sis_old_file*>(record_to_iterate->at(i).get()));
+                files.push_back(reinterpret_cast<sis_old_file *>(record_to_iterate->at(i).get()));
                 break;
 
             default:
@@ -212,7 +211,7 @@ namespace eka2l1::loader {
         }
 
         if ((res->langs.size() > 1) && choose_lang_cb) {
-            choosen_language = static_cast<language>(choose_lang_cb(reinterpret_cast<const int*>(res->langs.data()),
+            choosen_language = static_cast<language>(choose_lang_cb(reinterpret_cast<const int *>(res->langs.data()),
                 static_cast<int>(res->langs.size())));
 
             for (std::size_t i = 0; i < res->langs.size(); i++) {
@@ -223,7 +222,7 @@ namespace eka2l1::loader {
             }
         }
 
-        std::vector<sis_old_file*> files_note;
+        std::vector<sis_old_file *> files_note;
         sis_old_evaluate_block(res->root_block, files_note, io, resolver_cb, choosen_language);
 
         std::size_t total_size = 0;
@@ -263,7 +262,7 @@ namespace eka2l1::loader {
                 io->create_directories(TEMP_SIS_FOLDER_PATH);
             }
 
-            if (dest.find(u"!") != std::u16string::npos) {
+            if (dest.find(u'!') != std::u16string::npos) {
                 dest[0] = drive_to_char16(drive);
             }
 
@@ -283,7 +282,7 @@ namespace eka2l1::loader {
             LOG_TRACE(PACKAGE, "Installing file {}", common::ucs2_to_utf8(dest));
 
             loader::sis_old_file::individual_file_data_info *data_info = nullptr;
-            
+
             if ((choosen_language_index < file->file_infos.size()) && (file->file_record_type == file_record_type_multiple_lang_file)) {
                 data_info = &file->file_infos[choosen_language_index];
             } else {
@@ -388,7 +387,7 @@ namespace eka2l1::loader {
             return false;
         }
 
-        for (const std::u16string &path_more_sis: more_sis) {
+        for (const std::u16string &path_more_sis : more_sis) {
             if (!install_sis_old(path_more_sis, io, drive, info, choose_lang_cb, resolver_cb, progress_cb, cancel_cb)) {
                 return false;
             }

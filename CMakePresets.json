@@ -1,0 +1,135 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "EKA2L1_ENABLE_DEVELOPER_TARGETS": "ON"
+      }
+    },
+    {
+      "name": "default",
+      "displayName": "Default local build",
+      "description": "Configure EKA2L1 in the repository-root build directory with RelWithDebInfo.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug build",
+      "description": "Configure a debug build under build/debug.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release build",
+      "description": "Configure a release build under build/release.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "dev-sanitize",
+      "displayName": "Developer sanitizer build",
+      "description": "Configure a Debug build with project-owned source sanitizers enabled.",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/dev-sanitize",
+      "cacheVariables": {
+        "EKA2L1_ENABLE_SANITIZERS": "ON"
+      }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI build",
+      "description": "Configure the desktop CI defaults under build/ci.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/ci",
+      "cacheVariables": {
+        "CI": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "EKA2L1_ENABLE_UNEXPECTED_EXCEPTION_HANDLER": "ON",
+        "EKA2L1_ENABLE_DISCORD_RICH_PRESENCE": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "displayName": "Build default emulator",
+      "configurePreset": "default",
+      "configuration": "RelWithDebInfo",
+      "targets": [
+        "eka2l1_qt"
+      ]
+    },
+    {
+      "name": "debug",
+      "displayName": "Build debug emulator",
+      "configurePreset": "debug",
+      "configuration": "Debug",
+      "targets": [
+        "eka2l1_qt"
+      ]
+    },
+    {
+      "name": "release",
+      "displayName": "Build release emulator",
+      "configurePreset": "release",
+      "configuration": "Release",
+      "targets": [
+        "eka2l1_qt"
+      ]
+    },
+    {
+      "name": "format",
+      "displayName": "Format source",
+      "configurePreset": "default",
+      "targets": [
+        "format"
+      ]
+    },
+    {
+      "name": "format-check",
+      "displayName": "Check source formatting",
+      "configurePreset": "default",
+      "targets": [
+        "format-check"
+      ]
+    },
+    {
+      "name": "lint",
+      "displayName": "Lint source",
+      "configurePreset": "default",
+      "targets": [
+        "lint"
+      ]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "displayName": "Run tests",
+      "configurePreset": "default",
+      "configuration": "RelWithDebInfo",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -35,10 +35,10 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
-#include <optional>
 
 namespace eka2l1 {
     class kernel_system;
@@ -109,7 +109,7 @@ namespace eka2l1::kernel {
 
     /**
      * This ROM BSS manager works on the assumption that:
-     * 
+     *
      * 1. A ROM BSS never crosses to another page table's different chunk.
      * 2. The BSS address is always aligned to page bits.
      */
@@ -244,7 +244,7 @@ namespace eka2l1::kernel {
         ~process() = default;
 
         int destroy() override;
-        
+
         virtual bool run();
         virtual void kill(const entity_exit_type ext, const std::u16string &category, const std::int32_t reason);
 
@@ -266,10 +266,10 @@ namespace eka2l1::kernel {
 
         /**
          * @brief Register a callback when the UID type of this process is changed.
-         * 
+         *
          * @param userdata          The data to passed to the callback when it's called.
          * @param callback          The callback to register.
-         * 
+         *
          * @returns The handle to the callback.
          */
         std::size_t register_uid_type_change_callback(void *userdata, process_uid_type_change_callback callback);
@@ -347,11 +347,11 @@ namespace eka2l1::kernel {
 
         /**
          * \brief Check if the process's security satisfy the given security policy.
-         * 
+         *
          * \param policy  Security policy to test against.
          * \param missing Optional variable, used to fill missing info the process needed
          *                in order to pass the policy.
-         * 
+         *
          * \returns       True if pass.
          */
         bool satisfy(epoc::security_policy &policy, epoc::security_info *missing = nullptr);
@@ -363,12 +363,12 @@ namespace eka2l1::kernel {
 
         /**
          * @brief Attach another process as a child.
-         * 
+         *
          * A child process under the control may inherits settings from its parent. This is a mode that's specifically
          * exists for emulator usage (when game spawns another process doing actual work for example).
-         * 
+         *
          * The most usage you can see in this exists in the LaunchApp implementation in App List server.
-         * 
+         *
          * @param   pr  The process to be attached as child.
          */
         void add_child_process(kernel::process *pr);
@@ -392,9 +392,9 @@ namespace eka2l1::kernel {
 
         /**
          * @brief       Get the process where we should inherit settings from.
-         * 
+         *
          * This may stack up for a big while.
-         * 
+         *
          * @returns     Process to get settings from. Return itself if no inheritence is specified.
          */
         kernel::process *get_final_setting_process();

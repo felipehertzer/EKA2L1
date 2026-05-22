@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,6 +23,7 @@
 #include <kernel/server.h>
 #include <services/context.h>
 #include <services/framework.h>
+#include <services/notifier/plugin.h>
 #include <services/ui/cap/coestorage.h>
 #include <services/ui/cap/eiksrv.h>
 #include <services/ui/cap/sgc.h>
@@ -162,6 +163,8 @@ namespace eka2l1 {
         void blank_screen(service::ipc_context *ctx);
         void unblank_screen(service::ipc_context *ctx);
         void redraw_status_pane(service::ipc_context *ctx);
+        void start_notifier(service::ipc_context *ctx);
+        void cancel_notifier(service::ipc_context *ctx);
         void fetch(service::ipc_context *ctx) override;
     };
 
@@ -169,7 +172,7 @@ namespace eka2l1 {
 
     /*! \brief OOM App Server Members can receive notification when memory ran out and can't be
        freed. This is basically AknCapServer but loaded with this plugin.
-      
+
       - Server type: critical.
 
       - Launching: HLE when not doing a full startup. A full startup should launch this server automatically.
@@ -185,6 +188,7 @@ namespace eka2l1 {
         std::unique_ptr<epoc::cap::sgc_server> sgc;
         std::unique_ptr<epoc::cap::eik_server> eik;
         std::unique_ptr<epoc::coe_data_storage> coe_storage;
+        std::vector<epoc::notifier::plugin_instance> notifier_plugins_;
 
         window_server *winsrv{ nullptr };
 
@@ -199,6 +203,7 @@ namespace eka2l1 {
         void set_sgc_params(service::ipc_context &ctx, const bool old_layout);
         void update_key_block_mode(service::ipc_context &ctx);
         void redraw_status_pane();
+        epoc::notifier::plugin_base *get_notifier_plugin(epoc::uid id);
 
         void init_fep_default_data();
 

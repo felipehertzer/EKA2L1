@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -182,7 +182,7 @@ namespace eka2l1::mem {
             return (page_index << ((page_size_bits_ == 20) ? PAGE_INDEX_SHIFT_20B : PAGE_INDEX_SHIFT_12B)) | (page_table_index << ((page_size_bits_ == 20) ? PAGE_TABLE_INDEX_SHIFT_20B : PAGE_TABLE_INDEX_SHIFT_12B));
         }
 
-        std::uint32_t *host_ptr = reinterpret_cast<std::uint32_t*>(get_host_pointer(from_id, addr));
+        std::uint32_t *host_ptr = reinterpret_cast<std::uint32_t *>(get_host_pointer(from_id, addr));
         if (!host_ptr) {
             return std::nullopt;
         }
@@ -234,7 +234,7 @@ namespace eka2l1::mem {
             return false;
         }
 
-        std::uint32_t *host_ptr = reinterpret_cast<std::uint32_t*>(get_host_pointer(to_id, addr));
+        std::uint32_t *host_ptr = reinterpret_cast<std::uint32_t *>(get_host_pointer(to_id, addr));
         if (!host_ptr) {
             return false;
         }

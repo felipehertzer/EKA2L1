@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -46,7 +46,7 @@ namespace eka2l1::epoc {
         epoc::pid result;
 
         if (str.length() == 8) {
-            result.first = pstr.as_int<std::int32_t>(0, 16);            
+            result.first = pstr.as_int<std::int32_t>(0, 16);
         } else {
             result.first = pstr.substr(0, 8).as_int<std::int32_t>(0, 16);
             result.second = pstr.substr(8).as_int<std::int32_t>(0, 16);
@@ -54,7 +54,7 @@ namespace eka2l1::epoc {
 
         return result;
     }
-    
+
     std::optional<epoc::pid> pick_first_skin(eka2l1::io_system *io) {
         for (drive_number drv = drive_a; drv <= drive_z; drv++) {
             if (io->get_drive_entry(drv)) {
@@ -80,7 +80,7 @@ namespace eka2l1::epoc {
 
                         for (std::size_t i = 0; i < entry->name.length(); i++) {
                             if (!(((entry->name[i] >= '0') && (entry->name[i] <= '9')) || ((entry->name[i] >= 'a') && (entry->name[i] <= 'f'))
-                                || ((entry->name[i] >= 'A') && (entry->name[i] <= 'F')))) {
+                                    || ((entry->name[i] >= 'A') && (entry->name[i] <= 'F')))) {
                                 need_skip = true;
                                 break;
                             }

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team / Citra Emulator Project
- * 
+ *
  * This file is part of EKA2L1 project / Citra Emulator Project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -26,8 +26,8 @@
 
 namespace eka2l1 {
     namespace kernel {
-        /*! \brief A mutex kernel object. 
-        */
+        /*! \brief A mutex kernel object.
+         */
         class mutex : public kernel_obj {
             friend class condvar;
 
@@ -65,7 +65,7 @@ namespace eka2l1 {
             int destroy() override;
 
             /*! \brief Timeout reached, whether it's on the pendings
-            */
+             */
             void waking_up_from_suspension(std::uint64_t userdata, int cycles_late);
 
             void wait(thread *thr);
@@ -83,7 +83,7 @@ namespace eka2l1 {
 
             /*! \brief This update the mutex accordingly to the priority.
              *
-             * If the thread is in wait_mutex state, and its priority is increased, 
+             * If the thread is in wait_mutex state, and its priority is increased,
              * it's put to the pending queue.
              *
              * If the thread is in the pending queue, and its priority is smaller
@@ -92,17 +92,17 @@ namespace eka2l1 {
              */
             void priority_change(thread *thr);
 
-            /*! \brief Call when a suspend call is invoked. 
+            /*! \brief Call when a suspend call is invoked.
              *
              * If the thread is in wait_mutex, it will be put into a suspend container.
              *
              * If the thread is in hold_mutex_pending, the next waiting thread will be
-             * call and put to the pending queue. 
+             * call and put to the pending queue.
              *
              * Note that pending thread that wait to claim the mutex is still eligable to run. In the state
-             * of hold_mutex_pending, the emulator PC will be saved back to the call to the SVC, so the 
-             * thread can claim the mutex manually. 
-            */
+             * of hold_mutex_pending, the emulator PC will be saved back to the call to the SVC, so the
+             * thread can claim the mutex manually.
+             */
             bool suspend_thread(thread *thr);
             bool unsuspend_thread(thread *thr);
         };

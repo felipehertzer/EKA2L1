@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2023 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <common/log.h>
 #include <services/bluetooth/protocols/btmidman_inet.h>
 #include <services/bluetooth/protocols/common_inet.h>
-#include <common/log.h>
 
 namespace eka2l1::epoc::bt {
     void midman_inet::setup_lan_discovery() {
@@ -39,7 +39,7 @@ namespace eka2l1::epoc::bt {
             addr_bind.sin6_family = AF_INET;
             addr_bind.sin6_port = htons(static_cast<std::uint16_t>(LAN_DISCOVERY_PORT));
 
-            lan_discovery_call_listener_socket_->bind(*reinterpret_cast<sockaddr*>(&addr_bind));
+            lan_discovery_call_listener_socket_->bind(*reinterpret_cast<sockaddr *>(&addr_bind));
             lan_discovery_call_listener_socket_->on<uvw::error_event>([this](const uvw::error_event &event, uvw::udp_handle &handle) {
                 handle_lan_discovery_receive(nullptr, event.code(), nullptr);
             });
@@ -50,7 +50,7 @@ namespace eka2l1::epoc::bt {
                     LOG_ERROR(SERVICE_BLUETOOTH, "Invalid sender address passed to callback!");
                     return;
                 }
-                handle_lan_discovery_receive(event.data.get(), event.length, reinterpret_cast<sockaddr*>(&sender_ced.value()));
+                handle_lan_discovery_receive(event.data.get(), event.length, reinterpret_cast<sockaddr *>(&sender_ced.value()));
             });
 
             lan_discovery_call_listener_socket_->recv();
@@ -59,8 +59,7 @@ namespace eka2l1::epoc::bt {
 
     void midman_inet::handle_lan_discovery_receive(const char *buf, std::int64_t nread, const sockaddr *addr) {
         const std::uint32_t LOCALHOST_ADDR = 0x100007F;
-        if ((memcmp(&(reinterpret_cast<const sockaddr_in*>(addr)->sin_addr), local_addr_.user_data_, 4) == 0) ||
-            (memcmp(&(reinterpret_cast<const sockaddr_in*>(addr)->sin_addr), &LOCALHOST_ADDR, 4) == 0)) {
+        if ((memcmp(&(reinterpret_cast<const sockaddr_in *>(addr)->sin_addr), local_addr_.user_data_, 4) == 0) || (memcmp(&(reinterpret_cast<const sockaddr_in *>(addr)->sin_addr), &LOCALHOST_ADDR, 4) == 0)) {
             return;
         }
 

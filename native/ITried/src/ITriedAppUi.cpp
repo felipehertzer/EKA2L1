@@ -63,7 +63,7 @@ void CITriedAppUi::ConstructL() {
     outputFileStream << KText;
 
     CleanupStack::PopAndDestroy(2); // outputFileStream, file
-    
+
     RDebug::Printf("CITriedAppUi constructed successfully");
 }
 // -----------------------------------------------------------------------------
@@ -94,7 +94,7 @@ CITriedAppUi::~CITriedAppUi() {
 //
 void CITriedAppUi::HandleCommandL(TInt aCommand) {
     RDebug::Printf("Handling command %d for UI", aCommand);
-    
+
     switch (aCommand) {
     case EEikCmdExit:
     case EAknSoftkeyExit:
@@ -118,10 +118,10 @@ void CITriedAppUi::HandleCommandL(TInt aCommand) {
     case ECommand2: {
         RFile rFile;
 
-        //Open file where the stream text is
+        // Open file where the stream text is
         User::LeaveIfError(
             rFile.Open(CCoeEnv::Static()->FsSession(), KFileName,
-                EFileStreamText)); //EFileShareReadersOnly));// EFileStreamText));
+                EFileStreamText)); // EFileShareReadersOnly));// EFileStreamText));
         CleanupClosePushL(rFile);
 
         // copy stream from file to RFileStream object
@@ -149,10 +149,10 @@ void CITriedAppUi::HandleCommandL(TInt aCommand) {
         dlg->PrepareLC(R_ABOUT_QUERY_DIALOG);
         HBufC *title = iEikonEnv->AllocReadResourceLC(R_ABOUT_DIALOG_TITLE);
         dlg->QueryHeading()->SetTextL(*title);
-        CleanupStack::PopAndDestroy(); //title
+        CleanupStack::PopAndDestroy(); // title
         HBufC *msg = iEikonEnv->AllocReadResourceLC(R_ABOUT_DIALOG_TEXT);
         dlg->SetMessageTextL(*msg);
-        CleanupStack::PopAndDestroy(); //msg
+        CleanupStack::PopAndDestroy(); // msg
         dlg->RunLD();
     } break;
     default:

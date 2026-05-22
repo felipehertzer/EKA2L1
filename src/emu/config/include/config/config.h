@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -30,7 +30,7 @@
 #include <vector>
 
 namespace eka2l1 {
-    static constexpr const char *LOG_FILTER_NORMAL_USE_PRESET = "*:trace Emulated.Stdout:off Service.EFsrv:warn Service.Cenrep:off Kernel:Warn Service.Track:error";
+    static constexpr const char *LOG_FILTER_NORMAL_USE_PRESET = "*:info Emulated.Stdout:off Service.EFsrv:warn Service.Cenrep:off Kernel:Warn Service.Track:error";
     static constexpr const char *LOG_FILTER_DEBUG_PRESET = "*:trace";
 }
 
@@ -47,9 +47,9 @@ namespace eka2l1::config {
 #endif
 
     enum screen_buffer_sync_option {
-        screen_buffer_sync_option_preferred = 0,            ///< Let emulator chooses what platforms should it performed
-        screen_buffer_sync_option_off = 1,                  ///< Sync is turned off permanently.
-        screen_buffer_sync_option_on = 2                    ///< Sync is turned on permanently.
+        screen_buffer_sync_option_preferred = 0, ///< Let emulator chooses what platforms should it performed
+        screen_buffer_sync_option_off = 1, ///< Sync is turned off permanently.
+        screen_buffer_sync_option_on = 2 ///< Sync is turned on permanently.
     };
 
     enum midi_backend_type {
@@ -131,9 +131,9 @@ namespace eka2l1::config {
         bool ui_new_style{ true };
         bool svg_icon_cache_reset{ false };
         bool report_mmfdev_underflow{ false };
-        bool disable_display_content_scale { false };
-        bool enable_hw_gles1 { true };
-        bool hide_system_apps { true };
+        bool disable_display_content_scale{ false };
+        bool enable_hw_gles1{ true };
+        bool hide_system_apps{ true };
 
         keybind_profile keybinds;
 
@@ -157,8 +157,8 @@ namespace eka2l1::config {
 
         std::uint32_t btnet_port_offset{ 15000 };
         bool enable_upnp{ true };
-		std::string btnet_password;
-		std::uint32_t btnet_discovery_mode{ 0 };
+        std::string btnet_password;
+        std::uint32_t btnet_discovery_mode{ 0 };
         bool extensive_logging{ false };
         int background_image_opacity{ 255 };
 

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -65,14 +65,14 @@ namespace eka2l1 {
             stream->read(reinterpret_cast<char *>(&arr.element_type), 4);
             std::uint64_t crr_pos = stream->tell();
 
-#define PARSE_ELEMENT_TYPE(element_case, handler_result_type, handler)                                               \
-    case sis_field_type::element_case:                                                                               \
+#define PARSE_ELEMENT_TYPE(element_case, handler_result_type, handler)                                              \
+    case sis_field_type::element_case:                                                                              \
         while ((uint64_t)stream->tell() - crr_pos < ((uint64_t)arr.len_low | ((uint64_t)arr.len_high << 32)) - 4) { \
-            std::shared_ptr<sis_field> elem = std::make_shared<handler_result_type>(handler(true));                  \
-            elem->type = arr.element_type;                                                                           \
-            arr.fields.push_back(elem);                                                                              \
-            valid_offset();                                                                                          \
-        }                                                                                                            \
+            std::shared_ptr<sis_field> elem = std::make_shared<handler_result_type>(handler(true));                 \
+            elem->type = arr.element_type;                                                                          \
+            arr.fields.push_back(elem);                                                                             \
+            valid_offset();                                                                                         \
+        }                                                                                                           \
         break;
 
             switch (arr.element_type) {
@@ -313,7 +313,7 @@ namespace eka2l1 {
         }
 
         void sis_parser::switch_to_buf_stream(char *buf, size_t size) {
-            set_alternative_stream(std::make_shared<common::ro_buf_stream>(reinterpret_cast<std::uint8_t*>(buf), size));
+            set_alternative_stream(std::make_shared<common::ro_buf_stream>(reinterpret_cast<std::uint8_t *>(buf), size));
             switch_stream();
         }
 

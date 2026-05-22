@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -25,9 +25,9 @@
 #include <common/flate.h>
 #include <common/log.h>
 #include <common/path.h>
+#include <common/platform.h>
 #include <common/time.h>
 #include <common/types.h>
-#include <common/platform.h>
 
 #include <config/config.h>
 #include <vfs/vfs.h>
@@ -39,6 +39,10 @@
 #include <package/sis_script_interpreter.h>
 
 #include <miniz.h>
+#include <fmt/format.h>
+
+#include <cwctype>
+#include <optional>
 
 namespace eka2l1 {
     namespace loader {
@@ -50,6 +54,11 @@ namespace eka2l1 {
             }
 
             return common::ucs2_to_utf8(raw_path);
+        }
+
+        static bool is_drive_letter(const char16_t value) {
+            const char16_t lowered = static_cast<char16_t>(std::towlower(value));
+            return (lowered >= u'a') && (lowered <= u'z');
         }
 
         bool ss_interpreter::appprop(sis_uid uid, sis_property prop) {
@@ -255,9 +264,12 @@ namespace eka2l1 {
                 }
 
                 if (var_resolver) {
-                    return var_resolver(expr.int_val);
+                    const int resolved_value = var_resolver(expr.int_val);
+                    LOG_INFO(PACKAGE, "SIS variable 0x{:X} resolved to {}", expr.int_val, resolved_value);
+                    return resolved_value;
                 }
 
+                LOG_INFO(PACKAGE, "SIS variable 0x{:X} resolved to default 0", expr.int_val);
                 return 0;
             }
 
@@ -424,10 +436,14 @@ namespace eka2l1 {
                 const loader::sis_file_des *file_des = reinterpret_cast<loader::sis_file_des *>(ctrl->install_block.files.fields[i].get());
                 std::u16string file_path = file_des->target.unicode_string;
 
-                if (file_path[0] == '!') {
-                    file_path[0] = drive_to_char16(drive);
-                } else {
-                    parent.drives |= 1 << (char16_to_drive(file_path[0]) - drive_a);
+                if (!file_path.empty()) {
+                    if (file_path[0] == u'!') {
+                        file_path[0] = drive_to_char16(drive);
+                    } else if (is_drive_letter(file_path[0])) {
+                        parent.drives |= 1 << (char16_to_drive(file_path[0]) - drive_a);
+                    } else {
+                        LOG_WARN(PACKAGE, "Skipping drive registration for SIS file target with invalid drive: {}", common::ucs2_to_utf8(file_path));
+                    }
                 }
 
                 // If we are really going to install this
@@ -444,7 +460,7 @@ namespace eka2l1 {
                 desc.target = file_path;
                 desc.sid = 0;
 
-                if (!file_des->caps.raw_data.empty()) {
+                if (!desc.target.empty() && !file_des->caps.raw_data.empty()) {
                     // It's an EXE file, so also gather the SID
                     symfile exe_file = io->open_file(desc.target, READ_MODE | BIN_MODE);
                     if (exe_file) {
@@ -480,7 +496,7 @@ namespace eka2l1 {
                 new_prop.key = property_real->key;
                 new_prop.value = property_real->val;
 
-                parent.properties.push_back(std::move(new_prop));
+                parent.properties.push_back(new_prop);
             }
 
             parent.signed_ = 1;
@@ -503,6 +519,7 @@ namespace eka2l1 {
             if (controller->langs.langs.fields.size() != 1 && choose_lang) {
                 std::vector<int> langs;
 
+                langs.reserve(controller->langs.langs.fields.size());
                 for (auto &lang_field : controller->langs.langs.fields) {
                     langs.push_back(static_cast<int>(reinterpret_cast<sis_language *>(lang_field.get())->language));
                 }
@@ -544,7 +561,13 @@ namespace eka2l1 {
 
                 if (file->target.unicode_string.length() > 0) {
                     install_path = get_install_path(file->target.unicode_string, install_drive);
-                    raw_path = common::ucs2_to_utf8(*(io->get_raw_path(common::utf8_to_ucs2(install_path))));
+                    std::optional<std::u16string> resolved_path = io->get_raw_path(common::utf8_to_ucs2(install_path));
+
+                    if (resolved_path) {
+                        raw_path = common::ucs2_to_utf8(*resolved_path);
+                    } else {
+                        LOG_WARN(PACKAGE, "Skipping SIS file with unresolved install path: {}", install_path);
+                    }
                 }
 
                 switch (file->op) {
@@ -597,6 +620,11 @@ namespace eka2l1 {
                 case ss_op::install: {
                     if (!skip_next_file) {
                         if ((file->op == ss_op::undefined) && (!file->len || !file->uncompressed_len)) {
+                            break;
+                        }
+
+                        if (raw_path.empty()) {
+                            LOG_WARN(PACKAGE, "Skipping SIS file with empty resolved install path");
                             break;
                         }
 
@@ -661,7 +689,8 @@ namespace eka2l1 {
                     for (auto &wrap_else_branch : if_stmt->else_if.fields) {
                         sis_else_if *else_branch = reinterpret_cast<sis_else_if *>(wrap_else_branch.get());
 
-                        if (condition_passed(&else_branch->expr)) {
+                        const auto else_result = condition_passed(&else_branch->expr);
+                        if (else_result) {
                             interpret(else_branch->install_block, parent_tree, crr_blck_idx);
                             break;
                         }

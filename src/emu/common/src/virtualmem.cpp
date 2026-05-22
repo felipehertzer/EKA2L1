@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,6 +21,10 @@
 #include <common/cvt.h>
 #include <common/platform.h>
 #include <common/virtualmem.h>
+
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 
 #if EKA2L1_PLATFORM(WIN32)
 #include <Windows.h>
@@ -33,17 +37,38 @@
 #endif
 
 namespace eka2l1::common {
+    namespace {
+#if EKA2L1_PLATFORM(UNIX) || EKA2L1_PLATFORM(DARWIN)
+        void align_host_page_range(void *ptr, const std::size_t size, void *&aligned_ptr, std::size_t &aligned_size) {
+            const std::uintptr_t page_size = static_cast<std::uintptr_t>(sysconf(_SC_PAGESIZE));
+            const std::uintptr_t start = reinterpret_cast<std::uintptr_t>(ptr) & ~(page_size - 1);
+            const std::uintptr_t end = (reinterpret_cast<std::uintptr_t>(ptr) + size + page_size - 1) & ~(page_size - 1);
+
+            aligned_ptr = reinterpret_cast<void *>(start);
+            aligned_size = end - start;
+        }
+#endif
+    }
+
     void *map_memory(const std::size_t size) {
 #if EKA2L1_PLATFORM(WIN32)
         return VirtualAlloc(nullptr, size,
             MEM_RESERVE, PAGE_NOACCESS);
+#elif EKA2L1_PLATFORM(VITA)
+        return std::malloc(size);
 #else
-        return mmap(nullptr, size, PROT_NONE,
-            MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+        void *ptr = mmap(nullptr, size, PROT_NONE,
+            MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+        return ptr == MAP_FAILED ? nullptr : ptr;
 #endif
     }
 
     bool unmap_memory(void *ptr, const std::size_t size) {
+#if EKA2L1_PLATFORM(VITA)
+        (void)size;
+        std::free(ptr);
+        return true;
+#else
 #if EKA2L1_PLATFORM(WIN32)
         const auto result = VirtualFree(ptr, 0, MEM_RELEASE);
 
@@ -57,9 +82,19 @@ namespace eka2l1::common {
         }
 
         return true;
+#endif
     }
 
     bool commit(void *ptr, const std::size_t size, const prot commit_prot) {
+        if (size == 0) {
+            return true;
+        }
+
+#if EKA2L1_PLATFORM(VITA)
+        (void)ptr;
+        (void)commit_prot;
+        return true;
+#else
 #if EKA2L1_PLATFORM(WIN32)
         DWORD oldprot = 0;
 
@@ -68,7 +103,11 @@ namespace eka2l1::common {
 
         if (!res) {
 #else
-        const int result = mprotect(ptr, size, translate_protection(commit_prot));
+        void *aligned_ptr = nullptr;
+        std::size_t aligned_size = 0;
+        align_host_page_range(ptr, size, aligned_ptr, aligned_size);
+
+        const int result = mprotect(aligned_ptr, aligned_size, translate_protection(commit_prot));
 
         if (result == -1) {
 #endif
@@ -76,14 +115,28 @@ namespace eka2l1::common {
         }
 
         return true;
+#endif
     }
 
     bool decommit(void *ptr, const std::size_t size) {
+        if (size == 0) {
+            return true;
+        }
+
+#if EKA2L1_PLATFORM(VITA)
+        (void)ptr;
+        return true;
+#else
 #if EKA2L1_PLATFORM(WIN32)
         const auto res = VirtualFree(ptr, size, MEM_DECOMMIT);
 
         if (!res) {
 #else
+        const std::uintptr_t page_size = static_cast<std::uintptr_t>(sysconf(_SC_PAGESIZE));
+        if ((reinterpret_cast<std::uintptr_t>(ptr) & (page_size - 1)) != 0 || (size & (page_size - 1)) != 0) {
+            return true;
+        }
+
         const auto result = mprotect(ptr, size, PROT_NONE);
 
         if (result == -1) {
@@ -92,10 +145,20 @@ namespace eka2l1::common {
         }
 
         return true;
+#endif
     }
 
     bool change_protection(void *ptr, const std::size_t size,
         const prot new_prot) {
+        if (size == 0) {
+            return true;
+        }
+
+#if EKA2L1_PLATFORM(VITA)
+        (void)ptr;
+        (void)new_prot;
+        return true;
+#else
 #if EKA2L1_PLATFORM(WIN32)
         DWORD oldprot = 0;
         const auto res = VirtualProtect(ptr, size,
@@ -103,7 +166,11 @@ namespace eka2l1::common {
 
         if (!res) {
 #else
-        const int result = mprotect(ptr, size, translate_protection(new_prot));
+        void *aligned_ptr = nullptr;
+        std::size_t aligned_size = 0;
+        align_host_page_range(ptr, size, aligned_ptr, aligned_size);
+
+        const int result = mprotect(aligned_ptr, aligned_size, translate_protection(new_prot));
 
         if (result == -1) {
 #endif
@@ -111,10 +178,11 @@ namespace eka2l1::common {
         }
 
         return true;
+#endif
     }
 
     bool is_memory_wx_exclusive() {
-#if EKA2L1_PLATFORM(UWP) || EKA2L1_PLATFORM(IOS) || EKA2L1_PLATFORM(ANDROID)
+#if EKA2L1_PLATFORM(UWP) || EKA2L1_PLATFORM(DARWIN) || EKA2L1_PLATFORM(IOS) || EKA2L1_PLATFORM(ANDROID)
         return true;
 #else
         return false;
@@ -127,6 +195,8 @@ namespace eka2l1::common {
         GetSystemInfo(&system_info);
 
         return system_info.dwPageSize;
+#elif EKA2L1_PLATFORM(VITA)
+        return 4096;
 #else
         return sysconf(_SC_PAGESIZE);
 #endif
@@ -204,6 +274,46 @@ namespace eka2l1::common {
         }
 
         auto map_ptr = MapViewOfFile(map_file_handle, map_type, 0, 0, 0);
+#elif EKA2L1_PLATFORM(VITA)
+        if (perm != prot_read && perm != prot_read_write) {
+            return nullptr;
+        }
+
+        FILE *file = std::fopen(file_name.c_str(), "rb");
+        if (!file) {
+            return nullptr;
+        }
+
+        std::size_t map_size = size;
+        if (map_size == 0) {
+            if (std::fseek(file, 0, SEEK_END) != 0) {
+                std::fclose(file);
+                return nullptr;
+            }
+
+            const long file_size = std::ftell(file);
+            if (file_size < 0) {
+                std::fclose(file);
+                return nullptr;
+            }
+
+            map_size = static_cast<std::size_t>(file_size);
+            std::rewind(file);
+        }
+
+        void *map_ptr = std::malloc(map_size);
+        if (!map_ptr) {
+            std::fclose(file);
+            return nullptr;
+        }
+
+        const std::size_t read_size = std::fread(map_ptr, 1, map_size, file);
+        std::fclose(file);
+
+        if (read_size != map_size) {
+            std::free(map_ptr);
+            return nullptr;
+        }
 #else
         int open_mode = 0;
         const int prot_mode = translate_protection(perm);
@@ -253,6 +363,8 @@ namespace eka2l1::common {
     bool unmap_file(void *ptr) {
 #if EKA2L1_PLATFORM(WIN32)
         UnmapViewOfFile(ptr);
+#elif EKA2L1_PLATFORM(VITA)
+        std::free(ptr);
 #endif
 
         return true;

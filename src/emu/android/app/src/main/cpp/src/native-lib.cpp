@@ -26,30 +26,30 @@
 #include <common/fileutils.h>
 #include <common/path.h>
 #include <drivers/audio/audio.h>
+#include <drivers/camera/backend/android/camera_collection_android.h>
 #include <drivers/camera/backend/android/emulator_camera_jni_public.h>
 #include <drivers/camera/camera_collection.h>
-#include <drivers/camera/backend/android/camera_collection_android.h>
 #include <drivers/graphics/graphics.h>
 
 #include <common/android/jniutils.h>
 
-#if EKA2L1_ARCH(ARM)
+#if EKA2L1_ARCH(ARM) && EKA2L1_BUILD_TESTS
 #include <cpu/12l1r/tests/test_entry.h>
 #endif
 
 #define CATCH_CONFIG_RUNNER
 #define CATCH_CONFIG_ANDROID_LOGWRITE
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_session.hpp>
 
-ANativeWindow *s_surf;
+ANativeWindow *s_surf = nullptr;
 std::unique_ptr<eka2l1::android::emulator> state;
 bool inited = false;
 
 extern "C" jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     eka2l1::common::jni::virtual_machine = vm;
 
-#if EKA2L1_ARCH(ARM)
+#if EKA2L1_ARCH(ARM) && EKA2L1_BUILD_TESTS
     eka2l1::arm::r12l1::register_all_tests();
 #endif
 
@@ -95,12 +95,16 @@ Java_com_github_eka2l1_emu_Emulator_getApps(
 }
 
 static void redraw_screens_immediately() {
+    if (!state || !state->graphics_driver || !state->launcher || !state->window) {
+        return;
+    }
+
     state->graphics_driver->wait_for(&state->present_status);
 
     eka2l1::drivers::graphics_command_builder builder;
     state->launcher->draw(builder, state->winserv ? state->winserv->get_screens() : nullptr,
-                          state->window->window_fb_size().x,
-                          state->window->window_fb_size().y);
+        state->window->window_fb_size().x,
+        state->window->window_fb_size().y);
 
     state->present_status = -100;
     builder.present(&state->present_status);
@@ -111,6 +115,10 @@ static void redraw_screens_immediately() {
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_launchApp(JNIEnv *env, jclass clazz, jint uid) {
+    if (!state || !state->launcher || !state->graphics_driver) {
+        return;
+    }
+
     // Launch the real app...
     state->launcher->launch_app(uid);
 }
@@ -118,7 +126,15 @@ Java_com_github_eka2l1_emu_Emulator_launchApp(JNIEnv *env, jclass clazz, jint ui
 extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_surfaceChanged(JNIEnv *env, jclass clazz, jobject surface,
     jint width, jint height) {
+    if (!state || !state->window) {
+        return;
+    }
+
     s_surf = ANativeWindow_fromSurface(env, surface);
+    if (!s_surf) {
+        return;
+    }
+
     state->window->surface_changed(s_surf, width, height);
     if (!inited) {
         init_threads(*state);
@@ -128,18 +144,29 @@ Java_com_github_eka2l1_emu_Emulator_surfaceChanged(JNIEnv *env, jclass clazz, jo
     }
 }
 
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_surfaceRedrawNeeded(JNIEnv *env, jclass clazz) {
+    if (!state || !state->graphics_driver) {
+        return;
+    }
+
     redraw_screens_immediately();
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_surfaceDestroyed(JNIEnv *env, jclass clazz) {
-    pause_threads(*state);
-    ANativeWindow_release(s_surf);
+    if (state && state->window) {
+        pause_threads(*state);
+    }
+
+    if (s_surf) {
+        ANativeWindow_release(s_surf);
+    }
     s_surf = nullptr;
-    state->window->surface_changed(s_surf, 0, 0);
+
+    if (state && state->window) {
+        state->window->surface_changed(s_surf, 0, 0);
+    }
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -165,8 +192,8 @@ Java_com_github_eka2l1_emu_Emulator_installApp(JNIEnv *env, jclass clazz, jstrin
 
 static jobjectArray retrieve_jni_string_array_from_vector(JNIEnv *env, const std::vector<std::string> &strings) {
     jobjectArray jdevices = env->NewObjectArray(static_cast<jsize>(strings.size()),
-                                                env->FindClass("java/lang/String"),
-                                                nullptr);
+        env->FindClass("java/lang/String"),
+        nullptr);
     for (jsize i = 0; i < strings.size(); ++i)
         env->SetObjectArrayElement(jdevices, i, env->NewStringUTF(strings[i].c_str()));
     return jdevices;
@@ -179,8 +206,7 @@ Java_com_github_eka2l1_emu_Emulator_getDevices(
     return retrieve_jni_string_array_from_vector(env, state->launcher->get_devices());
 }
 
-extern "C"
-JNIEXPORT jobjectArray JNICALL
+extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_github_eka2l1_emu_Emulator_getDeviceFirmwareCodes(JNIEnv *env, jclass clazz) {
     return retrieve_jni_string_array_from_vector(env, state->launcher->get_device_firwmare_codes());
 }
@@ -308,13 +334,12 @@ Java_com_github_eka2l1_emu_Emulator_getLanguageNames(
     return jlanguage_names;
 }
 
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_setScreenParams(JNIEnv *env, jclass clazz,
-                                                    jint background_color, jint scale_ratio,
-                                                    jint scale_type, jint gravity,
-                                                    jstring bg_img_path, jfloat bg_img_opacity,
-                                                    jboolean bg_img_keep_aspect) {
+    jint background_color, jint scale_ratio,
+    jint scale_type, jint gravity,
+    jstring bg_img_path, jfloat bg_img_opacity,
+    jboolean bg_img_keep_aspect) {
     const char *cstr = env->GetStringUTFChars(bg_img_path, nullptr);
     std::string cpath = std::string(cstr);
     env->ReleaseStringUTFChars(bg_img_path, cstr);
@@ -322,14 +347,13 @@ Java_com_github_eka2l1_emu_Emulator_setScreenParams(JNIEnv *env, jclass clazz,
     state->launcher->set_screen_params(background_color, scale_ratio, scale_type, gravity, cpath, bg_img_opacity, bg_img_keep_aspect);
 }
 
-extern "C"
-JNIEXPORT jboolean JNICALL
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_github_eka2l1_emu_Emulator_runTest(JNIEnv *env, jclass clazz, jstring test_name) {
     const char *test_name_c = env->GetStringUTFChars(test_name, nullptr);
 
     const char *arguments[] = {
-            "fake.exe",
-            test_name_c
+        "fake.exe",
+        test_name_c
     };
 
     const int argument_count = 2;
@@ -340,21 +364,18 @@ Java_com_github_eka2l1_emu_Emulator_runTest(JNIEnv *env, jclass clazz, jstring t
     return result;
 }
 
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_submitInput(JNIEnv *env, jclass clazz, jstring text) {
     const char *cstr = env->GetStringUTFChars(text, nullptr);
     std::string ctext = std::string(cstr);
     state->launcher->on_finished_text_input(ctext, false);
 }
 
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_EmulatorCamera_onCaptureImageDelivered(JNIEnv *env, jclass clazz,
-                                                                  jint index, jbyteArray raw_data,
-                                                                  jint error_code) {
-    eka2l1::drivers::camera::collection_android *collection = reinterpret_cast
-            <eka2l1::drivers::camera::collection_android *>(eka2l1::drivers::camera::get_collection());
+    jint index, jbyteArray raw_data,
+    jint error_code) {
+    eka2l1::drivers::camera::collection_android *collection = reinterpret_cast<eka2l1::drivers::camera::collection_android *>(eka2l1::drivers::camera::get_collection());
 
     if (collection) {
         jboolean is_data_copy = false;
@@ -364,14 +385,12 @@ Java_com_github_eka2l1_emu_EmulatorCamera_onCaptureImageDelivered(JNIEnv *env, j
         env->ReleaseByteArrayElements(raw_data, data, 0);
     }
 }
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_EmulatorCamera_onFrameViewfinderDelivered(JNIEnv *env, jclass clazz,
-                                                                     jint index,
-                                                                     jbyteArray raw_data,
-                                                                     jint error_code) {
-    eka2l1::drivers::camera::collection_android *collection = reinterpret_cast
-            <eka2l1::drivers::camera::collection_android *>(eka2l1::drivers::camera::get_collection());
+    jint index,
+    jbyteArray raw_data,
+    jint error_code) {
+    eka2l1::drivers::camera::collection_android *collection = reinterpret_cast<eka2l1::drivers::camera::collection_android *>(eka2l1::drivers::camera::get_collection());
 
     if (collection) {
         jboolean is_data_copy = false;
@@ -381,18 +400,15 @@ Java_com_github_eka2l1_emu_EmulatorCamera_onFrameViewfinderDelivered(JNIEnv *env
         env->ReleaseByteArrayElements(raw_data, data, 0);
     }
 }
-extern "C"
-JNIEXPORT jboolean JNICALL
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_github_eka2l1_emu_EmulatorCamera_doesCameraAllowNewFrame(JNIEnv *env, jclass clazz,
-                                                                  jint index) {
-    eka2l1::drivers::camera::collection_android *collection = reinterpret_cast
-            <eka2l1::drivers::camera::collection_android *>(eka2l1::drivers::camera::get_collection());
+    jint index) {
+    eka2l1::drivers::camera::collection_android *collection = reinterpret_cast<eka2l1::drivers::camera::collection_android *>(eka2l1::drivers::camera::get_collection());
 
     return collection->reserved_wants_new_frame(index);
 }
 
-extern "C"
-JNIEXPORT jint JNICALL
+extern "C" JNIEXPORT jint JNICALL
 Java_com_github_eka2l1_emu_Emulator_installNGageGame(JNIEnv *env, jclass clazz, jstring path) {
     const char *cstr = env->GetStringUTFChars(path, nullptr);
     std::string cpath = std::string(cstr);
@@ -400,27 +416,23 @@ Java_com_github_eka2l1_emu_Emulator_installNGageGame(JNIEnv *env, jclass clazz, 
 
     return state->launcher->install_ngage_game(cpath);
 }
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_submitQuestionDialogResponse(JNIEnv *env, jclass clazz,
-                                                                 jint value) {
+    jint value) {
     state->launcher->on_question_dialog_finished(value);
 }
 
-extern "C"
-JNIEXPORT jobjectArray JNICALL
+extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_github_eka2l1_emu_Emulator_getSuccessInstalledLicenseGames(JNIEnv *env, jclass clazz) {
     return retrieve_jni_string_array_from_vector(env, state->launcher->get_success_installed_license_games());
 }
 
-extern "C"
-JNIEXPORT jobjectArray JNICALL
+extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_github_eka2l1_emu_Emulator_getFailedInstalledLicenseGames(JNIEnv *env, jclass clazz) {
     return retrieve_jni_string_array_from_vector(env, state->launcher->get_failed_installed_license_games());
 }
 
-extern "C"
-JNIEXPORT jboolean JNICALL
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_github_eka2l1_emu_Emulator_installNG2Licenses(JNIEnv *env, jclass clazz, jstring content) {
     const char *cstr = env->GetStringUTFChars(content, nullptr);
     std::string content_cpp = std::string(cstr);
@@ -429,8 +441,7 @@ Java_com_github_eka2l1_emu_Emulator_installNG2Licenses(JNIEnv *env, jclass clazz
     return state->launcher->install_ng2_game_licenses(content_cpp);
 }
 
-extern "C"
-JNIEXPORT void JNICALL
+extern "C" JNIEXPORT void JNICALL
 Java_com_github_eka2l1_emu_Emulator_setCurrentMMCID(JNIEnv *env, jclass clazz, jstring new_mmcid) {
     const char *cstr = env->GetStringUTFChars(new_mmcid, nullptr);
     std::string mmc_id_str = std::string(cstr);
@@ -438,8 +449,7 @@ Java_com_github_eka2l1_emu_Emulator_setCurrentMMCID(JNIEnv *env, jclass clazz, j
 
     state->launcher->set_current_mmc_id(mmc_id_str);
 }
-extern "C"
-JNIEXPORT jboolean JNICALL
+extern "C" JNIEXPORT jboolean JNICALL
 Java_com_github_eka2l1_emu_Emulator_saveScreenshotTo(JNIEnv *env, jclass clazz, jstring file_path) {
     const char *cstr = env->GetStringUTFChars(file_path, nullptr);
     std::string file_path_std = std::string(cstr);

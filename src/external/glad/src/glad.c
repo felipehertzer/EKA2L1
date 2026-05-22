@@ -116,6 +116,15 @@ void close_gl(void) {
         libGL = NULL;
     }
 }
+#elif defined(__vita__) || defined(__PSP2__)
+static
+int open_gl(void) {
+    return 0;
+}
+
+static
+void close_gl(void) {
+}
 #else
 #include <dlfcn.h>
 static void* libGL;
@@ -168,6 +177,10 @@ void close_gl(void) {
 static
 void* get_proc(const char *namez) {
     void* result = NULL;
+#if defined(__vita__) || defined(__PSP2__)
+    (void)namez;
+    return NULL;
+#else
     if(libGL == NULL) return NULL;
 
 #if !defined(__APPLE__) && !defined(__HAIKU__)
@@ -184,6 +197,7 @@ void* get_proc(const char *namez) {
     }
 
     return result;
+#endif
 }
 
 int gladLoadGL(void) {
@@ -4317,4 +4331,3 @@ int gladLoadGLES2Loader(GLADloadproc load) {
 	if (!find_extensionsGLES2()) return 0;
 	return GLVersion.major != 0 || GLVersion.minor != 0;
 }
-

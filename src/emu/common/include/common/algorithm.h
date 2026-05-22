@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -54,22 +54,22 @@ namespace eka2l1 {
         /**
          * \brief Detect changes between two iterable-objects, allow callback to handle
          *        addition and remove.
-         * 
+         *
          * Given two iterable object: maybe an old and new version of a vector, this function
          * use binary search to detect changes between them.
-         * 
+         *
          * Changes mentioned here are addition and removal. The function will take two callback function:
          * - The first function will handle addition. There is only one argument gonna be passed for this function,
          *   it's the index of the added object in the second iterable object.
          * - The second function will handle remove. Same as addition, the only argument is the index of the removed
          *   object in the first iterable object.
-         * 
+         *
          * This function can handle any iterable objects that support these requirements:
          * - Have at operator []
          * - Have a function named size(), which will returns an integer.
-         * 
+         *
          * Requires two iterable object to be sorted.
-         * 
+         *
          * \param old_           The first iterable object.
          * \param new_           The second iterable object.
          * \param add_callback_  Callback when detect a new element is added to the second object.
@@ -177,7 +177,7 @@ namespace eka2l1 {
         }
 
         /**
-         * \brief Choose the greater variable 
+         * \brief Choose the greater variable
          *
          * Compare two objects and choose the greater object to return.
          */
@@ -186,7 +186,7 @@ namespace eka2l1 {
             return a > b ? a : b;
         }
 
-        /** 
+        /**
          * \brief Choose the less variable
          *
          * Compare two objects, choose the less object to return.
@@ -198,7 +198,7 @@ namespace eka2l1 {
 
         /**
          * \brief Absolute the given value.
-         * 
+         *
          * If the value is less then zero, it will be duplicate with -1.
          */
         template <typename T>
@@ -293,13 +293,13 @@ namespace eka2l1 {
 
         /**
          * \brief Compare two UTF2 string, ignoring it case
-         * 
+         *
          * On Windows, this utilizes Win32 API CompareStringEx, on other platform it uses
          * std::towlower to lowercase two string and then compare.
-         * 
+         *
          * \param s1 Left hand string.
          * \param s2 Right hand string.
-         * 
+         *
          * \returns -1 if s1 < s2
          *           0 if s1 == s2
          *           1 if s1 > s2
@@ -309,7 +309,7 @@ namespace eka2l1 {
 
         /**
          * \brief Trim all space duplication to only one space between words
-         * 
+         *
          * \returns A new string contains all space trimmed
          */
         template <typename T>
@@ -337,7 +337,7 @@ namespace eka2l1 {
          * \param str           The string to find and replace
          * \param target        The word/string to find
          * \param replacement   The word/string to replace target
-         * 
+         *
          * \returns A new string with all occurrences of target replaced.
          */
         template <typename T>
@@ -357,7 +357,7 @@ namespace eka2l1 {
 
         /**
          * \brief Lowercase the string.
-         * 
+         *
          * \returns String lowercased.
          */
         std::string lowercase_string(std::string str);
@@ -365,7 +365,7 @@ namespace eka2l1 {
 
         /**
          * \brief Lowercase UCS2 string.
-         * 
+         *
          * \returns String lowercased.
          */
         std::u16string lowercase_ucs2_string(std::u16string str);
@@ -387,7 +387,7 @@ namespace eka2l1 {
 
         /**
          * @brief Get the least significant ON bit.
-         * 
+         *
          * @param v         The mask to search.
          * @return int      Index of the bit in the integer, else 64 returned if mask is 0
          */
@@ -401,11 +401,11 @@ namespace eka2l1 {
 
         /**
          * @brief   Multiply two qwords, and then divide the result we just got with another qword.
-         * 
+         *
          * @param   m1        First factor.
          * @param   m2        Second factor.
          * @param   d1        The divider.
-         * 
+         *
          * @returns The result of the operation.
          */
         std::uint64_t multiply_and_divide_qwords(std::uint64_t m1, std::uint64_t m2,

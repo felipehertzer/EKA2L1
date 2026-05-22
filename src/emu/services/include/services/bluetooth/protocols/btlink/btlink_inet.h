@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/bluetooth/protocols/common.h>
 #include <services/bluetooth/protocols/asker_inet.h>
 #include <services/bluetooth/protocols/btmidman_inet.h>
+#include <services/bluetooth/protocols/common.h>
 #include <services/internet/protocols/inet.h>
 #include <services/socket/protocol.h>
 
@@ -75,7 +75,7 @@ namespace eka2l1::epoc::bt {
         void next(epoc::socket::name_entry *result, epoc::notify_info &info) override;
 
         void complete_background_find_device_delay_emulation();
-        
+
         void on_stranger_call(epoc::socket::saddress &addr, std::uint32_t index_in_list) override;
         void on_no_more_strangers() override;
     };

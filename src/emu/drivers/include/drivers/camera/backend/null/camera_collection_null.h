@@ -22,13 +22,13 @@
 #include <drivers/camera/camera_collection.h>
 
 namespace eka2l1::drivers::camera {
-    class collection_null: public collection {
+    class collection_null : public collection {
     public:
         std::uint32_t count() const override {
             return 0;
         }
 
-        std::unique_ptr<instance> make_camera(const std::uint32_t camera_index) {
+        std::unique_ptr<instance> make_camera(const std::uint32_t camera_index) override {
             return nullptr;
         }
     };

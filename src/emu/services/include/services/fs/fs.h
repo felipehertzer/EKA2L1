@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -30,8 +30,10 @@
 #include <atomic>
 #include <clocale>
 #include <memory>
+#include <optional>
 #include <regex>
 #include <unordered_map>
+#include <utility>
 
 namespace eka2l1::kernel {
     using uid = std::uint64_t;
@@ -102,6 +104,13 @@ namespace eka2l1 {
     std::u16string get_full_symbian_path(const std::u16string &session_path, const std::u16string &target_path);
     bool check_path_capabilities_pass(const std::u16string &path, kernel::process *pr, epoc::security_policy &private_policy, epoc::security_policy &sys_policy, epoc::security_policy &resource_policy);
 
+    struct volume_space_info {
+        std::int64_t size = 0;
+        std::int64_t free = 0;
+    };
+
+    std::optional<volume_space_info> query_volume_space(io_system *io, drive_number drv);
+
     struct fs_server_client : public service::typical_session {
         std::u16string ss_path;
 
@@ -171,6 +180,9 @@ namespace eka2l1 {
         void notify_change(service::ipc_context *ctx);
         void notify_change_cancel_ex(service::ipc_context *ctx);
         void notify_change_cancel(service::ipc_context *ctx);
+        void notify_disk_space(service::ipc_context *ctx);
+        void notify_disk_space_cancel(service::ipc_context *ctx);
+        void check_disk_space_notifications();
         void notify_dismount(service::ipc_context *ctx);
         void notify_dismount_cancel(service::ipc_context *ctx);
 
@@ -211,7 +223,14 @@ namespace eka2l1 {
             epoc::notify_info info;
         };
 
+        struct disk_space_notify_entry {
+            std::int64_t threshold = 0;
+            drive_number drive = drive_c;
+            epoc::notify_info info;
+        };
+
         std::vector<notify_entry> notify_entries;
+        std::vector<disk_space_notify_entry> disk_space_notify_entries;
         epoc::notify_info dismount_notify_;
 
         void notify(const utf16_str &entry, const notify_type type);
@@ -273,33 +292,33 @@ namespace eka2l1 {
 
         /**
          * \brief    Claim the exclusive for this file, to given process.
-         * 
+         *
          * If the file attrib is not currently being claimed, the given process will claim it. If the file
          * is claimed by other process, this failed. Else, if the given process already claimed the file,
          * nothing happens. You can only unclaimed when use of this file for the process claimed it reached 0.
-         * 
+         *
          * \returns  False, if a process already claimed this file.
          */
         bool claim_exclusive(const kernel::uid pr_uid);
 
         /**
          * \brief Increment usage of the attrib.
-         * 
+         *
          * This only work with process UID that has already claimed this file attribute, or if this file attribute
          * has not been claimed.
-         * 
-         * \param pr_uid        UID of the process to increment use. 
+         *
+         * \param pr_uid        UID of the process to increment use.
          */
         void increment_use(const kernel::uid pr_uid);
 
         /**
          * \brief    Decrement use count of the given process.
-         * 
+         *
          * If the given process UID currently exclusively decrement use of this attrib, when it reachs zero,
          * the claim will be freed. Any flags will also be cleared along.
-         * 
+         *
          * This is used for situation where multiple file handles in a process all claimed for exclusive.
-         * 
+         *
          * \param pr_uid The UID of target process.
          */
         void decrement_use(const kernel::uid pr_uid);

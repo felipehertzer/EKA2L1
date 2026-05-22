@@ -45,10 +45,10 @@ namespace eka2l1::kernel {
 
         if (trace_) {
             constexpr const char *message_format = "Trace out (data size = {}, flags = {}, category = {}, subcategory = {}):\n"
-                                  "\ta1 = 0x{:X}\n"
-                                  "\ta2 = 0x{:X}\n"
-                                  "\ta3 = 0x{:X}\n"
-                                  "\n";
+                                                   "\ta1 = 0x{:X}\n"
+                                                   "\ta2 = 0x{:X}\n"
+                                                   "\ta3 = 0x{:X}\n"
+                                                   "\n";
 
             auto message = fmt::format(message_format, args_size, flags, category, subcategory, a1, a2, a3);
             trace_->write_file(&message[0], static_cast<std::uint32_t>(message.size()), 1);

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -49,8 +49,7 @@ namespace eka2l1 {
     }
 
     void etel_server::init(kernel_system *kern) {
-        if (call_status_prop_ || network_bars_prop_ || battery_bars_prop_ || charger_status_prop_ ||
-            sim_c_status_prop_) {
+        if (call_status_prop_ || network_bars_prop_ || battery_bars_prop_ || charger_status_prop_ || sim_c_status_prop_) {
             return;
         }
 
@@ -232,16 +231,27 @@ namespace eka2l1 {
         ctx->complete(epoc::error_none);
     }
 
-    void etel_session::add_new_subsession(service::ipc_context *ctx, etel_subsession_instance &instance) {
+    bool etel_session::add_new_subsession(service::ipc_context *ctx, etel_subsession_instance &instance) {
         auto empty_slot = std::find(subsessions_.begin(), subsessions_.end(), nullptr);
 
         if (empty_slot == subsessions_.end()) {
             subsessions_.push_back(std::move(instance));
-            ctx->write_data_to_descriptor_argument<std::uint32_t>(3, static_cast<std::uint32_t>(subsessions_.size()));
-        } else {
-            *empty_slot = std::move(instance);
-            ctx->write_data_to_descriptor_argument<std::uint32_t>(3, static_cast<std::uint32_t>(std::distance(subsessions_.begin(), empty_slot) + 1));
+
+            if (!ctx->write_handle_argument(3, static_cast<std::uint32_t>(subsessions_.size()))) {
+                subsessions_.pop_back();
+                return false;
+            }
+
+            return true;
         }
+
+        *empty_slot = std::move(instance);
+        if (!ctx->write_handle_argument(3, static_cast<std::uint32_t>(std::distance(subsessions_.begin(), empty_slot) + 1))) {
+            empty_slot->reset();
+            return false;
+        }
+
+        return true;
     }
 
     void etel_session::open_from_session(service::ipc_context *ctx) {
@@ -278,7 +288,11 @@ namespace eka2l1 {
             return;
         }
 
-        add_new_subsession(ctx, subsession);
+        if (!add_new_subsession(ctx, subsession)) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -332,7 +346,11 @@ namespace eka2l1 {
             return;
         }
 
-        add_new_subsession(ctx, new_sub);
+        if (!add_new_subsession(ctx, new_sub)) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -433,6 +451,7 @@ namespace eka2l1 {
                 }
 
                 LOG_ERROR(SERVICE_ETEL, "Unimplemented ETel server opcode {}", ctx->msg->function);
+                ctx->complete(epoc::error_not_supported);
                 break;
             }
         } else {
@@ -488,6 +507,7 @@ namespace eka2l1 {
                 }
 
                 LOG_ERROR(SERVICE_ETEL, "Unimplemented ETel server opcode {}", ctx->msg->function);
+                ctx->complete(epoc::error_not_supported);
                 break;
             }
         }

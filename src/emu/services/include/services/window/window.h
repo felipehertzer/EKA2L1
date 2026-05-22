@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,8 +23,10 @@
 #include <array>
 #include <atomic>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <queue>
 #include <set>
 #include <type_traits>
@@ -37,9 +39,9 @@
 #include <common/vecx.h>
 
 #include <services/allocator.h>
-#include <services/window/classes/plugins/anim/overall.h>
 #include <services/window/bitmap_cache.h>
 #include <services/window/classes/config.h>
+#include <services/window/classes/plugins/anim/overall.h>
 #include <services/window/common.h>
 #include <services/window/fifo.h>
 #include <services/window/io.h>
@@ -84,7 +86,7 @@ namespace eka2l1::epoc {
     struct event_screen_change_user : public event_notifier_base {
     };
 
-    struct event_focus_group_change_user: public event_notifier_base {
+    struct event_focus_group_change_user : public event_notifier_base {
     };
 
     struct event_error_msg_user : public event_notifier_base {
@@ -107,6 +109,7 @@ namespace eka2l1::epoc {
     };
 
     bool operator<(const event_capture_key_notifier &lhs, const event_capture_key_notifier &rhs);
+    bool operator==(const event_capture_key_notifier &lhs, const event_capture_key_notifier &rhs);
 
     struct pixel_twips_and_rot {
         eka2l1::vec2 pixel_size;
@@ -135,6 +138,9 @@ namespace eka2l1::epoc {
     struct screen_device;
 
     using window_client_obj_ptr = std::unique_ptr<window_client_obj>;
+
+    bool parse_window_command_buffer(const std::uint8_t *data, std::size_t data_size, std::uint32_t session_handle,
+        std::vector<ws_cmd> &cmds);
 
     class window_server_client {
     public:
@@ -290,6 +296,7 @@ namespace eka2l1::epoc {
         }
 
         ws::uid add_capture_key_notifier_to_server(epoc::event_capture_key_notifier &notifier);
+        bool remove_capture_key_notifier_from_server(epoc::ws::uid id);
 
         void send_screen_change_events(epoc::screen *scr);
         void send_focus_group_change_events(epoc::screen *scr);
@@ -368,6 +375,9 @@ namespace eka2l1 {
 
         fbs_server *fbss{ nullptr };
         int input_handler_evt_;
+        std::mutex pending_driver_inputs_mutex_;
+        std::queue<drivers::input_event> pending_driver_inputs_;
+        bool pending_driver_input_event_scheduled_;
 
         bool key_block_active{ true };
 
@@ -407,6 +417,7 @@ namespace eka2l1 {
         epoc::window_key_shipper key_shipper;
 
         void handle_input_from_driver(drivers::input_event input_event);
+        void process_queued_driver_inputs();
         void init_screens();
         void init_ws_mem();
         void init_repeatable();
@@ -483,9 +494,9 @@ namespace eka2l1 {
 
         /**
          * @brief Set interval for repeat event to be generated.
-         * 
+         *
          * All of time arguments are accounted in microseconds.
-         * 
+         *
          * @param initial_time The delay to emit first repeat event after the first key event.
          * @param next_time    The interval between repeat event being generated, counting from the first repeat event.
          */
@@ -493,9 +504,9 @@ namespace eka2l1 {
 
         /**
          * @brief Get the interval for repeat event to be generated.
-         * 
+         *
          * All of time arguments are accounted in microseconds.
-         * 
+         *
          * @param initial_time Reference to integer which will contain the delay to emit first repeat event after the first key event.
          * @param next_time    Reference to integer which will contain the interval between repeat event being generated, counting from the first repeat event.
          */

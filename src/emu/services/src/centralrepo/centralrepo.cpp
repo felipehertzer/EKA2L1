@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -33,6 +33,7 @@
 #include <utils/err.h>
 #include <vfs/vfs.h>
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -148,7 +149,7 @@ namespace eka2l1 {
         // Iterate through each ini to get entry
 
         if (!main) {
-            return false;
+            return true;
         }
 
         for (auto &node : (*main)) {
@@ -251,6 +252,7 @@ namespace eka2l1 {
         REGISTER_IPC(central_repo_server, redirect_msg_to_session, cen_rep_group_nof_cancel, "CenRep::GroupNofCancel");
         REGISTER_IPC(central_repo_server, redirect_msg_to_session, cen_rep_notify_cancel_all, "CenRep::NofCancelAll");
         REGISTER_IPC(central_repo_server, redirect_msg_to_session, cen_rep_transaction_start, "CenRep::TransactionStart");
+        REGISTER_IPC(central_repo_server, redirect_msg_to_session, cen_rep_transaction_commit, "CenRep::TransactionCommit");
         REGISTER_IPC(central_repo_server, redirect_msg_to_session, cen_rep_transaction_cancel, "CenRep::TransactionCancel");
     }
 
@@ -280,7 +282,17 @@ namespace eka2l1 {
 
         repo->attached.push_back(&res.first->second);
 
-        bool result = ctx->write_data_to_descriptor_argument<std::uint32_t>(3, idcounter);
+        if (!ctx->write_handle_argument(3, idcounter)) {
+            auto attached_ite = std::find(repo->attached.begin(), repo->attached.end(), &res.first->second);
+            if (attached_ite != repo->attached.end()) {
+                repo->attached.erase(attached_ite);
+            }
+
+            client_subsessions.erase(res.first);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -424,7 +436,9 @@ namespace eka2l1 {
                     }
 
                     // Try to load the INI
-                    auto path = io->get_raw_path(repo_folder + repoini);
+                    repo_path = repo_folder + repoini;
+
+                    auto path = io->get_raw_path(repo_path);
 
                     if (!path) {
                         continue;
@@ -450,10 +464,10 @@ namespace eka2l1 {
      *
      * - The ROM INI are for rollback
      * - And repo initialisation file resides outside private/1020be9/
-     * 
+     *
      * That's for rollback when calling reset. Any changes in repo will be saved in persists folder
      * of preferable drive (usually internal).
-    */
+     */
     eka2l1::central_repo *central_repo_server::load_repo(eka2l1::io_system *io, device_manager *mngr, const std::uint32_t key) {
         eka2l1::central_repo repo;
         if (load_repo_adv(io, mngr, &repo, key, false) != 0) {
@@ -580,6 +594,10 @@ namespace eka2l1 {
 
         case cen_rep_transaction_start:
             start_transaction(ctx);
+            break;
+
+        case cen_rep_transaction_commit:
+            commit_transaction(ctx);
             break;
 
         case cen_rep_transaction_cancel:

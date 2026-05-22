@@ -1,31 +1,30 @@
 /*
  * Copyright (c) 2023 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <services/internet/browser.h>
 #include <common/applauncher.h>
 #include <common/log.h>
+#include <services/internet/browser.h>
 #include <utils/err.h>
 
 namespace eka2l1 {
     browser_for_app_session::browser_for_app_session(service::typical_server *serv, kernel::uid client_ss_uid, epoc::version client_version)
         : app_ui_based_session(serv, client_ss_uid, client_version) {
-
     }
 
     void browser_for_app_session::open_url(service::ipc_context *ctx) {
@@ -36,7 +35,7 @@ namespace eka2l1 {
             return;
         }
 
-        const std::string url = common::ucs2_to_utf8(std::u16string(reinterpret_cast<char16_t*>(open_url_params->substr(16).data()),
+        const std::string url = common::ucs2_to_utf8(std::u16string(reinterpret_cast<char16_t *>(open_url_params->substr(16).data()),
             (open_url_params->length() - 16) / 2));
 
         if (!common::launch_browser(url)) {

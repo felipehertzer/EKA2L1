@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <qt/btnmap/joystick.h>
 #include <qt/btnmap/editor.h>
 #include <qt/btnmap/executor.h>
+#include <qt/btnmap/joystick.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -76,14 +76,14 @@ namespace eka2l1::qt::btnmap {
     }
 
     void joystick::positioning_bind_buttons() {
-        int padding = static_cast<int>(+ common::min<int>(width_ / 10, 10));
+        int padding = static_cast<int>(+common::min<int>(width_ / 10, 10));
 
         eka2l1::vec2 centers[5] = {
-            eka2l1::vec2(position_.x + width_ / 2, position_.y + padding),     // Up
-            eka2l1::vec2(position_.x + width_ / 2, position_.y + width_ - padding),    // Down
-            eka2l1::vec2(position_.x + padding, position_.y + width_ / 2),     // Left
-            eka2l1::vec2(position_.x + width_ - padding, position_.y + width_ / 2),   // Right
-            position_ + eka2l1::vec2(width_ / 2)    // Joy
+            eka2l1::vec2(position_.x + width_ / 2, position_.y + padding), // Up
+            eka2l1::vec2(position_.x + width_ / 2, position_.y + width_ - padding), // Down
+            eka2l1::vec2(position_.x + padding, position_.y + width_ / 2), // Left
+            eka2l1::vec2(position_.x + width_ - padding, position_.y + width_ / 2), // Right
+            position_ + eka2l1::vec2(width_ / 2) // Joy
         };
 
         for (std::size_t i = 0; i < 4; i++) {
@@ -118,7 +118,7 @@ namespace eka2l1::qt::btnmap {
             if (joystick_base_file == nullptr) {
                 LOG_ERROR(FRONTEND_UI, "Joystick image file does not exist for mapping editor! (check {} if it exists)", JOYSTICK_BASE_PNG_PATH);
             } else {
-                stbi_uc* image = stbi_load_from_file(joystick_base_file, &width, &height, &comp, STBI_rgb_alpha);
+                stbi_uc *image = stbi_load_from_file(joystick_base_file, &width, &height, &comp, STBI_rgb_alpha);
                 if (!image) {
                     LOG_ERROR(FRONTEND_UI, "Can't load joystick image for mapping editor!");
                 } else {
@@ -179,7 +179,7 @@ namespace eka2l1::qt::btnmap {
 
             corner_rect.top = (position_ + eka2l1::vec2(width_ - CORNER_RESIZE_SIZE.x, 0)) * scale_factor_;
             builder.draw_rectangle(corner_rect);
-            
+
             corner_rect.top = (position_ + width_ - CORNER_RESIZE_SIZE) * scale_factor_;
             builder.draw_rectangle(corner_rect);
 
@@ -260,7 +260,7 @@ namespace eka2l1::qt::btnmap {
                 width_ = static_cast<int>(value.x / scale_factor_[0]) - previous_rect_.top.x;
                 width_ = common::max(width_, MIN_JOYSTICK_SIZE);
             } else {
-                width_ =  previous_rect_.top.x - static_cast<int>(value.x / scale_factor_[0]);
+                width_ = previous_rect_.top.x - static_cast<int>(value.x / scale_factor_[0]);
                 width_ = common::max(width_, MIN_JOYSTICK_SIZE);
                 position_ = previous_rect_.top - eka2l1::vec2(width_, 0);
             }

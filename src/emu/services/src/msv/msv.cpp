@@ -1,32 +1,32 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <services/fs/fs.h>
+#include <services/fs/std.h>
 #include <services/msv/msv.h>
-#include <services/msv/store.h>
 #include <services/msv/operations/change.h>
 #include <services/msv/operations/create.h>
 #include <services/msv/operations/move.h>
+#include <services/msv/store.h>
 #include <services/sms/mtm/factory.h>
 #include <services/sms/settings.h>
-#include <services/fs/fs.h>
-#include <services/fs/std.h>
 
 #include <system/epoc.h>
 #include <vfs/vfs.h>
@@ -97,7 +97,7 @@ namespace eka2l1 {
             }
         }
     }
-    
+
     io_system *msv_server::get_io_system() {
         return sys->get_io_system();
     }
@@ -108,7 +108,7 @@ namespace eka2l1 {
         epoc::sms::sms_settings settings;
         epoc::sms::supply_sim_settings(sys, &settings);
 
-        std::vector<epoc::msv::entry*> entries = indexer_->get_entries_by_parent(epoc::msv::MSV_ROOT_ID_VALUE);
+        std::vector<epoc::msv::entry *> entries = indexer_->get_entries_by_parent(epoc::msv::MSV_ROOT_ID_VALUE);
         for (std::size_t i = 0; i < entries.size(); i++) {
             if (entries[i]->mtm_uid_ == epoc::msv::MSV_MSG_TYPE_UID) {
                 std::optional<std::u16string> path = indexer_->get_entry_data_file(entries[i]);
@@ -137,7 +137,7 @@ namespace eka2l1 {
                     }
 
                     f = io->open_file(path.value(), WRITE_MODE | BIN_MODE);
-                    
+
                     if (f) {
                         eka2l1::wo_file_stream wstream(f.get());
                         the_store.write(wstream);
@@ -174,7 +174,7 @@ namespace eka2l1 {
         std::unique_ptr<epoc::msv::operation_factory> sms_opftr = std::make_unique<epoc::sms::sms_operation_factory>();
         install_factory(sms_opftr);
 
-        fserver_ = reinterpret_cast<fs_server*>(kern->get_by_name<service::server>(eka2l1::epoc::fs::get_server_name_through_epocver(
+        fserver_ = reinterpret_cast<fs_server *>(kern->get_by_name<service::server>(eka2l1::epoc::fs::get_server_name_through_epocver(
             kern->get_epoc_version())));
 
         init_sms_settings();
@@ -188,13 +188,13 @@ namespace eka2l1 {
 
         msv_client_session *sess = create_session<msv_client_session>(&context);
 
-        // Queue a ready event
         msv_event_data ready;
+        ready.nof_ = epoc::msv::change_notification_type_index_loaded;
         ready.arg1_ = 0;
         ready.arg2_ = 0;
-        ready.nof_ = epoc::msv::change_notification_type_index_loaded;
-
+        ready.ids_.push_back(0);
         sess->queue(ready);
+
         context.complete(epoc::error_none);
     }
 
@@ -209,16 +209,15 @@ namespace eka2l1 {
                 copy.arg1_ = evt.arg1_;
                 copy.arg2_ = evt.arg2_;
 
-                copy.ids_.insert(copy.ids_.begin(), evt.ids_.begin() + i * MAX_ID_PER_EVENT_DATA_REPORT, (evt.ids_.size() < (i + 1) * MAX_ID_PER_EVENT_DATA_REPORT)
-                    ? evt.ids_.end() : evt.ids_.begin() + (i + 1) * MAX_ID_PER_EVENT_DATA_REPORT);
+                copy.ids_.insert(copy.ids_.begin(), evt.ids_.begin() + i * MAX_ID_PER_EVENT_DATA_REPORT, (evt.ids_.size() < (i + 1) * MAX_ID_PER_EVENT_DATA_REPORT) ? evt.ids_.end() : evt.ids_.begin() + (i + 1) * MAX_ID_PER_EVENT_DATA_REPORT);
 
                 reports.push_back(copy);
             }
         }
 
-        for (auto &session: sessions) {
-            msv_client_session *cli = reinterpret_cast<msv_client_session*>(session.second.get());
-            
+        for (auto &session : sessions) {
+            msv_client_session *cli = reinterpret_cast<msv_client_session *>(session.second.get());
+
             if (!reports.empty()) {
                 for (std::size_t i = 0; i < reports.size(); i++) {
                     cli->queue(reports[i]);
@@ -282,7 +281,7 @@ namespace eka2l1 {
     void msv_server::install_factory(std::unique_ptr<epoc::msv::operation_factory> &factory) {
         factories_.push_back(std::move(factory));
     }
-    
+
     epoc::msv::operation_factory *msv_server::get_factory(const std::uint32_t mtm_uid) {
         for (std::size_t i = 0; i < factories_.size(); i++) {
             if (factories_[i]->mtm_uid() == mtm_uid) {
@@ -318,18 +317,18 @@ namespace eka2l1 {
             data_str.description_.set_length(nullptr, static_cast<std::uint32_t>(ent.description_.length()));
             data_str.details_.set_length(nullptr, static_cast<std::uint32_t>(ent.details_.length()));
         }
-        
+
         if (kern->is_eka1()) {
             seri.absorb_impl(reinterpret_cast<std::uint8_t *>(&data_str), sizeof(epoc::msv::entry_data));
         } else {
             // The date value is aligned to offset 40, to fit 8-bit alignment
             // This is due to change of compiler compiling these built-in DLLs in EKA2
-            seri.absorb_impl(reinterpret_cast<std::uint8_t*>(&data_str), offsetof(epoc::msv::entry_data, date_));
+            seri.absorb_impl(reinterpret_cast<std::uint8_t *>(&data_str), offsetof(epoc::msv::entry_data, date_));
 
             std::uint32_t padding = 0;
             seri.absorb(padding);
 
-            seri.absorb_impl(reinterpret_cast<std::uint8_t*>(&data_str.date_), sizeof(epoc::msv::entry_data) - offsetof(epoc::msv::entry_data, date_));
+            seri.absorb_impl(reinterpret_cast<std::uint8_t *>(&data_str.date_), sizeof(epoc::msv::entry_data) - offsetof(epoc::msv::entry_data, date_));
         }
 
         if (seri.get_seri_mode() == common::SERI_MODE_READ) {
@@ -348,10 +347,10 @@ namespace eka2l1 {
         }
 
         pad_out_data(seri);
-        seri.absorb_impl(reinterpret_cast<std::uint8_t*>(ent.description_.data()), ent.description_.length() * sizeof(char16_t));
+        seri.absorb_impl(reinterpret_cast<std::uint8_t *>(ent.description_.data()), ent.description_.length() * sizeof(char16_t));
 
         pad_out_data(seri);
-        seri.absorb_impl(reinterpret_cast<std::uint8_t*>(ent.details_.data()), ent.details_.length() * sizeof(char16_t));
+        seri.absorb_impl(reinterpret_cast<std::uint8_t *>(ent.details_.data()), ent.details_.length() * sizeof(char16_t));
 
         pad_out_data(seri);
     }
@@ -406,8 +405,7 @@ namespace eka2l1 {
 
             kernel::process *own_pr = info.requester->owning_process();
 
-            nof_sequence_++;
-            std::string nof_sequence_data(reinterpret_cast<const char *>(&nof_sequence_), sizeof(std::uint32_t));
+            std::string nof_sequence_data(reinterpret_cast<const char *>(&evt.notify_sequence_), sizeof(std::uint32_t));
 
             // Copy change
             pack_change_buffer(change, own_pr, evt);
@@ -426,7 +424,8 @@ namespace eka2l1 {
 
     void msv_client_session::queue(msv_event_data evt) {
         nof_sequence_++;
-        std::string nof_sequence_data(reinterpret_cast<const char *>(&nof_sequence_), sizeof(std::uint32_t));
+        evt.notify_sequence_ = nof_sequence_;
+        std::string nof_sequence_data(reinterpret_cast<const char *>(&evt.notify_sequence_), sizeof(std::uint32_t));
 
         if (!msv_info_.empty()) {
             kernel::process *own_pr = msv_info_.requester->owning_process();
@@ -644,7 +643,7 @@ namespace eka2l1 {
 
         ctx->complete(epoc::error_none);
     }
-    
+
     void absorb_command_data(common::chunkyseri &seri, std::vector<epoc::msv::msv_id> &ids, std::uint32_t &param1,
         std::uint32_t &param2) {
         std::uint32_t count = static_cast<std::uint32_t>(ids.size());
@@ -704,7 +703,7 @@ namespace eka2l1 {
         serv->absorb_entry_and_owning_service_id_to_buffer(seri, *ent, owning_service_id);
 
         ctx->set_descriptor_argument_length(1, static_cast<std::uint32_t>(seri.size()));
-        
+
         // Slot 2 is usually service ID on old MSV
         if (ctx->get_descriptor_argument_ptr(2)) {
             ctx->write_data_to_descriptor_argument<std::uint32_t>(2, owning_service_id);
@@ -846,8 +845,15 @@ namespace eka2l1 {
         auto comps = server<msv_server>()->reg_.get_components(mtm_uid.value());
         kernel_system *kern = server<msv_server>()->get_kernel_object_owner();
 
+        LOG_TRACE(SERVICE_MSV, "MsvServer fill MTM DLL array type=0x{:X}, components={}", mtm_uid.value(), comps.size());
+
         std::uint8_t *argptr = ctx->get_descriptor_argument_ptr(1);
         const std::size_t argsize = ctx->get_argument_max_data_size(1);
+
+        if (!argptr || (argsize < sizeof(std::uint32_t))) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
 
         // Reserves 4 bytes for count
         common::chunkyseri seri(argptr + 4, argsize - 4, common::SERI_MODE_WRITE);
@@ -859,6 +865,10 @@ namespace eka2l1 {
             // Make a way for break in future
             (*element_count)++;
             epoc::msv::mtm_group *group = server<msv_server>()->reg_.get_group(comp->group_idx_);
+
+            LOG_TRACE(SERVICE_MSV, "MsvServer MTM component group=0x{:X}, tech=0x{:X}, comp=0x{:X}, specific=0x{:X}, entry={}, version={}.{}.{}, file={}",
+                group ? group->mtm_uid_ : 0, group ? group->tech_type_uid_ : 0, comp->comp_uid_, comp->specific_uid_,
+                comp->entry_point_, comp->major_, comp->minor_, comp->build_, common::ucs2_to_utf8(comp->filename_));
 
             seri.absorb(group->mtm_uid_);
             seri.absorb(group->tech_type_uid_);
@@ -893,13 +903,23 @@ namespace eka2l1 {
             std::uint32_t entry_point = comp->entry_point_;
             seri.absorb(entry_point);
 
-            // Absorb versions
-            std::uint32_t version = (comp->build_) | ((comp->major_ & 0xFF) << 16) | ((comp->minor_ & 0xFF) << 8);
-            seri.absorb(version);
+            if (kern->is_eka1()) {
+                // Legacy message frameworks read TVersion as a packed TInt32 here.
+                std::uint32_t version = (comp->build_) | ((comp->major_ & 0xFF) << 16) | ((comp->minor_ & 0xFF) << 8);
+                seri.absorb(version);
+            } else {
+                // CMtmDllInfo::ExternalizeL writes TVersion as Int8, Int8, Int16.
+                std::uint8_t major = static_cast<std::uint8_t>(comp->major_);
+                std::uint8_t minor = static_cast<std::uint8_t>(comp->minor_);
+                std::uint16_t build = comp->build_;
+                seri.absorb(major);
+                seri.absorb(minor);
+                seri.absorb(build);
+            }
 
             // Legacy does not contain filename
             if (!kern->is_eka1() && (comp->specific_uid_ == epoc::msv::MTM_DEFAULT_SPECIFIC_UID)) {
-                //std::string filename_utf8 = common::ucs2_to_utf8(comp->filename_);
+                // std::string filename_utf8 = common::ucs2_to_utf8(comp->filename_);
                 epoc::absorb_des_string(comp->filename_, seri, true);
             }
 
@@ -1230,7 +1250,7 @@ namespace eka2l1 {
 
     void msv_client_session::operation_info(service::ipc_context *ctx, const bool is_complete, const bool is_system) {
         std::optional<std::uint32_t> operation_id = ctx->get_argument_value<std::uint32_t>(0);
-        
+
         if (!operation_id.has_value()) {
             ctx->complete(epoc::error_argument);
             return;
@@ -1257,8 +1277,7 @@ namespace eka2l1 {
 
                     return;
                 } else {
-                    if ((is_complete && (operations_[i]->state() == epoc::msv::operation_state_success)) ||
-                        (!is_complete && (operations_[i]->state() == epoc::msv::operation_state_pending))) {
+                    if ((is_complete && (operations_[i]->state() == epoc::msv::operation_state_success)) || (!is_complete && (operations_[i]->state() == epoc::msv::operation_state_pending))) {
                         const epoc::msv::operation_buffer &buffer = operations_[i]->progress_buffer();
 
                         ctx->write_data_to_descriptor_argument(1, buffer.data(), static_cast<std::uint32_t>(buffer.size()));
@@ -1415,7 +1434,7 @@ namespace eka2l1 {
 
         const int res = fclient->new_node(msver->get_io_system(), ctx->msg->own_thr, path.value(), epoc::fs::file_read | epoc::fs::file_share_any,
             false, false, true);
-        
+
         if (res < 0) {
             ctx->complete(res);
 
@@ -1472,7 +1491,7 @@ namespace eka2l1 {
 
         const int res = fclient->new_node(msver->get_io_system(), ctx->msg->own_thr, path.value(), epoc::fs::file_write | epoc::fs::file_share_any,
             true, false, true);
-        
+
         if (res < 0) {
             ctx->complete(res);
 
@@ -1525,7 +1544,7 @@ namespace eka2l1 {
         std::uint32_t version = 1;
         seri.absorb(version);
 
-        std::string buffer(reinterpret_cast<char*>(set.bytes_), set.total_size);
+        std::string buffer(reinterpret_cast<char *>(set.bytes_), set.total_size);
         epoc::absorb_des_string(buffer, seri, false);
     }
 
@@ -1540,7 +1559,7 @@ namespace eka2l1 {
             ctx->complete(epoc::error_argument);
             return;
         }
-        
+
         epoc::capability_set set;
         set.clear();
 
@@ -1615,14 +1634,14 @@ namespace eka2l1 {
                 mtm = ent1->mtm_uid_;
                 service = ent1->service_id_;
             }
-        } else {  
+        } else {
             epoc::msv::entry *ent2 = srv->indexer()->get_entry(id2.value());
 
             if (!ent2) {
                 ctx->complete(epoc::error_not_found);
                 return;
             }
-            
+
             std::uint32_t owning1 = 0;
             std::uint32_t owning2 = 0;
 
@@ -1664,7 +1683,7 @@ namespace eka2l1 {
 
     void msv_client_session::cancel_operation(service::ipc_context *ctx) {
         std::optional<std::uint32_t> operation_id = ctx->get_argument_value<std::uint32_t>(0);
-        
+
         if (!operation_id.has_value()) {
             ctx->complete(epoc::error_argument);
             return;

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -36,8 +36,8 @@ namespace eka2l1 {
 
     /**
      * \brief Parse a new centrep ini file.
-	 * \returns False if IO error or invalid centrep configs.
-	*/
+     * \returns False if IO error or invalid centrep configs.
+     */
     bool parse_new_centrep_ini(const std::string &path, central_repo &repo);
 
     class central_repo_server;
@@ -99,7 +99,7 @@ namespace eka2l1 {
 
         /**
          * \brief Load a repo, looking up from the cache first.
-         * 
+         *
          * The function lookups in already-loaded repo list. If it's not available, load new one.
          */
         eka2l1::central_repo *load_repo_with_lookup(eka2l1::io_system *io, device_manager *mngr, const std::uint32_t key);

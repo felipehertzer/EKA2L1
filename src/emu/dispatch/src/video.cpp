@@ -1,30 +1,30 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <common/log.h>
 #include <common/cvt.h>
-#include <dispatch/video.h>
+#include <common/log.h>
 #include <dispatch/dispatcher.h>
+#include <dispatch/video.h>
 #include <drivers/graphics/graphics.h>
 #include <kernel/kernel.h>
-#include <services/window/window.h>
 #include <services/window/classes/winuser.h>
+#include <services/window/window.h>
 #include <system/epoc.h>
 #include <utils/err.h>
 
@@ -46,18 +46,20 @@ namespace eka2l1::dispatch {
         , postings_(posting_target_free_check_func, posting_target_free_func) {
         video_player_ = drivers::new_best_video_player(auddrv);
         video_player_->set_image_frame_available_callback([](void *userdata, const std::uint8_t *data, const std::size_t data_size) {
-            epoc_video_player *self = reinterpret_cast<epoc_video_player*>(userdata);
+            epoc_video_player *self = reinterpret_cast<epoc_video_player *>(userdata);
             if (self) {
                 self->post_new_image(data, data_size);
             }
-        }, this);
+        },
+            this);
 
         video_player_->set_play_complete_callback([](void *userdata, const int sts) {
-            epoc_video_player *self = reinterpret_cast<epoc_video_player*>(userdata);
+            epoc_video_player *self = reinterpret_cast<epoc_video_player *>(userdata);
             if (self) {
                 self->on_play_done(sts);
             }
-        }, this);
+        },
+            this);
     }
 
     epoc_video_player::~epoc_video_player() {
@@ -88,7 +90,7 @@ namespace eka2l1::dispatch {
         }
 
         // Get the window
-        epoc::canvas_base *the_canvas = reinterpret_cast<epoc::canvas_base*>(real_client->get_object(win_handle));
+        epoc::canvas_base *the_canvas = reinterpret_cast<epoc::canvas_base *>(real_client->get_object(win_handle));
         if (!the_canvas) {
             LOG_ERROR(HLE_DISPATCHER, "Unable to retrieve the drawable window object! (ID=0x{:X}, WCID=0x{:X})", win_handle, ss->unique_id());
             return -1;
@@ -156,7 +158,7 @@ namespace eka2l1::dispatch {
             image_handle_ = 0;
         }
     }
-    
+
     void epoc_video_player::stop() {
         video_player_->stop();
     }
@@ -182,7 +184,7 @@ namespace eka2l1::dispatch {
         const eka2l1::vec2 vid_size = video_player_->get_video_size();
         const eka2l1::vec3 vid_size_v3 = eka2l1::vec3(vid_size.x, vid_size.y, 0);
 
-        for (auto &posting: postings_) {
+        for (auto &posting : postings_) {
             if (posting.target_window_ == nullptr) {
                 continue;
             }
@@ -193,7 +195,7 @@ namespace eka2l1::dispatch {
                 image_handle_ = drivers::create_texture(driver_, 2, 0, drivers::texture_format::rgba, drivers::texture_format::rgba,
                     drivers::texture_data_type::ubyte, buffer_data, buffer_size, vid_size_v3);
             } else {
-                posting.target_window_->driver_builder_.update_texture(image_handle_, reinterpret_cast<const char*>(buffer_data), buffer_size, 0, drivers::texture_format::rgba,
+                posting.target_window_->driver_builder_.update_texture(image_handle_, reinterpret_cast<const char *>(buffer_data), buffer_size, 0, drivers::texture_format::rgba,
                     drivers::texture_data_type::ubyte, eka2l1::vec3(0, 0, 0), vid_size_v3);
             }
 
@@ -249,7 +251,7 @@ namespace eka2l1::dispatch {
     void epoc_video_player::cancel_done_notify() {
         play_done_notify_.complete(epoc::error_cancel);
     }
-    
+
     void epoc_video_player::on_play_done(const int error) {
         if (error == 0) {
             play_done_notify_.complete(epoc::error_none);
@@ -257,7 +259,7 @@ namespace eka2l1::dispatch {
             play_done_notify_.complete(epoc::error_general);
         }
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(eka2l1::ptr<void>, evideo_player_inst) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         drivers::graphics_driver *grdrv = sys->get_graphics_driver();
@@ -271,7 +273,7 @@ namespace eka2l1::dispatch {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         return dispatcher->video_player_container_.remove_object(handle);
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, evideo_player_register_window, const std::uint32_t handle, const std::uint32_t wss_handle, const std::uint32_t win_ws_handle) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::epoc_video_player *player = dispatcher->video_player_container_.get_object(handle);
@@ -315,7 +317,7 @@ namespace eka2l1::dispatch {
         player->unregister_window(managed_handle);
         return epoc::error_none;
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, evideo_player_max_volume, const std::uint32_t handle) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::epoc_video_player *player = dispatcher->video_player_container_.get_object(handle);
@@ -364,7 +366,7 @@ namespace eka2l1::dispatch {
         player->set_rotation(rot_type);
         return epoc::error_none;
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, evideo_player_open_file, const std::uint32_t handle, epoc::desc16 *filename) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::epoc_video_player *player = dispatcher->video_player_container_.get_object(handle);
@@ -373,7 +375,7 @@ namespace eka2l1::dispatch {
             return epoc::error_bad_handle;
         }
 
-        kernel_system *kern = sys->get_kernel_system();                
+        kernel_system *kern = sys->get_kernel_system();
         kernel::process *crr_pr = kern->crr_process();
 
         const std::u16string virtual_filename = filename->to_std_string(crr_pr);
@@ -382,7 +384,7 @@ namespace eka2l1::dispatch {
         io_system *ios = sys->get_io_system();
 
         if (!ios->exist(virtual_filename)) {
-            return epoc::error_not_found;            
+            return epoc::error_not_found;
         }
 
         std::optional<std::u16string> real_filename = ios->get_raw_path(virtual_filename);
@@ -390,7 +392,7 @@ namespace eka2l1::dispatch {
         bool open_res = false;
 
         if (real_filename.has_value()) {
-            open_res = player->open_file(real_filename.value());            
+            open_res = player->open_file(real_filename.value());
         } else {
             symfile f = ios->open_file(virtual_filename, READ_MODE | BIN_MODE);
             if (!f) {
@@ -419,7 +421,7 @@ namespace eka2l1::dispatch {
         player->play(range);
         return epoc::error_none;
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, evideo_player_set_done_notify, const std::uint32_t handle, eka2l1::ptr<epoc::request_status> sts) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::epoc_video_player *player = dispatcher->video_player_container_.get_object(handle);
@@ -449,7 +451,7 @@ namespace eka2l1::dispatch {
         player->cancel_done_notify();
         return epoc::error_none;
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, evideo_player_close, const std::uint32_t handle) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::epoc_video_player *player = dispatcher->video_player_container_.get_object(handle);
@@ -462,7 +464,6 @@ namespace eka2l1::dispatch {
         return epoc::error_none;
     }
 
-    
     BRIDGE_FUNC_DISPATCHER(std::int32_t, evideo_player_stop, const std::uint32_t handle) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::epoc_video_player *player = dispatcher->video_player_container_.get_object(handle);
@@ -474,7 +475,7 @@ namespace eka2l1::dispatch {
         player->stop();
         return epoc::error_none;
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(std::int32_t, evideo_player_position, const std::uint32_t handle, std::uint64_t *position_us) {
         dispatch::dispatcher *dispatcher = sys->get_dispatcher();
         dispatch::epoc_video_player *player = dispatcher->video_player_container_.get_object(handle);

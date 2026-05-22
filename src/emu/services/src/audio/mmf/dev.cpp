@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -189,16 +189,17 @@ namespace eka2l1 {
         conf_.channels_ = 1;
         conf_.rate_ = epoc::mmf_sample_rate_8000hz;
         conf_.buffer_size_ = MMF_BUFFER_SIZE_DEFAULT;
-        conf_.encoding_ = epoc::mmf_encoding_16bit_pcm; 
+        conf_.encoding_ = epoc::mmf_encoding_16bit_pcm;
     }
 
     mmf_dev_server_session::~mmf_dev_server_session() {
         mmf_dev_server *serv = server<mmf_dev_server>();
         kernel_system *kern = serv->get_kernel_object_owner();
         ntimer *timing = kern->get_ntimer();
-        
+
         if (stream_)
             stream_->stop();
+        stream_.reset();
 
         if (serv->report_inactive_underflow()) {
             timing->unschedule_event(underflow_event_, reinterpret_cast<std::uint64_t>(this));
@@ -327,7 +328,7 @@ namespace eka2l1 {
             return;
         }
 
-        pri_ = std::move(pri_settings.value());
+        pri_ = pri_settings.value();
         ctx->complete(epoc::error_none);
     }
 
@@ -532,11 +533,7 @@ namespace eka2l1 {
         // Fill our preferred settings
         caps.channels_ = 2;
         caps.encoding_ = epoc::mmf_encoding_16bit_pcm;
-        caps.rate_ = epoc::mmf_sample_rate_8000hz | epoc::mmf_sample_rate_11025hz | 
-            epoc::mmf_sample_rate_12000hz | epoc::mmf_sample_rate_16000hz | epoc::mmf_sample_rate_22050hz |
-            epoc::mmf_sample_rate_24000hz | epoc::mmf_sample_rate_32000hz | epoc::mmf_sample_rate_44100hz |
-            epoc::mmf_sample_rate_48000hz | epoc::mmf_sample_rate_64000hz | epoc::mmf_sample_rate_88200hz |
-            epoc::mmf_sample_rate_96000hz;
+        caps.rate_ = epoc::mmf_sample_rate_8000hz | epoc::mmf_sample_rate_11025hz | epoc::mmf_sample_rate_12000hz | epoc::mmf_sample_rate_16000hz | epoc::mmf_sample_rate_22050hz | epoc::mmf_sample_rate_24000hz | epoc::mmf_sample_rate_32000hz | epoc::mmf_sample_rate_44100hz | epoc::mmf_sample_rate_48000hz | epoc::mmf_sample_rate_64000hz | epoc::mmf_sample_rate_88200hz | epoc::mmf_sample_rate_96000hz;
 
         caps.buffer_size_ = MMF_BUFFER_SIZE_DEFAULT;
 
@@ -642,7 +639,7 @@ namespace eka2l1 {
         if (serv->report_inactive_underflow()) {
             kernel_system *kern = serv->get_kernel_object_owner();
             ntimer *timing = kern->get_ntimer();
-            
+
             timing->unschedule_event(underflow_event_, reinterpret_cast<std::uint64_t>(this));
         }
 
@@ -783,7 +780,7 @@ namespace eka2l1 {
             ntimer *timing = kern->get_ntimer();
             if (!underflow_event_) {
                 underflow_event_ = timing->register_event("MMFUnderflowEvent", [](std::uint64_t userdata, const int late) {
-                    mmf_dev_server_session *session = reinterpret_cast<mmf_dev_server_session*>(userdata);
+                    mmf_dev_server_session *session = reinterpret_cast<mmf_dev_server_session *>(userdata);
                     session->complete_play(epoc::error_underflow);
                 });
             }
@@ -880,7 +877,7 @@ namespace eka2l1 {
 
         // Stored in the last buffer handle value
         do_set_buffer_buf_and_get_return_value();
-        recording_stream()->read(reinterpret_cast<std::uint8_t*>(buffer_chunk_->host_base()),
+        recording_stream()->read(reinterpret_cast<std::uint8_t *>(buffer_chunk_->host_base()),
             common::align(conf_.buffer_size_, MMF_BUFFER_SIZE_ALIGN, 1));
     }
 
@@ -971,14 +968,6 @@ namespace eka2l1 {
 
         drivers::dsp_output_stream *out_stream = reinterpret_cast<drivers::dsp_output_stream *>(stream_.get());
         out_stream->write(reinterpret_cast<std::uint8_t *>(buffer_chunk_->host_base()), supplied_size);
-
-        // Work around for Space Impact N-Gage 2.0
-        // TODO: Why it is submitting 16 times smaller bytes
-        // Maybe on real phone it just requests more each time it nears drain
-        if (((supplied_size * 16) == conf_.buffer_size_) && (out_stream->format() == drivers::PCM16_FOUR_CC_CODE)) {
-            conf_.buffer_size_ = common::clamp<std::int32_t>(MMF_BUFFER_SIZE_MIN, MMF_BUFFER_SIZE_MAX,
-                conf_.buffer_size_ * 16);
-        }
 
         ctx->complete(epoc::error_none);
     }
@@ -1102,7 +1091,7 @@ namespace eka2l1 {
 
             default:
                 LOG_ERROR(SERVICE_MMFAUD, "Unimplemented MMF dev server session opcode {}", ctx->msg->function);
-                
+
                 break;
             }
         } else {

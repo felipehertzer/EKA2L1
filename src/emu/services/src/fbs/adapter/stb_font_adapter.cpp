@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -63,7 +63,7 @@ namespace eka2l1::epoc::adapter {
         stbtt_fontinfo info;
         stbtt_InitFont(&info, &data_[0], *off);
 
-        cache_info.emplace(*off, std::move(info));
+        cache_info.emplace(*off, info);
         return &cache_info[*off];
     }
 
@@ -348,7 +348,7 @@ namespace eka2l1::epoc::adapter {
 
         return (stbtt_FindGlyphIndex(info, codepoint) != 0);
     }
-    
+
     std::uint32_t stb_font_file_adapter::get_glyph_advance(const std::size_t face_index, const std::uint32_t codepoint, const std::uint32_t font_size, const bool vertical) {
         int off = 0;
         stbtt_fontinfo *info = get_or_create_info(static_cast<int>(face_index), &off);
@@ -369,13 +369,13 @@ namespace eka2l1::epoc::adapter {
 
     // Forked from original stbtt
     static std::pair<stbtt_uint32, stbtt_uint32> stbtt__find_table_with_len(stbtt_uint8 *data, stbtt_uint32 fontstart, stbtt_uint32 tag) {
-        stbtt_int32 num_tables = ttUSHORT(data+fontstart+4);
+        stbtt_int32 num_tables = ttUSHORT(data + fontstart + 4);
         stbtt_uint32 tabledir = fontstart + 12;
         stbtt_int32 i;
-        for (i=0; i < num_tables; ++i) {
-            stbtt_uint32 loc = tabledir + 16*i;
-            if (ttULONG(data+loc+0) == tag)
-                return std::make_pair(ttULONG(data+loc+8), ttULONG(data+loc+12));
+        for (i = 0; i < num_tables; ++i) {
+            stbtt_uint32 loc = tabledir + 16 * i;
+            if (ttULONG(data + loc + 0) == tag)
+                return std::make_pair(ttULONG(data + loc + 8), ttULONG(data + loc + 12));
         }
         return std::make_pair(0, 0);
     }

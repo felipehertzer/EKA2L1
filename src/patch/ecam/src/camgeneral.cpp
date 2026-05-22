@@ -1,25 +1,25 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <Log.h>
 #include <camimpl.h>
 #include <dispatch.h>
-#include <Log.h>
 
 EXPORT_C TInt CCamera::CamerasAvailable() {
     return ECamGetNumberOfCameras(0);
@@ -32,7 +32,7 @@ EXPORT_C TInt CCamera::CameraVersion() {
 EXPORT_C CCamera::CCamera() {
 }
 
-CCameraPlugin::CCameraPlugin(MCameraObserver *aObserver) 
+CCameraPlugin::CCameraPlugin(MCameraObserver *aObserver)
     : CCamera()
     , iDispatchInstance(NULL)
     , iObserver(aObserver)
@@ -42,12 +42,12 @@ CCameraPlugin::CCameraPlugin(MCameraObserver *aObserver)
     , iJpegQuality(1) {
 }
 
-CCameraPlugin::CCameraPlugin(MCameraObserver2 *aObserver) 
+CCameraPlugin::CCameraPlugin(MCameraObserver2 *aObserver)
     : CCamera()
     , iDispatchInstance(NULL)
     , iObserver(aObserver)
     , iVersion(2)
-    , iImageCaptureSizeIndex(-1) 
+    , iImageCaptureSizeIndex(-1)
     , iVideoCaptureSizeIndex(-1)
     , iJpegQuality(1) {
 }
@@ -91,24 +91,24 @@ TInt CCameraPlugin::JpegQuality() const {
 }
 
 void CCameraPlugin::HandleReserveCompleteV1(TInt aError) {
-    MCameraObserver *observer = (MCameraObserver*)iObserver;
+    MCameraObserver *observer = (MCameraObserver *)iObserver;
     observer->ReserveComplete(aError);
 }
 
 void CCameraPlugin::HandleReserveCompleteV2(TInt aError) {
     TECAMEvent reserveEvent(KUidECamEventReserveComplete, aError);
-    MCameraObserver2 *observer = (MCameraObserver2*)iObserver;
+    MCameraObserver2 *observer = (MCameraObserver2 *)iObserver;
     observer->HandleEvent(reserveEvent);
 }
 
 void CCameraPlugin::HandlePowerOnCompleteV1(TInt aError) {
-    MCameraObserver *observer = (MCameraObserver*)iObserver;
+    MCameraObserver *observer = (MCameraObserver *)iObserver;
     observer->PowerOnComplete(aError);
 }
 
 void CCameraPlugin::HandlePowerOnCompleteV2(TInt aError) {
     TECAMEvent reserveEvent(KUidECamEventPowerOnComplete, aError);
-    MCameraObserver2 *observer = (MCameraObserver2*)iObserver;
+    MCameraObserver2 *observer = (MCameraObserver2 *)iObserver;
     observer->HandleEvent(reserveEvent);
 }
 
@@ -130,16 +130,16 @@ void CCameraPlugin::HandlePowerOnComplete(TInt aError) {
 }
 
 static TInt IdleCompleteReserveCallback(TAny *aData) {
-    CCameraPlugin *impl = (CCameraPlugin*)aData;
+    CCameraPlugin *impl = (CCameraPlugin *)aData;
     impl->HandleReserveComplete(KErrNone);
-    
+
     return 0;
 }
 
 static TInt IdleCompletePowerOnCallback(TAny *aData) {
-    CCameraPlugin *impl = (CCameraPlugin*)aData;
+    CCameraPlugin *impl = (CCameraPlugin *)aData;
     impl->HandlePowerOnComplete(KErrNone);
-    
+
     return 0;
 }
 
@@ -179,13 +179,13 @@ TInt CCameraPlugin::Handle() {
     return (TInt)iDispatchInstance;
 }
 
-#define CAMIMPL_SET_PARAMETER(key, value, cache, errorMsg)                                  \
-    TInt result = ECamSetParameter(0, iDispatchInstance, key, (TInt)value);                       \
-    if (result != KErrNone) {                                                               \
-        LogOut(KCameraCat, _L(errorMsg));                                                   \
-        User::Leave(result);                                                                \
-    } else {                                                                                \
-        cache = value;                                                                      \
+#define CAMIMPL_SET_PARAMETER(key, value, cache, errorMsg)                  \
+    TInt result = ECamSetParameter(0, iDispatchInstance, key, (TInt)value); \
+    if (result != KErrNone) {                                               \
+        LogOut(KCameraCat, _L(errorMsg));                                   \
+        User::Leave(result);                                                \
+    } else {                                                                \
+        cache = value;                                                      \
     }
 
 void CCameraPlugin::SetZoomFactorL(TInt aZoomFactor) {
@@ -244,7 +244,7 @@ CCamera::TWhiteBalance CCameraPlugin::WhiteBalance() const {
     return iWhiteBalance;
 }
 
-TAny* CCameraPlugin::CustomInterface(TUid aInterface) {
+TAny *CCameraPlugin::CustomInterface(TUid aInterface) {
     return NULL;
 }
 
@@ -259,16 +259,16 @@ EXPORT_C TECAMEvent::TECAMEvent() {
 EXPORT_C TECAMEvent2::TECAMEvent2(TUid aEventType, TInt aErrorCode, TInt aParam)
     : TECAMEvent(aEventType, aErrorCode)
     , iEventClassUsed(KUidECamEventClass2)
-    , iParam(aParam) {	
+    , iParam(aParam) {
 }
 
-EXPORT_C const TUid& TECAMEvent2::EventClassUsed() const {
+EXPORT_C const TUid &TECAMEvent2::EventClassUsed() const {
     return iEventClassUsed;
 }
 
-EXPORT_C TBool TECAMEvent2::IsEventEncapsulationValid(const TECAMEvent& aEvent) {
+EXPORT_C TBool TECAMEvent2::IsEventEncapsulationValid(const TECAMEvent &aEvent) {
     if ((aEvent.iEventType.iUid >= KECamUidEvent2RangeBegin) && (aEvent.iEventType.iUid <= KECamUidEvent2RangeEnd)) {
-        TECAMEvent2 eventv2 = static_cast<const TECAMEvent2&>(aEvent);
+        TECAMEvent2 eventv2 = static_cast<const TECAMEvent2 &>(aEvent);
 
         if (eventv2.EventClassUsed().iUid == KUidECamEventClass2UidValue) {
             return ETrue;
@@ -283,7 +283,7 @@ EXPORT_C TBool TECAMEvent2::IsEventEncapsulationValid(const TECAMEvent& aEvent) 
     case KUidECamEventCIPRemoveColorSwapEntryUidValue:
     case KUidECamEventCIPSetColorAccentEntryUidValue:
     case KUidECamEventCIPRemoveColorAccentEntryUidValue: {
-        TECAMEvent2 eventv2 = static_cast<const TECAMEvent2&>(aEvent);
+        TECAMEvent2 eventv2 = static_cast<const TECAMEvent2 &>(aEvent);
 
         if (eventv2.EventClassUsed().iUid == KUidECamEventClass2UidValue) {
             return ETrue;
@@ -299,50 +299,50 @@ EXPORT_C TBool TECAMEvent2::IsEventEncapsulationValid(const TECAMEvent& aEvent) 
     return EFalse;
 }
 
-EXPORT_C CCamera* CCamera::New2L(MCameraObserver2& aObserver,TInt aCameraIndex,TInt aPriority) {
+EXPORT_C CCamera *CCamera::New2L(MCameraObserver2 &aObserver, TInt aCameraIndex, TInt aPriority) {
     CCameraPlugin *camera = new (ELeave) CCameraPlugin(&aObserver);
     CleanupStack::PushL(camera);
-    
+
     camera->ConstructL(aCameraIndex);
     CleanupStack::Pop(camera);
-    
+
     return camera;
 }
 
-EXPORT_C CCamera* CCamera::NewL(MCameraObserver2& aObserver,TInt aCameraIndex,TInt aPriority) {
+EXPORT_C CCamera *CCamera::NewL(MCameraObserver2 &aObserver, TInt aCameraIndex, TInt aPriority) {
     return New2L(aObserver, aCameraIndex, aPriority);
 }
 
-EXPORT_C CCamera* CCamera::NewL(MCameraObserver& aObserver,TInt aCameraIndex) {
+EXPORT_C CCamera *CCamera::NewL(MCameraObserver &aObserver, TInt aCameraIndex) {
     CCameraPlugin *camera = new (ELeave) CCameraPlugin(&aObserver);
     CleanupStack::PushL(camera);
-    
+
     camera->ConstructL(aCameraIndex);
     CleanupStack::Pop(camera);
-    
+
     return camera;
 }
 
-EXPORT_C CCamera* CCamera::NewDuplicate2L(MCameraObserver2& aObserver,TInt aCameraHandle) {
+EXPORT_C CCamera *CCamera::NewDuplicate2L(MCameraObserver2 &aObserver, TInt aCameraHandle) {
     CCameraPlugin *camera = new (ELeave) CCameraPlugin(&aObserver);
     CleanupStack::PushL(camera);
-    
-    camera->ConstructSharedL((TAny*)aCameraHandle);
+
+    camera->ConstructSharedL((TAny *)aCameraHandle);
     CleanupStack::Pop(camera);
-    
+
     return camera;
 }
 
-EXPORT_C CCamera* CCamera::NewDuplicateL(MCameraObserver2& aObserver,TInt aCameraHandle) {
+EXPORT_C CCamera *CCamera::NewDuplicateL(MCameraObserver2 &aObserver, TInt aCameraHandle) {
     return NewDuplicate2L(aObserver, aCameraHandle);
 }
 
-EXPORT_C CCamera* CCamera::NewDuplicateL(MCameraObserver& aObserver,TInt aCameraHandle) {
+EXPORT_C CCamera *CCamera::NewDuplicateL(MCameraObserver &aObserver, TInt aCameraHandle) {
     CCameraPlugin *camera = new (ELeave) CCameraPlugin(&aObserver);
     CleanupStack::PushL(camera);
-    
-    camera->ConstructSharedL((TAny*)aCameraHandle);
+
+    camera->ConstructSharedL((TAny *)aCameraHandle);
     CleanupStack::Pop(camera);
-    
+
     return camera;
 }

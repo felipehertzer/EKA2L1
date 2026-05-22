@@ -9,6 +9,7 @@ add_library(epocservs
         include/services/utils.h
         include/services/accessory/accessory.h
         include/services/accessory/common.h
+        include/services/agenda/agenda.h
         include/services/alarm/alarm.h
         include/services/applist/applist.h
         include/services/applist/common.h
@@ -38,6 +39,7 @@ add_library(epocservs
         include/services/centralrepo/centralrepo.h
         include/services/centralrepo/common.h
         include/services/centralrepo/repo.h
+        include/services/contacts/contacts.h
         include/services/comm/comm.h
         include/services/internet/protocols/common.h
         include/services/internet/protocols/inet.h
@@ -115,6 +117,7 @@ add_library(epocservs
         include/services/socket/connection.h
         include/services/socket/server.h
         include/services/socket/socket.h
+        include/services/starter/starter.h
         include/services/sysagt/sysagt.h
         include/services/ui/cap/coestorage.h
         include/services/ui/cap/consts.h
@@ -158,6 +161,7 @@ add_library(epocservs
         src/utils.cpp
         src/accessory/accessory.cpp
         src/accessory/common.cpp
+        src/agenda/agenda.cpp
         src/alarm/alarm.cpp
         src/applist/applist.cpp
         src/applist/common.cpp
@@ -186,6 +190,7 @@ add_library(epocservs
         src/centralrepo/centralrepo.cpp
         src/centralrepo/cre.cpp
         src/centralrepo/repo.cpp
+        src/contacts/contacts.cpp
         src/comm/comm.cpp
         src/internet/protocols/overall.cpp
         src/internet/protocols/resolver.cpp
@@ -265,6 +270,7 @@ add_library(epocservs
         src/socket/resolver.cpp
         src/socket/socket.cpp
         src/socket/server.cpp
+        src/starter/starter.cpp
         src/sysagt/sysagt.cpp
         src/ui/cap/coestorage.cpp
         src/ui/cap/eiksrv.cpp
@@ -272,6 +278,7 @@ add_library(epocservs
         src/ui/cap/sgc.cpp
         src/ui/icon/icon.cpp
         src/ui/icon/init.cpp
+        src/ui/plugins/globalquery.cpp
         src/ui/plugins/keylocknof.cpp
         src/ui/plugins/notenof.cpp
         src/ui/skin/chunk_maintainer.cpp
@@ -319,17 +326,41 @@ target_include_directories(epocservs PUBLIC include)
 target_include_directories(epocservs PUBLIC
         ${EPOC32_INCLUDE_DIR})
 
+if (NOT EKA2L1_ENABLE_NETWORKING)
+    set(EKA2L1_NETWORKING_SERVICE_SOURCES
+        src/bluetooth/protocols/btlink/resolver_inet.cpp
+        src/bluetooth/protocols/l2cap/socket_inet.cpp
+        src/bluetooth/protocols/rfcomm/rfcomm_inet.cpp
+        src/bluetooth/protocols/sdp/pdu_builder.cpp
+        src/bluetooth/protocols/sdp/sdp_inet.cpp
+        src/bluetooth/protocols/asker_inet.cpp
+        src/bluetooth/protocols/base_inet.cpp
+        src/bluetooth/protocols/btmidman_lan_matching.cpp
+        src/bluetooth/protocols/btmidman_proxserv_matching.cpp
+        src/bluetooth/protocols/btmidman_inet.cpp
+        src/bluetooth/protocols/common.cpp
+        src/internet/protocols/resolver.cpp
+        src/internet/protocols/socket.cpp)
+
+    get_target_property(EKA2L1_EPOCSERVS_SOURCES epocservs SOURCES)
+    list(REMOVE_ITEM EKA2L1_EPOCSERVS_SOURCES ${EKA2L1_NETWORKING_SERVICE_SOURCES})
+    set_property(TARGET epocservs PROPERTY SOURCES ${EKA2L1_EPOCSERVS_SOURCES})
+endif()
+
 target_link_libraries(epocservs PUBLIC
         common
         epocdispatch
         epocio
         epocloader
         epocmem
-        epocutils
+        epocutils)
+
+if (EKA2L1_ENABLE_NETWORKING)
+    target_link_libraries(epocservs PUBLIC
         uv_a
         uvw
-        uvlooper
-        thread-pool)
+        uvlooper)
+endif()
 
 target_link_libraries(epocservs PRIVATE
         config
@@ -342,8 +373,7 @@ target_link_libraries(epocservs PRIVATE
         stb
         xxHash
         pugixml
-        sqlite3
-        re2::re2)
+        sqlite3)
 
 if (WIN32)
         target_link_libraries(epocservs PRIVATE Ws2_32.lib)

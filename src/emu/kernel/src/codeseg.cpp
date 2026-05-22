@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -47,7 +47,7 @@ namespace eka2l1::kernel {
 
         exception_descriptor = info.exception_descriptor;
 
-        sinfo = std::move(info.sinfo);
+        sinfo = info.sinfo;
 
         ep = info.entry_point;
 
@@ -75,7 +75,7 @@ namespace eka2l1::kernel {
             kern->destroy(code_chunk_shared);
         }
 
-        for (auto &dep: dependencies) {
+        for (auto &dep : dependencies) {
             dep.dep_->decrease_access_count();
         }
 
@@ -121,7 +121,7 @@ namespace eka2l1::kernel {
                         if (!att->get()->garbage_link.alone()) {
                             kern->get_codedump_collector().remove(*(att->get()));
                         }
-                        
+
                         if (!att->get()->closing_lib_link.alone()) {
                             att->get()->closing_lib_link.deque();
                         }
@@ -187,7 +187,7 @@ namespace eka2l1::kernel {
                 code_chunk = kern->create<kernel::chunk>(mem, code_chunk_for_reuse ? nullptr : new_foe, "", 0, code_size_align, code_size_align, prot_read_write_exec, kernel::chunk_type::normal,
                     kernel::chunk_access::code, kernel::chunk_attrib::none);
 
-                if (!code_chunk_for_reuse) {    
+                if (!code_chunk_for_reuse) {
                     code_chunk->open_to(new_foe);
                 }
 
@@ -208,15 +208,16 @@ namespace eka2l1::kernel {
 
         if (data_size_align != 0) {
             std::uint32_t add_offset = 0;
+            const bool data_base_is_local = (data_base >= mem::local_data) && (data_base <= (kern->is_eka1() ? mem::shared_data_eka1 : mem::dll_static_data));
 
-            if (!data_addr) {
+            if (!data_addr && (!is_rom() || data_base == 0)) {
                 dt_chunk = kern->create<kernel::chunk>(mem, new_foe, "", 0, data_size_align, data_size_align,
                     prot_read_write, kernel::chunk_type::normal, kernel::chunk_access::local, kernel::chunk_attrib::anonymous);
             } else {
                 kernel::chunk_access acc = kernel::chunk_access::dll_static_data;
 
                 // TODO: Remove this specific stuff
-                if ((data_base >= mem::local_data) && (data_base <= (kern->is_eka1() ? mem::shared_data_eka1 : mem::dll_static_data))) {
+                if (data_base_is_local) {
                     acc = kernel::chunk_access::local;
 
                     dt_chunk = kern->create<kernel::chunk>(mem, new_foe, "", 0, data_size_align, data_size_align,
@@ -224,6 +225,10 @@ namespace eka2l1::kernel {
                         0x00, false, data_base, nullptr);
                 } else {
                     dt_chunk = new_foe->get_rom_bss_chunk(data_base);
+                    if (!dt_chunk) {
+                        return false;
+                    }
+
                     add_offset = data_base - dt_chunk->base(new_foe).ptr_address();
 
                     if (!dt_chunk->commit(add_offset, data_size_align)) {
@@ -240,7 +245,9 @@ namespace eka2l1::kernel {
             the_addr_of_data_run = dt_chunk->base(new_foe).ptr_address() + add_offset;
 
             // Confirmed that if data is in ROM, only BSS is reserved
-            std::copy(constant_data.get(), constant_data.get() + data_size, data_base_ptr); // .data
+            if (data_size != 0) {
+                std::copy(constant_data.get(), constant_data.get() + data_size, data_base_ptr); // .data
+            }
 
             const std::uint32_t bss_off = data_size;
             std::fill(data_base_ptr + bss_off, data_base_ptr + bss_off + bss_size, 0); // .bss
@@ -274,7 +281,8 @@ namespace eka2l1::kernel {
 
                         const address addr = dependency.dep_->lookup(new_foe, ord);
                         if (!addr) {
-                            LOG_ERROR(KERNEL, "Invalid ordinal {}, requested from {}", ord, dependency.dep_->name());
+                            LOG_ERROR(KERNEL, "Invalid ordinal {}, requested by {} from {} at import offset 0x{:X}",
+                                ord, name(), dependency.dep_->name(), offset_to_apply);
                         }
 
                         *reinterpret_cast<std::uint32_t *>(&code_base_ptr[offset_to_apply]) = addr + adj;
@@ -417,7 +425,7 @@ namespace eka2l1::kernel {
         if (!kern->wipeout_in_progress()) {
             if (process_dead) {
                 free_attached_data(*attach_info);
-            } else {    
+            } else {
                 kern->get_codedump_collector().add(*attach_info);
             }
         }
@@ -712,7 +720,7 @@ namespace eka2l1::kernel {
 
         if (result == dependencies.end()) {
             codeseg.dep_->increase_access_count();
-            dependencies.push_back(std::move(codeseg));
+            dependencies.push_back(codeseg);
         } else {
             result->import_info_.insert(result->import_info_.end(), codeseg.import_info_.begin(),
                 codeseg.import_info_.end());
@@ -793,8 +801,9 @@ namespace eka2l1::kernel {
         return addr_on_base - get_code_base() + get_code_run_addr(pr, nullptr);
     }
 
-    std::vector<kernel::process*> codeseg::attached_processes() const {
-        std::vector<kernel::process*> processes;
+    std::vector<kernel::process *> codeseg::attached_processes() const {
+        std::vector<kernel::process *> processes;
+        processes.reserve(attaches.size());
         for (std::size_t i = 0; i < attaches.size(); i++) {
             processes.push_back(attaches.at(i)->attached_process);
         }

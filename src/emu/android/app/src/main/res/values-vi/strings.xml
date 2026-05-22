@@ -22,7 +22,7 @@
     <string name="screenshot">Ảnh chụp màn hình</string>
     <string name="take_screenshot_success">Ảnh chụp màn hình lưu tới %s!</string>
     <string name="take_screenshot_fail">Chụp màn hình thất bại!</string>
-    <string name="opengl_required">Ứng dụng yêu cầu OpenGL ES 3.0+.</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">Cảnh báo</string>
     <string name="scoped_storage_warning">Dữ liệu người dùng của bạn đang được lưu trữ ở nơi mà <b>sẽ bị xóa</b> sau khi bạn gỡ ứng dụng:\n</string>
     <string name="install_ng_game">Install N-Gage game</string>

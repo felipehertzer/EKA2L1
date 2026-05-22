@@ -26,13 +26,21 @@ message(STATUS "Fixing up application bundle: ${DOLPHIN_BUNDLE_PATH}")
 
 # Make sure to fix up any additional shared libraries (like plugins) that are
 # needed.
-file(GLOB_RECURSE extra_libs "${DOLPHIN_BUNDLE_PATH}/Contents/MacOS/*.dylib")
+file(GLOB_RECURSE extra_libs
+	"${DOLPHIN_BUNDLE_PATH}/Contents/MacOS/*.dylib"
+	"${DOLPHIN_BUNDLE_PATH}/Contents/PlugIns/*.dylib")
 
 # BundleUtilities doesn't support DYLD_FALLBACK_LIBRARY_PATH behavior, which
 # makes it sometimes break on libraries that do weird things with @rpath. Specify
 # equivalent search directories until https://gitlab.kitware.com/cmake/cmake/issues/16625
 # is fixed and in our minimum CMake version.
-set(extra_dirs "/usr/local/lib" "/lib" "/usr/lib")
+set(extra_dirs "/usr/local/lib" "/opt/homebrew/lib" "/lib" "/usr/lib")
+
+file(GLOB homebrew_opt_lib_dirs
+	"/usr/local/opt/*/lib"
+	"/opt/homebrew/opt/*/lib")
+list(APPEND extra_dirs ${homebrew_opt_lib_dirs})
+list(REMOVE_DUPLICATES extra_dirs)
 
 # BundleUtilities is overly verbose, so disable most of its messages
 function(message)

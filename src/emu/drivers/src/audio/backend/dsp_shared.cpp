@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,7 +20,22 @@
 #include <common/log.h>
 #include <drivers/audio/backend/dsp_shared.h>
 
+#include <thread>
+#include <utility>
+
 namespace eka2l1::drivers {
+    namespace {
+        void dispatch_dsp_notification_async(dsp_stream_notification_callback callback, void *userdata) {
+            if (!callback) {
+                return;
+            }
+
+            std::thread([callback = std::move(callback), userdata]() mutable {
+                callback(userdata);
+            }).detach();
+        }
+    }
+
     dsp_output_stream_shared::dsp_output_stream_shared(drivers::audio_driver *aud)
         : dsp_output_stream()
         , aud_(aud)
@@ -32,6 +47,7 @@ namespace eka2l1::drivers {
     dsp_output_stream_shared::~dsp_output_stream_shared() {
         if (stream_) {
             stream_->stop();
+            stream_.reset();
         }
     }
 
@@ -45,7 +61,7 @@ namespace eka2l1::drivers {
             return true;
         }
 
-        bool was_already_stopped = virtual_stop;
+        bool was_already_stopped = virtual_stop.load(std::memory_order_acquire);
 
         if (stream_) {
             stream_->stop();
@@ -90,17 +106,17 @@ namespace eka2l1::drivers {
                 return data_callback(buffer, nb_frames);
             });
 
-            virtual_stop = true;
+            virtual_stop.store(true, std::memory_order_release);
         }
 
         avg_frame_count_ = 0;
 
-        if (virtual_stop) {
+        if (virtual_stop.load(std::memory_order_acquire)) {
             if (!stream_->start()) {
                 return false;
             }
 
-            virtual_stop = false;
+            virtual_stop.store(false, std::memory_order_release);
         }
 
         return true;
@@ -114,8 +130,8 @@ namespace eka2l1::drivers {
         if (complete_callback_)
             complete_callback_(complete_userdata_);
 
-        virtual_stop = true;
-        more_requested = false;
+        virtual_stop.store(true, std::memory_order_release);
+        more_requested.store(false, std::memory_order_release);
 
         buffer_.reset();
 
@@ -130,7 +146,7 @@ namespace eka2l1::drivers {
             buffer_.push(data, (data_size + 1) / 2);
         }
 
-        more_requested = false;
+        more_requested.store(false, std::memory_order_release);
         return true;
     }
 
@@ -170,13 +186,18 @@ namespace eka2l1::drivers {
 
         // If the amount of buffer left is deemed to be insufficient (this takes account of current frame count that is needed)
         if (internal_decode_running_out()) {
-            if (!more_requested) {
-                const std::lock_guard<std::mutex> guard(callback_lock_);
-                if (more_buffer_callback_) {
-                    more_buffer_callback_(more_buffer_userdata_);
+            bool expected = false;
+            if (more_requested.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+                dsp_stream_notification_callback callback;
+                void *userdata = nullptr;
+
+                {
+                    const std::lock_guard<std::mutex> guard(callback_lock_);
+                    callback = more_buffer_callback_;
+                    userdata = more_buffer_userdata_;
                 }
-                
-                more_requested = true;
+
+                dispatch_dsp_notification_async(std::move(callback), userdata);
             }
         }
 
@@ -209,12 +230,12 @@ namespace eka2l1::drivers {
         , aud_(aud)
         , stream_(nullptr)
         , read_bytes_(0) {
-
     }
 
     dsp_input_stream_shared::~dsp_input_stream_shared() {
         if (stream_) {
             stream_->stop();
+            stream_.reset();
         }
     }
 
@@ -308,7 +329,7 @@ namespace eka2l1::drivers {
 
         if (ring_buffer_.size() != 0) {
             std::uint32_t max_copy = ((read_bytes_ + ring_buffer_.size() * sizeof(std::uint16_t)) >= request.second) ? static_cast<std::uint32_t>(request.second - read_bytes_)
-                : static_cast<std::uint32_t>(ring_buffer_.size() * sizeof(std::uint16_t));
+                                                                                                                     : static_cast<std::uint32_t>(ring_buffer_.size() * sizeof(std::uint16_t));
 
             ring_buffer_.pop(request.first + read_bytes_, max_copy / sizeof(std::uint16_t));
             read_bytes_ += max_copy;
@@ -320,7 +341,7 @@ namespace eka2l1::drivers {
 
         if (read_bytes_ < request.second) {
             bytes_to_copy = ((read_bytes_ + bytes_here) >= request.second) ? static_cast<std::uint32_t>(request.second - read_bytes_)
-                : static_cast<std::uint32_t>(bytes_here);
+                                                                           : static_cast<std::uint32_t>(bytes_here);
 
             if (bytes_to_copy != 0) {
                 std::memcpy(request.first + read_bytes_, buffer, bytes_to_copy);
@@ -330,16 +351,20 @@ namespace eka2l1::drivers {
         }
 
         if (bytes_left > 0) {
-            ring_buffer_.push(buffer + (bytes_to_copy / sizeof(std::int16_t)), bytes_left / sizeof(std::int16_t)); 
+            ring_buffer_.push(buffer + (bytes_to_copy / sizeof(std::int16_t)), bytes_left / sizeof(std::int16_t));
         }
 
         if (bytes_to_copy + read_bytes_ >= request.second) {
+            dsp_stream_notification_callback callback;
+            void *userdata = nullptr;
+
             {
                 const std::lock_guard<std::mutex> guard(callback_lock_);
-                if (more_buffer_callback_) {
-                    more_buffer_callback_(more_buffer_userdata_);
-                }
+                callback = more_buffer_callback_;
+                userdata = more_buffer_userdata_;
             }
+
+            dispatch_dsp_notification_async(std::move(callback), userdata);
 
             read_bytes_ = 0;
             read_queue_.pop();

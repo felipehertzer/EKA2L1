@@ -1,22 +1,23 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <common/log.h>
 #include <kernel/kernel.h>
 #include <kernel/property.h>
 #include <services/ui/cap/sgc.h>
@@ -25,7 +26,22 @@
 #include <services/window/screen.h>
 #include <services/window/window.h>
 
+#include <cstdlib>
+
 namespace eka2l1::epoc::cap {
+    static bool trace_sgc_layout() {
+        return std::getenv("EKA2L1_WINDOW_TRACE") != nullptr;
+    }
+
+    static std::uint32_t sgc_flags_raw(const sgc_server::wg_state::wg_state_flags &flags) {
+        std::uint32_t result = 0;
+        for (std::size_t i = 0; i < sgc_server::wg_state::wg_state_flags::total_size; i++) {
+            result |= static_cast<std::uint32_t>(flags.bytes_[i]) << (i * 8);
+        }
+
+        return result;
+    }
+
     void sgc_server::wg_state::set_fullscreen(bool set) {
         if (set)
             flags_.set(FLAG_FULLSCREEN);
@@ -222,6 +238,21 @@ namespace eka2l1::epoc::cap {
         state->set_orientation_landspace(flags.get(SGC_APP_FLAG_ORIENTATION_LANDSCAPE));
 
         state->app_screen_mode_ = app_screen_mode;
+
+        if (trace_sgc_layout()) {
+            LOG_INFO(SERVICE_UI,
+                "SGC change_wg_param wg={} raw_flags=0x{:X} fullscreen={} legacy={} orientation_specified={} landscape={} sp_layout={} sp_flags={} app_screen_mode={} was_fullscreen={}",
+                id,
+                sgc_flags_raw(flags),
+                state->is_fullscreen(),
+                state->is_legacy_layout(),
+                state->orientation_specified(),
+                state->orientation_landscape(),
+                state->sp_layout_,
+                state->sp_flags_,
+                state->app_screen_mode_,
+                was_fullscreen);
+        }
 
         // Try to change this in every screen
         epoc::screen *screens = winserv_->get_screens();

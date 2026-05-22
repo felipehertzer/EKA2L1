@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,9 +20,25 @@
 #include <mem/model/flexible/control.h>
 #include <mem/model/flexible/process.h>
 
+#include <common/algorithm.h>
 #include <common/log.h>
 
+#include <cstdint>
+
 namespace eka2l1::mem::flexible {
+    bool flexible_mem_model_process::is_managed_chunk(const flexible_mem_model_chunk *chunk) const {
+        control_flexible *fl_control = reinterpret_cast<control_flexible *>(control_);
+        return chunk && fl_control && fl_control->chunk_mngr_ && fl_control->chunk_mngr_->contains(chunk);
+    }
+
+    bool flexible_mem_model_process::detach_mapping_if_managed(flexible_mem_model_chunk *chunk, mapping *map) const {
+        if (!is_managed_chunk(chunk) || !chunk->mem_obj_) {
+            return false;
+        }
+
+        return chunk->mem_obj_->detach_mapping(map);
+    }
+
     const asid flexible_mem_model_process::address_space_id() const {
         return addr_space_->id();
     }
@@ -80,6 +96,63 @@ namespace eka2l1::mem::flexible {
         return addr_space_->dir_->get_pointer(addr);
     }
 
+    static bool ensure_flexible_chunk_top(flexible_mem_model_chunk *chunk, control_base *control, vm_address top) {
+        if (!chunk) {
+            return false;
+        }
+
+        if (top > chunk->max()) {
+            top = static_cast<vm_address>(chunk->max());
+        }
+
+        if (top == 0) {
+            return false;
+        }
+
+        if (top > chunk->top()) {
+            return chunk->adjust(0xFFFFFFFF, top);
+        }
+
+        const std::uint32_t page_size = static_cast<std::uint32_t>(control->page_size());
+        const vm_address page_aligned_top = common::align(top, page_size);
+        return chunk->commit(0, page_aligned_top) != 0;
+    }
+
+    bool flexible_mem_model_process::adjust_chunk(const vm_address base, const vm_address top) {
+        for (auto &attached : attachs_) {
+            if (!attached.chunk_ || (attached.chunk_->base(this) != base)) {
+                continue;
+            }
+
+            return ensure_flexible_chunk_top(attached.chunk_, control_, top);
+        }
+
+        return false;
+    }
+
+    bool flexible_mem_model_process::adjust_chunk_to_include(const vm_address addr) {
+        for (auto &attached : attachs_) {
+            if (!attached.chunk_) {
+                continue;
+            }
+
+            const vm_address base = attached.chunk_->base(this);
+            if (addr < base) {
+                continue;
+            }
+
+            const vm_address offset = addr - base;
+            if (offset >= attached.chunk_->max()) {
+                continue;
+            }
+
+            const std::uint32_t page_size = static_cast<std::uint32_t>(control_->page_size());
+            return ensure_flexible_chunk_top(attached.chunk_, control_, common::align(offset + 1, page_size));
+        }
+
+        return false;
+    }
+
     bool flexible_mem_model_process::attach_chunk(mem_model_chunk *chunk) {
         flexible_mem_model_chunk *fl_chunk = reinterpret_cast<flexible_mem_model_chunk *>(chunk);
         if (!fl_chunk) {
@@ -122,6 +195,7 @@ namespace eka2l1::mem::flexible {
     }
 
     bool flexible_mem_model_process::detach_chunk(mem_model_chunk *chunk) {
+        control_flexible *fl_control = reinterpret_cast<control_flexible *>(control_);
         flexible_mem_model_chunk *fl_chunk = reinterpret_cast<flexible_mem_model_chunk *>(chunk);
         if (!fl_chunk) {
             return false;
@@ -142,7 +216,7 @@ namespace eka2l1::mem::flexible {
         }
 
         // Remove the mapping attached to this memory object
-        fl_chunk->mem_obj_->detach_mapping(chunk_ite->map_.get());
+        detach_mapping_if_managed(fl_chunk, chunk_ite->map_.get());
 
         attachs_.erase(chunk_ite);
         return true;
@@ -151,9 +225,14 @@ namespace eka2l1::mem::flexible {
     flexible_mem_model_process::~flexible_mem_model_process() {
         control_flexible *fl_control = reinterpret_cast<control_flexible *>(control_);
 
-        for (auto &attach: attachs_) {
-            attach.chunk_->mem_obj_->detach_mapping(attach.map_.get());
-            fl_control->chunk_mngr_->destroy(reinterpret_cast<flexible_mem_model_chunk *>(attach.chunk_));
+        for (auto &attach : attachs_) {
+            flexible_mem_model_chunk *chunk = reinterpret_cast<flexible_mem_model_chunk *>(attach.chunk_);
+            if (!is_managed_chunk(chunk)) {
+                continue;
+            }
+
+            detach_mapping_if_managed(chunk, attach.map_.get());
+            fl_control->chunk_mngr_->destroy(chunk);
         }
     }
 

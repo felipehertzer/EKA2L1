@@ -1,31 +1,31 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/bluetooth/btmidman.h>
-#include <services/bluetooth/protocols/common.h>
-#include <services/internet/protocols/inet.h>
-#include <services/bluetooth/protocols/asker_inet.h>
 #include <common/allocator.h>
 #include <common/sync.h>
 #include <config/config.h>
+#include <services/bluetooth/btmidman.h>
+#include <services/bluetooth/protocols/asker_inet.h>
+#include <services/bluetooth/protocols/common.h>
+#include <services/internet/protocols/inet.h>
 
 #include <functional>
 #include <map>
@@ -72,11 +72,11 @@ namespace eka2l1::epoc::bt {
         virtual void on_no_more_strangers() = 0;
     };
 
-    class midman_inet: public midman {
+    class midman_inet : public midman {
     private:
         std::map<device_address, std::uint32_t> friend_device_address_mapping_;
- 
-        device_address random_device_addr_;     // Hope it will never collide with what friends you want to add
+
+        device_address random_device_addr_; // Hope it will never collide with what friends you want to add
 
         std::vector<friend_info> friends_;
         common::bitmap_allocator allocated_ports_;
@@ -99,7 +99,7 @@ namespace eka2l1::epoc::bt {
         asker_inet device_addr_asker_;
 
         inet_stranger_call_observer *current_active_observer_;
-        std::vector<inet_stranger_call_observer*> pending_observers_;
+        std::vector<inet_stranger_call_observer *> pending_observers_;
 
         std::string password_;
         discovery_mode discovery_mode_;
@@ -151,7 +151,7 @@ namespace eka2l1::epoc::bt {
 
         bool get_friend_address(const std::uint32_t index, epoc::socket::saddress &addr);
         bool get_friend_address(const device_address &friend_virt_addr, epoc::socket::saddress &addr);
-        void get_friend_address_async(const device_address &friend_virt_addr, std::function<void(epoc::socket::saddress*)> callback);
+        void get_friend_address_async(const device_address &friend_virt_addr, std::function<void(epoc::socket::saddress *)> callback);
 
         void add_device_address_mapping(const std::uint32_t index, const device_address &addr);
         void refresh_friend_infos();
@@ -178,7 +178,7 @@ namespace eka2l1::epoc::bt {
         void clear_friend_info_cached() {
             friend_info_cached_ = false;
         }
- 
+
         midman_type type() const override {
             return MIDMAN_INET_BT;
         }

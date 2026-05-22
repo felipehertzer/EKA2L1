@@ -10,7 +10,7 @@ add_executable(ekatests
 
 
 target_link_libraries(ekatests PRIVATE
-    Catch2
+    Catch2::Catch2
     common
     epocio
     epockern

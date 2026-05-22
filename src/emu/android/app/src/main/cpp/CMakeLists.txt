@@ -24,8 +24,6 @@ target_link_libraries(native-lib PRIVATE
         common
         cpu
         drivers
-        EGL
-        glad
         jnigraphics
         lunasvg
         epoc
@@ -36,6 +34,7 @@ target_link_libraries(native-lib PRIVATE
         yaml-cpp)
 
 target_include_directories(native-lib PRIVATE include)
+target_compile_definitions(native-lib PRIVATE EKA2L1_BUILD_TESTS=$<BOOL:${EKA2L1_BUILD_TESTS}>)
 add_dependencies(native-lib
         audiooutputrouting
         avkonfep
@@ -73,8 +72,8 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E make_directory "${ASSETS_DIR}/resources/upscale"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${ASSETS_DIR}/patch"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_BINARY_DIR}/bin/patch/" "${ASSETS_DIR}/patch"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/gles/" "${ASSETS_DIR}/resources"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/upscale/" "${ASSETS_DIR}/resources/upscale"
+        COMMAND ${CMAKE_COMMAND} -E remove -f "${ASSETS_DIR}/resources/upscale/.git"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/miscs/compat/" "${ASSETS_DIR}/compat"
         COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/src/scripts/" "${ASSETS_DIR}/scripts/"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/src/emu/drivers/resources/defaultbank.hsb" "${ASSETS_DIR}/resources"

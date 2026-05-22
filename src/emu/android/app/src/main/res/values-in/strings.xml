@@ -22,7 +22,7 @@
     <string name="screenshot">Tangkapan layar</string>
     <string name="take_screenshot_success">Tangkapan layar disimpan di %s!</string>
     <string name="take_screenshot_fail">Gagal menangkap layar!</string>
-    <string name="opengl_required">Aplikasi ini memerlukan OpenGL ES 3.0+.</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">Peringatan</string>
     <string name="scoped_storage_warning">Data pengguna Anda ditampung pada lokasi yang <b>akan dihapus</b> ketika mencopot aplikasi:\n</string>
     <string name="install_ng_game">Pasang permainan N-Gage</string>

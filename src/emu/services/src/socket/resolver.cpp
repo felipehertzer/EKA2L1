@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,8 +20,8 @@
 #include <services/socket/host.h>
 #include <services/socket/server.h>
 
-#include <utils/err.h>
 #include <system/epoc.h>
+#include <utils/err.h>
 
 namespace eka2l1::epoc::socket {
     void host_resolver::next(name_entry *result, epoc::notify_info &complete_info) {
@@ -66,7 +66,7 @@ namespace eka2l1::epoc::socket {
             return;
         }
 
-        epoc::socket::name_entry *entry = reinterpret_cast<epoc::socket::name_entry*>(ctx->get_descriptor_argument_ptr(1));
+        epoc::socket::name_entry *entry = reinterpret_cast<epoc::socket::name_entry *>(ctx->get_descriptor_argument_ptr(1));
         if (!entry) {
             ctx->complete(epoc::error_argument);
             return;
@@ -88,7 +88,7 @@ namespace eka2l1::epoc::socket {
             return;
         }
 
-        epoc::socket::name_entry *entry = reinterpret_cast<epoc::socket::name_entry*>(ctx->get_descriptor_argument_ptr(1));
+        epoc::socket::name_entry *entry = reinterpret_cast<epoc::socket::name_entry *>(ctx->get_descriptor_argument_ptr(1));
         if (!entry) {
             ctx->complete(epoc::error_argument);
             return;
@@ -99,9 +99,9 @@ namespace eka2l1::epoc::socket {
 
         ctx->set_descriptor_argument_length(1, sizeof(epoc::socket::name_entry));
     }
-    
+
     void socket_host_resolver::next(service::ipc_context *ctx) {
-        epoc::socket::name_entry *entry = reinterpret_cast<epoc::socket::name_entry*>(ctx->get_descriptor_argument_ptr(1));
+        epoc::socket::name_entry *entry = reinterpret_cast<epoc::socket::name_entry *>(ctx->get_descriptor_argument_ptr(1));
         if (!entry) {
             ctx->complete(epoc::error_argument);
             return;
@@ -112,7 +112,7 @@ namespace eka2l1::epoc::socket {
 
         ctx->set_descriptor_argument_length(1, sizeof(epoc::socket::name_entry));
     }
-    
+
     void socket_host_resolver::cancel(service::ipc_context *ctx) {
         resolver_->cancel();
         ctx->complete(epoc::error_none);

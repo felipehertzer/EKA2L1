@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,8 +22,8 @@
 #include <kernel/btrace.h>
 #include <kernel/change_notifier.h>
 #include <kernel/chunk.h>
-#include <kernel/codeseg.h>
 #include <kernel/codedump_collector.h>
+#include <kernel/codeseg.h>
 #include <kernel/common.h>
 #include <kernel/condvar.h>
 #include <kernel/kernel_obj.h>
@@ -54,8 +54,8 @@
 #include <kernel/ipc.h>
 #include <mem/ptr.h>
 
-#include <cpu/arm_analyser.h>
 #include <config/panic_blacklist.h>
+#include <cpu/arm_analyser.h>
 
 #include <atomic>
 #include <exception>
@@ -65,8 +65,8 @@
 #include <memory>
 #include <mutex>
 #include <regex>
-#include <unordered_map>
 #include <type_traits>
+#include <unordered_map>
 
 namespace eka2l1 {
 #define SYNCHRONIZE_ACCESS const std::lock_guard<std::mutex> guard(kern_lock)
@@ -109,7 +109,7 @@ namespace eka2l1 {
     using prop_ident_pair = std::pair<int, int>;
 
     /*! \brief Check for template type and returns the right kernel::object_type value
-    */
+     */
     template <typename T>
     constexpr kernel::object_type get_object_type() {
         if constexpr (std::is_base_of_v<kernel::process, T>) {
@@ -161,7 +161,7 @@ namespace eka2l1 {
 
     struct find_handle {
         std::uint32_t index; ///< Index of the object in the separate object container.
-            ///< On EKA2L1 this index starts from 1.
+                             ///< On EKA2L1 this index starts from 1.
         std::uint64_t object_id; ///< The ID of the kernel object.
         kernel_obj_ptr obj; ///< The corresponded kernel object found.
     };
@@ -180,7 +180,7 @@ namespace eka2l1 {
 
     /**
      * @brief Callback invoked by the kernel when an IPC messages are bout to be sent.
-     * 
+     *
      * @param server_name       Name of the server this message is sent to.
      * @param ord               The opcode number of this message.
      * @param args              Arguments for this message.
@@ -191,7 +191,7 @@ namespace eka2l1 {
 
     /**
      * @brief Callback invoked by the kernel when an IPC message completes.
-     * 
+     *
      * @param msg               Pointer to the message that being completed.
      * @param complete_code     The code that used to complete this message.
      */
@@ -199,7 +199,7 @@ namespace eka2l1 {
 
     /**
      * @brief Callback invoked by the kernel when a thread is killed.
-     * 
+     *
      * @param thread            Pointer to the thread being killed.
      * @param category          The category of the kill.
      * @param reason            The reason for this thread being killed.
@@ -207,8 +207,16 @@ namespace eka2l1 {
     using thread_kill_callback = std::function<void(kernel::thread *, const std::string &, const std::int32_t)>;
 
     /**
+     * @brief Callback invoked when a request status is completed for a thread.
+     *
+     * @param thread            Pointer to the thread receiving the request completion.
+     * @param status_addr       Guest address of the completed request status.
+     */
+    using request_complete_callback = std::function<void(kernel::thread *, address)>;
+
+    /**
      * @brief Callback invoked when a breakpoint is hit.
-     * 
+     *
      * @param core              The CPU core which is currently executing this breakpoint.
      * @param thread            Pointer to the thread that the breakpoint is triggered on.
      * @param addr              Address of the breakpoint.
@@ -217,7 +225,7 @@ namespace eka2l1 {
 
     /**
      * @brief Callback invoked when a process switch happens on a core scheduler.
-     * 
+     *
      * @param core              The CPU core which process switching is currently happening,
      * @param old               The process bout to be switched.
      * @param new               The new process to switched to.
@@ -226,7 +234,7 @@ namespace eka2l1 {
 
     /**
      * @brief Callback invoked when a codeseg is loaded.
-     * 
+     *
      * @param name      The name of the codeseg.
      * @param process   The owner process of the codeseg.
      * @param csptr     Pointer to the target codeseg.
@@ -235,7 +243,7 @@ namespace eka2l1 {
 
     /**
      * @brief Callback invoked when Instruction Memory Barrier is called.
-     * 
+     *
      * @param process       The process that call the flush.
      * @param address       The address that needs to use the IMB
      * @param size          The number of bytes to flush.
@@ -244,14 +252,14 @@ namespace eka2l1 {
 
     /**
      * @brief Callback invoked when an LDD is requested to be loaded.
-     * 
-     * @param name          Name of the LDD. 
+     *
+     * @param name          Name of the LDD.
      */
     using ldd_factory_request_callback = std::function<ldd::factory_instantiate_func(const char *)>;
 
     /**
      * @brief Callback when a process's UID changes.
-     * 
+     *
      * @param process       Pointer to the process that changes their UID.
      * @param old_uid       The previous UID types.
      */
@@ -259,9 +267,9 @@ namespace eka2l1 {
 
     /**
      * @brief Callback when a guomen process's is requested to run, used to handle host launch request.
-     * 
+     *
      * @param process       Pointer to the guomen process that is requested to be ran.
-     * 
+     *
      * @returns False if the callback will not handle this run.
      */
     using guomen_process_run_callback = std::function<bool(kernel::process *)>;
@@ -338,6 +346,7 @@ namespace eka2l1 {
         common::identity_container<ipc_send_callback> ipc_send_callbacks_;
         common::identity_container<ipc_complete_callback> ipc_complete_callbacks_;
         common::identity_container<thread_kill_callback> thread_kill_callbacks_;
+        common::identity_container<request_complete_callback> request_complete_callbacks_;
         common::identity_container<breakpoint_callback> breakpoint_callbacks_;
         common::identity_container<process_switch_callback> process_switch_callback_funcs_;
         common::identity_container<codeseg_loaded_callback> codeseg_loaded_callback_funcs_;
@@ -399,6 +408,7 @@ namespace eka2l1 {
 
         void call_ipc_complete_callbacks(ipc_msg *msg, const int complete_code);
         void call_thread_kill_callbacks(kernel::thread *target, const std::string &category, const std::int32_t reason);
+        void call_request_complete_callbacks(kernel::thread *target, address status_addr);
         void call_process_switch_callbacks(arm::core *run_core, kernel::process *old, kernel::process *new_one);
         void run_codeseg_loaded_callback(const std::string &lib_name, kernel::process *attacher, codeseg_ptr target);
         void run_imb_range_callback(kernel::process *caller, address range_addr, const std::size_t range_size);
@@ -408,6 +418,7 @@ namespace eka2l1 {
         std::size_t register_ipc_send_callback(ipc_send_callback callback);
         std::size_t register_ipc_complete_callback(ipc_complete_callback callback);
         std::size_t register_thread_kill_callback(thread_kill_callback callback);
+        std::size_t register_request_complete_callback(request_complete_callback callback);
         std::size_t register_breakpoint_hit_callback(breakpoint_callback callback);
         std::size_t register_process_switch_callback(process_switch_callback callback);
         std::size_t register_codeseg_loaded_callback(codeseg_loaded_callback callback);
@@ -420,6 +431,7 @@ namespace eka2l1 {
         bool unregister_ipc_send_callback(const std::size_t handle);
         bool unregister_ipc_complete_callback(const std::size_t handle);
         bool unregister_thread_kill_callback(const std::size_t handle);
+        bool unregister_request_complete_callback(const std::size_t handle);
         bool unregister_breakpoint_hit_callback(const std::size_t handle);
         bool unregister_process_switch_callback(const std::size_t handle);
         bool unregister_imb_range_callback(const std::size_t handle);
@@ -593,7 +605,7 @@ namespace eka2l1 {
         }
 
         /*! \brief Get kernel object by handle
-        */
+         */
         template <typename T>
         T *get(const kernel::handle handle) {
             T *result = reinterpret_cast<T *>(get_kernel_obj_raw(handle, crr_thread()));
@@ -617,7 +629,7 @@ namespace eka2l1 {
         auto res = std::find_if(obj_map.begin(), obj_map.end(), [&](const auto &rhs) { \
             std::string the_full_name;                                                 \
             rhs->full_name(the_full_name);                                             \
-            return the_full_name == name;                                              \
+            return (the_full_name == name) || (rhs->name() == name);                   \
         });                                                                            \
         if (res == obj_map.end())                                                      \
             return nullptr;                                                            \
@@ -653,7 +665,7 @@ namespace eka2l1 {
         }
 
         /*! \brief Get kernel object by name
-        */
+         */
         template <typename T>
         T *get_by_name(const std::string &name) {
             const kernel::object_type obj_type = get_object_type<T>();
@@ -661,7 +673,7 @@ namespace eka2l1 {
         }
 
         /*! \brief Get kernel object by ID
-        */
+         */
         template <typename T>
         T *get_by_id(const kernel::uid uid) {
             const kernel::object_type obj_type = get_object_type<T>();
@@ -674,7 +686,7 @@ namespace eka2l1 {
         auto res = std::lower_bound(obj_map.begin(), obj_map.end(), nullptr, [&](const auto &lhs, const auto &rhs) { \
             return lhs->unique_id() < uid;                                                                           \
         });                                                                                                          \
-        if ((res != obj_map.end()) && (res->get()->unique_id() == uid)) {                                                                                  \
+        if ((res != obj_map.end()) && (res->get()->unique_id() == uid)) {                                            \
             return reinterpret_cast<T *>(res->get());                                                                \
         }                                                                                                            \
         return nullptr;                                                                                              \
@@ -748,7 +760,7 @@ namespace eka2l1 {
         }
 
         /*! \brief Create and add to object array.
-        */
+         */
         template <typename T, typename... args>
         T *create(args... creation_arg) {
             constexpr kernel::object_type obj_type = get_object_type<T>();
@@ -756,7 +768,7 @@ namespace eka2l1 {
 
             return add_object<T>(obj);
         }
-        
+
         template <typename T, typename... args>
         T *create_no_kernel_param(args... creation_arg) {
             constexpr kernel::object_type obj_type = get_object_type<T>();
@@ -778,7 +790,7 @@ namespace eka2l1 {
             T *obj = create<T>(creation_args...);
             return std::make_pair(open_handle_with_thread(thr, obj, owner), obj);
         }
-        
+
         template <typename T, typename... args>
         std::pair<kernel::handle, T *> create_no_kernel_param_and_add_thread(kernel::owner_type owner,
             kernel::thread *thr, args... creation_args) {
@@ -808,17 +820,17 @@ namespace eka2l1 {
 
         /**
          * @brief Get the inactivity time in seconds.
-         * 
+         *
          * Inactivity time represents the amount of duration which this device has not received any physical
          * input events.
-         * 
+         *
          * @returns Inactivity time in seconds.
          */
         std::uint32_t inactivity_time();
 
         /**
          * @brief Reset the inactivity timer.
-         * 
+         *
          * This will count as the device has received a fake physical input. And the timer
          * will be reseted.
          */
@@ -826,9 +838,9 @@ namespace eka2l1 {
 
         /**
          * @brief Start the bootload procedures.
-         * 
+         *
          * The function setups kernel components like real phone.
-         * 
+         *
          * This include spawning neccessary proccesses.
          */
         void start_bootload();

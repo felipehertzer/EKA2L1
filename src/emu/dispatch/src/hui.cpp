@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,17 +21,17 @@
 #include <dispatch/dispatcher.h>
 #include <dispatch/hui.h>
 #include <drivers/ui/input_dialog.h>
-#include <kernel/thread.h>
 #include <kernel/kernel.h>
+#include <kernel/thread.h>
 #include <system/epoc.h>
 #include <utils/err.h>
 
 namespace eka2l1::dispatch {
     void ehui_input_view_controller::set_notify_info(epoc::notify_info info) {
-        info_ = std::move(info);
+        info_ = info;
         result_.clear();
     }
-    
+
     void ehui_input_view_controller::on_input_view_complete(const std::u16string &result_text) {
         result_ = result_text;
 
@@ -56,8 +56,8 @@ namespace eka2l1::dispatch {
 
         controller.set_notify_info(epoc::notify_info(status, kern->crr_thread()));
         if (!drivers::ui::open_input_view(initial_text->to_std_string(kern->crr_process()), max_length, [&controller](const std::u16string &result) {
-            controller.on_input_view_complete(result);
-        })) {
+                controller.on_input_view_complete(result);
+            })) {
             return epoc::error_in_use;
         }
 
@@ -81,7 +81,7 @@ namespace eka2l1::dispatch {
     BRIDGE_FUNC_DISPATCHER(void, ehui_close_input_view) {
         drivers::ui::close_input_view();
     }
-    
+
     BRIDGE_FUNC_DISPATCHER(bool, ehui_is_keypad_based) {
         return sys->get_symbian_version_use() < epocver::epoc94;
     }

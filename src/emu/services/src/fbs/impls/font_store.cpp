@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -68,7 +68,7 @@ namespace eka2l1::epoc {
                     // NOTE: Stored in here is actually pixels, they will just scale to twips later when retrieved through API
                     typefaces[i].is_scalable_ = adapter->vectorizable();
                     typefaces[i].num_heights_++;
-                    typefaces[i].max_height_in_twips_ = common::max<std::int32_t>(typefaces[i].max_height_in_twips_, metrics.max_height); 
+                    typefaces[i].max_height_in_twips_ = common::max<std::int32_t>(typefaces[i].max_height_in_twips_, metrics.max_height);
                     typefaces[i].min_height_in_twips_ = common::min<std::int32_t>(typefaces[i].min_height_in_twips_, attrib.min_size_in_pixels);
 
                     if (attrib.style & epoc::open_font_face_attrib::serif) {
@@ -109,7 +109,7 @@ namespace eka2l1::epoc {
                 support.max_height_in_twips_ = metrics.max_height;
                 support.min_height_in_twips_ = attrib.min_size_in_pixels;
 
-                typefaces.push_back(std::move(support));
+                typefaces.push_back(support);
             }
         }
 
@@ -119,7 +119,7 @@ namespace eka2l1::epoc {
     open_font_info *font_store::seek_the_font_by_uid(const epoc::uid the_uid, open_font_metrics &target_metric, std::uint32_t *metric_identifier) {
         for (auto &info : open_font_store) {
             if (std::optional<open_font_metrics> result = info.adapter->get_metric_with_uid(info.idx, the_uid, metric_identifier)) {
-                target_metric = std::move(result.value());
+                target_metric = result.value();
                 return &info;
             }
         }
@@ -158,7 +158,7 @@ namespace eka2l1::epoc {
                     // coverage is checked
                     // But I don't want to make it choose too big fonts like 1000 or too small like 1.
                     // So here we have the unit divided by 8, reducing penalty. Should help some fonts like
-                    // 11x12 or 15x16 to choose 11x12... 
+                    // 11x12 or 15x16 to choose 11x12...
                     // I think the twip divider for epocv6 is close enough.
                     // Take N-Gage for example, with 130ppi, it should be around 11 or 12 if you do the math
                     subtract_score /= 8;

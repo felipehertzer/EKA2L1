@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -39,7 +39,7 @@ namespace eka2l1::arm::r12l1 {
     };
 
     using vfp_vectorize_emit_func = std::function<void(common::armgen::arm_reg vd,
-            common::armgen::arm_reg vn, common::armgen::arm_reg vm)>;
+        common::armgen::arm_reg vn, common::armgen::arm_reg vm)>;
 
     inline common::armgen::arm_reg reg_index_to_gpr(const reg_index idx) {
         return static_cast<common::armgen::arm_reg>(common::armgen::R0 + idx);
@@ -118,11 +118,11 @@ namespace eka2l1::arm::r12l1 {
         void finalize();
 
         bool vfp_vectorize(const bool sz, common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                common::armgen::arm_reg vm, const std::uint32_t custom_dest_flags,
-                                vfp_vectorize_emit_func func);
+            common::armgen::arm_reg vm, const std::uint32_t custom_dest_flags,
+            vfp_vectorize_emit_func func);
 
         bool vfp_vectorize(const bool sz, common::armgen::arm_reg vd, common::armgen::arm_reg vm,
-                                const std::uint32_t custom_dest_flags, vfp_vectorize_emit_func func);
+            const std::uint32_t custom_dest_flags, vfp_vectorize_emit_func func);
 
         void cpsr_nzcvq_changed() {
             cond_modified_ = true;

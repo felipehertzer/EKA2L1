@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -33,7 +33,8 @@ namespace eka2l1::epoc {
         , husband_(nullptr)
         , state_(state_none)
         , sync_thread_(nullptr)
-        , sync_status_(0) {
+        , sync_status_(0)
+        , sync_complete_callback_(0) {
         kernel_system *kern = client->get_ws().get_kernel_system();
 
         // Each message is an integer. Allow maximum of 10 messages
@@ -52,12 +53,23 @@ namespace eka2l1::epoc {
                 client->get_client()->owning_process(), kernel::access_type::local_access, fmt::format("DSA sync thread {}", id),
                 client->get_ws().sync_thread_code_address(), 0x1000, 0, 0x1000, false, sync_status_.ptr_address());
 
+            sync_complete_callback_ = kern->register_request_complete_callback([this](kernel::thread *target, const address) {
+                if ((target == sync_thread_) && (state_ == state_running) && husband_) {
+                    husband_->scr->fire_screen_redraw_callbacks(true);
+                }
+            });
+
             sync_thread_->resume();
         }
     };
 
     dsa::~dsa() {
         do_cancel();
+
+        if (sync_complete_callback_) {
+            client->get_ws().get_kernel_system()->unregister_request_complete_callback(sync_complete_callback_);
+            sync_complete_callback_ = 0;
+        }
 
         if (sync_thread_) {
             sync_thread_->stop();
@@ -131,7 +143,7 @@ namespace eka2l1::epoc {
                 ctx.complete(static_cast<int>(operate_region_.rects_.size()));
                 return;
             } else {
-                eka2l1::rect *data_ptr = reinterpret_cast<eka2l1::rect*>(ctx.get_descriptor_argument_ptr(reply_slot));
+                eka2l1::rect *data_ptr = reinterpret_cast<eka2l1::rect *>(ctx.get_descriptor_argument_ptr(reply_slot));
                 const std::size_t data_bsize = ctx.get_argument_max_data_size(reply_slot);
 
                 if (data_bsize != max_rects * sizeof(eka2l1::rect)) {

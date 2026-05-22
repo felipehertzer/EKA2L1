@@ -19,8 +19,8 @@
 
 #include <cpu/12l1r/arm_visitor.h>
 #include <cpu/12l1r/block_gen.h>
-#include <cpu/12l1r/visit_session.h>
 #include <cpu/12l1r/core_state.h>
+#include <cpu/12l1r/visit_session.h>
 
 #include <functional>
 
@@ -234,10 +234,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VADD(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VADD(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VSUB(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz,
@@ -251,10 +251,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VSUB(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VSUB(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VMUL(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz, bool N,
@@ -268,10 +268,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VMUL(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VMUL(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VMLA(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz, bool N,
@@ -285,10 +285,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_READ | FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VMLA(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VMLA(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VMLS(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz, bool N,
@@ -302,10 +302,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_READ | FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VMLS(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VMLS(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VNMUL(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz, bool N, bool M, std::size_t Vm) {
@@ -318,10 +318,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VNMUL(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VNMUL(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VNMLA(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz, bool N, bool M, std::size_t Vm) {
@@ -334,10 +334,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_READ | FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VNMLA(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VNMLA(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VNMLS(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz, bool N, bool M, std::size_t Vm) {
@@ -350,10 +350,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_READ | FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VNMLS(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VNMLS(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VDIV(common::cc_flags cond, bool D, std::size_t Vn, std::size_t Vd, bool sz, bool N,
@@ -367,10 +367,10 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg source2 = decode_fp_reg(sz, Vm, M);
 
         return vfp_vectorize(sz, dest, source1, source2, FLOAT_MARKER_USE_WRITE,
-                             [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                    common::armgen::arm_reg vm) {
-                                 big_block_->VDIV(vd, vn, vm);
-                             });
+            [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
+                common::armgen::arm_reg vm) {
+                big_block_->VDIV(vd, vn, vm);
+            });
     }
 
     bool arm_translate_visitor::vfp_VNEG(common::cc_flags cond, bool D, std::size_t Vd, bool sz,
@@ -382,8 +382,7 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg dest = decode_fp_reg(sz, Vd, D);
         common::armgen::arm_reg source = decode_fp_reg(sz, Vm, M);
 
-        return vfp_vectorize(sz, dest, source, FLOAT_MARKER_USE_WRITE, [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                                                              common::armgen::arm_reg vm) {
+        return vfp_vectorize(sz, dest, source, FLOAT_MARKER_USE_WRITE, [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn, common::armgen::arm_reg vm) {
             big_block_->VNEG(vd, vm);
         });
     }
@@ -397,8 +396,7 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg dest = decode_fp_reg(sz, Vd, D);
         common::armgen::arm_reg source = decode_fp_reg(sz, Vm, M);
 
-        return vfp_vectorize(sz, dest, source, FLOAT_MARKER_USE_WRITE, [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                                                              common::armgen::arm_reg vm) {
+        return vfp_vectorize(sz, dest, source, FLOAT_MARKER_USE_WRITE, [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn, common::armgen::arm_reg vm) {
             big_block_->VABS(vd, vm);
         });
     }
@@ -412,8 +410,7 @@ namespace eka2l1::arm::r12l1 {
         common::armgen::arm_reg dest = decode_fp_reg(sz, Vd, D);
         common::armgen::arm_reg source = decode_fp_reg(sz, Vm, M);
 
-        return vfp_vectorize(sz, dest, source, FLOAT_MARKER_USE_WRITE, [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn,
-                                                                              common::armgen::arm_reg vm) {
+        return vfp_vectorize(sz, dest, source, FLOAT_MARKER_USE_WRITE, [this](common::armgen::arm_reg vd, common::armgen::arm_reg vn, common::armgen::arm_reg vm) {
             big_block_->VSQRT(vd, vm);
         });
     }

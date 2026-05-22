@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -37,7 +37,18 @@
 
 #include <utils/err.h>
 
+#include <vector>
+
 namespace eka2l1::epoc {
+    static int align_pattern_start(const int value, const int origin, const int period) {
+        const int delta = value - origin;
+        if (delta >= 0) {
+            return origin + (delta / period) * period;
+        }
+
+        return origin - ((-delta + period - 1) / period) * period;
+    }
+
     static void *decide_bitmap_pointer_to_pass(wsbitmap *server_bmp, std::uint8_t &affected_flags, const bool is_mask) {
         if (server_bmp->parent_) {
             return server_bmp->get_and_update_parent();
@@ -49,6 +60,15 @@ namespace eka2l1::epoc {
 
     bool graphic_context::no_building() const {
         return !attached_window || (attached_window->abs_rect.size == eka2l1::vec2(0, 0));
+    }
+
+    void graphic_context::release_brush_pattern() {
+        if (brush_pattern) {
+            brush_pattern->deref();
+        }
+
+        brush_pattern = nullptr;
+        brush_pattern_bitmap = nullptr;
     }
 
     void graphic_context::active(service::ipc_context &context, ws_cmd cmd) {
@@ -79,7 +99,7 @@ namespace eka2l1::epoc {
         recording = true;
 
         if (attached_window->win_type == epoc::window_type::backed_up) {
-            epoc::bitmap_backed_canvas *cv = reinterpret_cast<epoc::bitmap_backed_canvas*>(attached_window);
+            epoc::bitmap_backed_canvas *cv = reinterpret_cast<epoc::bitmap_backed_canvas *>(attached_window);
             cv->sync_from_bitmap();
         }
 
@@ -92,6 +112,48 @@ namespace eka2l1::epoc {
         brush_color = attached_window->clear_color;
 
         do_submit_clipping();
+    }
+
+    bool graphic_context::draw_pattern_rect(const eka2l1::rect &area) {
+        if (!brush_pattern_bitmap) {
+            return false;
+        }
+
+        const eka2l1::vec2 pattern_size = brush_pattern_bitmap->header_.size_pixels;
+        if ((pattern_size.x <= 0) || (pattern_size.y <= 0)) {
+            return false;
+        }
+
+        const int start_x = align_pattern_start(area.top.x, brush_origin.x, pattern_size.x);
+        const int start_y = align_pattern_start(area.top.y, brush_origin.y, pattern_size.y);
+        const int end_x = area.top.x + area.size.x;
+        const int end_y = area.top.y + area.size.y;
+
+        for (int y = start_y; y < end_y; y += pattern_size.y) {
+            for (int x = start_x; x < end_x; x += pattern_size.x) {
+                const eka2l1::rect tile({ x, y }, pattern_size);
+                const eka2l1::rect clipped = tile.intersect(area);
+                if (clipped.empty()) {
+                    continue;
+                }
+
+                epoc::gdi_store_command draw_cmd;
+                epoc::gdi_store_command_draw_bitmap_data &draw_data = draw_cmd.get_data_struct<epoc::gdi_store_command_draw_bitmap_data>();
+
+                draw_cmd.opcode_ = epoc::gdi_store_command_draw_bitmap;
+                draw_data.dest_rect_ = clipped;
+                draw_data.source_rect_ = eka2l1::rect(clipped.top - tile.top, clipped.size);
+                draw_data.gdi_flags_ = brush_pattern ? 0 : GDI_STORE_COMMAND_MAIN_RAW;
+                draw_data.main_fbs_bitmap_ = brush_pattern ? reinterpret_cast<void *>(brush_pattern) : reinterpret_cast<void *>(brush_pattern_bitmap);
+                draw_data.mask_fbs_bitmap_ = nullptr;
+                draw_data.main_drv_ = 0;
+                draw_data.mask_drv_ = 0;
+
+                attached_window->add_draw_command(draw_cmd);
+            }
+        }
+
+        return true;
     }
 
     void graphic_context::do_command_draw_bitmap(service::ipc_context &ctx, void *bitmap, eka2l1::rect source_rect, eka2l1::rect dest_rect, const std::uint8_t flags) {
@@ -121,7 +183,7 @@ namespace eka2l1::epoc {
         eka2l1::vec4 color_brush;
 
         epoc::gdi_store_command submit_cmd;
-        
+
         if (fill_surrounding) {
             // The effective box colour depends on the drawing mode. As the document says
             if (get_brush_color(color_brush)) {
@@ -150,7 +212,7 @@ namespace eka2l1::epoc {
         epoc::gdi_store_command_draw_text_data &draw_text_data = draw_text_cmd.get_data_struct<epoc::gdi_store_command_draw_text_data>();
 
         draw_text_cmd.opcode_ = epoc::gdi_store_command_draw_text;
-        draw_text_data.string_ = reinterpret_cast<char16_t*>(draw_text_cmd.allocate_dynamic_data((text.length() + 1) * sizeof(char16_t)));
+        draw_text_data.string_ = reinterpret_cast<char16_t *>(draw_text_cmd.allocate_dynamic_data((text.length() + 1) * sizeof(char16_t)));
 
         std::memcpy(draw_text_data.string_, text.data(), (text.length() + 1) * sizeof(char16_t));
 
@@ -239,7 +301,7 @@ namespace eka2l1::epoc {
 
         if (clipping_rect.empty() && clipping_region.empty()) {
             if (attached_window->flags & epoc::canvas_base::flags_in_redraw) {
-                epoc::redraw_msg_canvas *attached_fm_window = reinterpret_cast<epoc::redraw_msg_canvas*>(attached_window);
+                epoc::redraw_msg_canvas *attached_fm_window = reinterpret_cast<epoc::redraw_msg_canvas *>(attached_window);
                 the_clip = attached_fm_window->redraw_rect_curr;
                 use_clipping = true;
             } else {
@@ -253,7 +315,7 @@ namespace eka2l1::epoc {
             }
         } else {
             if (attached_window->flags & epoc::canvas_base::flags_in_redraw) {
-                epoc::redraw_msg_canvas *attached_fm_window = reinterpret_cast<epoc::redraw_msg_canvas*>(attached_window);
+                epoc::redraw_msg_canvas *attached_fm_window = reinterpret_cast<epoc::redraw_msg_canvas *>(attached_window);
                 clip_region_temp->add_rect(attached_fm_window->redraw_rect_curr);
             } else {
                 clip_region_temp->add_rect(attached_window->bounding_rect());
@@ -302,7 +364,7 @@ namespace eka2l1::epoc {
             epoc::gdi_store_command_set_clip_rect_multiple_data &data = cmd.get_data_struct<epoc::gdi_store_command_set_clip_rect_multiple_data>();
 
             data.rect_count_ = static_cast<std::uint32_t>(the_region->rects_.size());
-            data.rects_ = reinterpret_cast<eka2l1::rect*>(cmd.allocate_dynamic_data(data.rect_count_ * sizeof(eka2l1::rect)));
+            data.rects_ = reinterpret_cast<eka2l1::rect *>(cmd.allocate_dynamic_data(data.rect_count_ * sizeof(eka2l1::rect)));
 
             std::memcpy(data.rects_, the_region->rects_.data(), data.rect_count_ * sizeof(eka2l1::rect));
         }
@@ -469,6 +531,13 @@ namespace eka2l1::epoc {
     }
 
     void graphic_context::gdi_blt_masked(service::ipc_context &context, ws_cmd &cmd) {
+        if (cmd.header.cmd_len < sizeof(ws_cmd_gdi_blt_masked)) {
+            LOG_WARN(SERVICE_WINDOW, "Truncated GDI masked blit command: need {}, got {}",
+                sizeof(ws_cmd_gdi_blt_masked), cmd.header.cmd_len);
+            context.complete(epoc::error_argument);
+            return;
+        }
+
         ws_cmd_gdi_blt_masked *blt_cmd = reinterpret_cast<ws_cmd_gdi_blt_masked *>(cmd.data_ptr);
         fbsbitmap *bmp = client->get_ws().get_raw_fbsbitmap(blt_cmd->source_handle);
         fbsbitmap *masked = client->get_ws().get_raw_fbsbitmap(blt_cmd->mask_handle);
@@ -494,6 +563,13 @@ namespace eka2l1::epoc {
     }
 
     void graphic_context::gdi_ws_blt_masked(service::ipc_context &context, ws_cmd &cmd) {
+        if (cmd.header.cmd_len < sizeof(ws_cmd_gdi_blt_masked)) {
+            LOG_WARN(SERVICE_WINDOW, "Truncated GDI WS masked blit command: need {}, got {}",
+                sizeof(ws_cmd_gdi_blt_masked), cmd.header.cmd_len);
+            context.complete(epoc::error_argument);
+            return;
+        }
+
         ws_cmd_gdi_blt_masked *blt_cmd = reinterpret_cast<ws_cmd_gdi_blt_masked *>(cmd.data_ptr);
 
         epoc::wsbitmap *myside_source_bmp = reinterpret_cast<epoc::wsbitmap *>(client->get_object(blt_cmd->source_handle));
@@ -524,6 +600,14 @@ namespace eka2l1::epoc {
     }
 
     void graphic_context::gdi_blt_impl(service::ipc_context &context, ws_cmd &cmd, const int ver, const bool ws) {
+        const std::size_t expected_size = (ver == 2) ? sizeof(ws_cmd_gdi_blt2) : sizeof(ws_cmd_gdi_blt3);
+        if (cmd.header.cmd_len < expected_size) {
+            LOG_WARN(SERVICE_WINDOW, "Truncated GDI blit command: need {}, got {}",
+                expected_size, cmd.header.cmd_len);
+            context.complete(epoc::error_argument);
+            return;
+        }
+
         ws_cmd_gdi_blt3 *blt_cmd = reinterpret_cast<ws_cmd_gdi_blt3 *>(cmd.data_ptr);
 
         eka2l1::rect source_rect;
@@ -591,6 +675,40 @@ namespace eka2l1::epoc {
         context.complete(epoc::error_none);
     }
 
+    void graphic_context::set_brush_origin(service::ipc_context &context, ws_cmd &cmd) {
+        brush_origin = *reinterpret_cast<eka2l1::vec2 *>(cmd.data_ptr);
+        context.complete(epoc::error_none);
+    }
+
+    void graphic_context::use_brush_pattern(service::ipc_context &context, ws_cmd &cmd) {
+        const service::uid bitmap_handle = *reinterpret_cast<std::uint32_t *>(cmd.data_ptr);
+        fbsbitmap *pattern = client->get_ws().get_raw_fbsbitmap(bitmap_handle);
+        epoc::bitwise_bitmap *raw_pattern = nullptr;
+
+        release_brush_pattern();
+
+        if (pattern) {
+            pattern->ref();
+            brush_pattern = pattern;
+            brush_pattern_bitmap = pattern->bitmap_;
+        } else {
+            memory_system *mem = client->get_ws().get_kernel_system()->get_memory_system();
+            raw_pattern = eka2l1::ptr<epoc::bitwise_bitmap>(bitmap_handle).get(mem);
+            if (raw_pattern) {
+                brush_pattern_bitmap = raw_pattern;
+            } else {
+                LOG_WARN(SERVICE_WINDOW, "UseBrushPattern called with invalid bitmap handle/address 0x{:X}", bitmap_handle);
+            }
+        }
+
+        context.complete(epoc::error_none);
+    }
+
+    void graphic_context::discard_brush_pattern(service::ipc_context &context, ws_cmd &cmd) {
+        release_brush_pattern();
+        context.complete(epoc::error_none);
+    }
+
     void graphic_context::set_pen_style(service::ipc_context &context, ws_cmd &cmd) {
         line_mode = *reinterpret_cast<pen_style *>(cmd.data_ptr);
         context.complete(epoc::error_none);
@@ -641,7 +759,7 @@ namespace eka2l1::epoc {
         epoc::gdi_store_command gdi_cmd;
 
         if (get_pen_color_and_style(pen_color, pen_style)) {
-            eka2l1::vec2 point_list[5] =  {
+            eka2l1::vec2 point_list[5] = {
                 area.top,
                 area.top + eka2l1::vec2(area.size.x, 0),
                 area.top + area.size,
@@ -655,7 +773,7 @@ namespace eka2l1::epoc {
             cmd_data.point_count_ = 5;
             cmd_data.color_ = pen_color;
             cmd_data.style_ = pen_style;
-            cmd_data.points_ = reinterpret_cast<eka2l1::point*>(gdi_cmd.allocate_dynamic_data(5 * sizeof(eka2l1::point)));
+            cmd_data.points_ = reinterpret_cast<eka2l1::point *>(gdi_cmd.allocate_dynamic_data(5 * sizeof(eka2l1::point)));
 
             std::memcpy(cmd_data.points_, point_list, 5 * sizeof(eka2l1::point));
 
@@ -663,13 +781,81 @@ namespace eka2l1::epoc {
         }
 
         // Draw the real rectangle! Hurray!
-        if (get_brush_color(pen_color)) {
+        bool filled_with_pattern = false;
+        if (fill_mode == brush_style::pattern) {
+            filled_with_pattern = draw_pattern_rect(area);
+        }
+
+        if (!filled_with_pattern && get_brush_color(pen_color)) {
             epoc::gdi_store_command_draw_rect_data &rect_draw_data = gdi_cmd.get_data_struct<epoc::gdi_store_command_draw_rect_data>();
 
             rect_draw_data.rect_ = area;
             rect_draw_data.color_ = pen_color;
             gdi_cmd.opcode_ = epoc::gdi_store_command_draw_rect;
 
+            attached_window->add_draw_command(gdi_cmd);
+        }
+
+        context.complete(epoc::error_none);
+    }
+
+    void graphic_context::draw_polygon(service::ipc_context &context, ws_cmd &cmd) {
+        constexpr std::size_t point_size = sizeof(eka2l1::point);
+
+        if (cmd.header.cmd_len < point_size * 2) {
+            context.complete(epoc::error_none);
+            return;
+        }
+
+        const std::uint8_t *payload = reinterpret_cast<const std::uint8_t *>(cmd.data_ptr);
+        const eka2l1::point *points = nullptr;
+        std::size_t point_count = 0;
+
+        if (cmd.header.cmd_len >= sizeof(std::int32_t) * 2) {
+            const auto header_count = *reinterpret_cast<const std::int32_t *>(payload);
+            const auto fill_rule = *reinterpret_cast<const std::int32_t *>(payload + sizeof(std::int32_t));
+            const std::size_t point_bytes = cmd.header.cmd_len - sizeof(std::int32_t) * 2;
+
+            if ((header_count >= 2) && (fill_rule >= 0) && (fill_rule <= 1)
+                && (point_bytes >= static_cast<std::size_t>(header_count) * point_size)) {
+                points = reinterpret_cast<const eka2l1::point *>(payload + sizeof(std::int32_t) * 2);
+                point_count = static_cast<std::size_t>(header_count);
+            }
+        }
+
+        if (!points && (cmd.header.cmd_len % point_size == 0)) {
+            points = reinterpret_cast<const eka2l1::point *>(payload);
+            point_count = cmd.header.cmd_len / point_size;
+        }
+
+        if (!points || (point_count < 2)) {
+            context.complete(epoc::error_none);
+            return;
+        }
+
+        drivers::pen_style pen_style;
+        eka2l1::vec4 color;
+
+        if (get_pen_color_and_style(color, pen_style)) {
+            const bool needs_close = points[0] != points[point_count - 1];
+            const std::size_t stored_count = point_count + (needs_close ? 1 : 0);
+            std::vector<eka2l1::point> point_list(stored_count);
+
+            std::memcpy(point_list.data(), points, point_count * point_size);
+            if (needs_close) {
+                point_list[stored_count - 1] = points[0];
+            }
+
+            epoc::gdi_store_command gdi_cmd;
+            epoc::gdi_store_command_draw_polygon_data &cmd_data = gdi_cmd.get_data_struct<epoc::gdi_store_command_draw_polygon_data>();
+
+            gdi_cmd.opcode_ = epoc::gdi_store_command_draw_polygon;
+            cmd_data.point_count_ = static_cast<std::uint32_t>(stored_count);
+            cmd_data.color_ = color;
+            cmd_data.style_ = pen_style;
+            cmd_data.points_ = reinterpret_cast<eka2l1::point *>(gdi_cmd.allocate_dynamic_data(stored_count * point_size));
+
+            std::memcpy(cmd_data.points_, point_list.data(), stored_count * point_size);
             attached_window->add_draw_command(gdi_cmd);
         }
 
@@ -722,7 +908,7 @@ namespace eka2l1::epoc {
         if (!epoc::is_display_mode_alpha(attached_window->display_mode())) {
             rect_draw_data.color_.w = 255;
         }
-        
+
         attached_window->add_draw_command(gdi_cmd);
 
         // Draw rectangle
@@ -730,8 +916,8 @@ namespace eka2l1::epoc {
     }
 
     void graphic_context::plot(service::ipc_context &context, ws_cmd &cmd) {
-        eka2l1::point pos = *reinterpret_cast<eka2l1::point*>(cmd.data_ptr);
-        
+        eka2l1::point pos = *reinterpret_cast<eka2l1::point *>(cmd.data_ptr);
+
         // For now emulate it with drawing a 1x1 rectangle
         epoc::gdi_store_command gdi_cmd;
         epoc::gdi_store_command_draw_rect_data &rect_draw_data = gdi_cmd.get_data_struct<epoc::gdi_store_command_draw_rect_data>();
@@ -743,7 +929,7 @@ namespace eka2l1::epoc {
         if (!epoc::is_display_mode_alpha(attached_window->display_mode())) {
             rect_draw_data.color_.w = 255;
         }
-        
+
         attached_window->add_draw_command(gdi_cmd);
         context.complete(epoc::error_none);
     }
@@ -755,8 +941,10 @@ namespace eka2l1::epoc {
 
         fill_mode = brush_style::null;
         line_mode = pen_style::solid;
+        release_brush_pattern();
 
         pen_size = { 1, 1 };
+        brush_origin = { 0, 0 };
         brush_color = 0xFFFFFFFF;
         pen_color = 0;
 
@@ -790,6 +978,8 @@ namespace eka2l1::epoc {
         if (text_font) {
             text_font = nullptr;
         }
+
+        context.complete(epoc::error_none);
     }
 
     void graphic_context::set_underline_style(service::ipc_context &context, ws_cmd &cmd) {
@@ -801,7 +991,7 @@ namespace eka2l1::epoc {
         // TODO: Implement set strikethrough style
         context.complete(epoc::error_none);
     }
-    
+
     void graphic_context::set_draw_mode(service::ipc_context &context, ws_cmd &cmd) {
         // Not easy to implement under hardware acceleration, ignore for now
         context.complete(epoc::error_none);
@@ -855,17 +1045,17 @@ namespace eka2l1::epoc {
     }
 
     void graphic_context::cancel_clipping_rect(service::ipc_context &context, ws_cmd &cmd) {
-        clipping_rect.make_empty();    
+        clipping_rect.make_empty();
         do_submit_clipping();
 
-        context.complete(epoc::error_none);    
+        context.complete(epoc::error_none);
     }
 
     void graphic_context::cancel_clipping_region(service::ipc_context &context, ws_cmd &cmd) {
-        clipping_region.make_empty();    
+        clipping_region.make_empty();
         do_submit_clipping();
 
-        context.complete(epoc::error_none);    
+        context.complete(epoc::error_none);
     }
 
     void graphic_context::destroy(service::ipc_context &context, ws_cmd &cmd) {
@@ -879,7 +1069,7 @@ namespace eka2l1::epoc {
     }
 
     bool graphic_context::execute_command(service::ipc_context &ctx, ws_cmd &cmd) {
-        //LOG_TRACE(SERVICE_WINDOW, "Graphics context opcode {}", cmd.header.op);
+        // LOG_TRACE(SERVICE_WINDOW, "Graphics context opcode {}", cmd.header.op);
         ws_graphics_context_opcode op = static_cast<decltype(op)>(cmd.header.op);
 
         using ws_graphics_context_op_handler = std::function<void(graphic_context *,
@@ -904,7 +1094,10 @@ namespace eka2l1::epoc {
             { ws_gc_u139_set_pen_size, { &graphic_context::set_pen_size, false, false } },
             { ws_gc_u139_set_underline_style, { &graphic_context::set_underline_style, false, false } },
             { ws_gc_u139_set_strikethrough_style, { &graphic_context::set_strikethrough_style, false, false } },
-            { ws_gc_u139_set_draw_mode, { &graphic_context::set_draw_mode, false, false } }, 
+            { ws_gc_u139_set_draw_mode, { &graphic_context::set_draw_mode, false, false } },
+            { ws_gc_u139_set_brush_origin, { &graphic_context::set_brush_origin, false, false } },
+            { ws_gc_u139_use_brush_pattern, { &graphic_context::use_brush_pattern, false, false } },
+            { ws_gc_u139_discard_brush_pattern, { &graphic_context::discard_brush_pattern, false, false } },
             { ws_gc_u139_deactive, { &graphic_context::deactive, false, false } },
             { ws_gc_u139_reset, { &graphic_context::reset, false, false } },
             { ws_gc_u139_use_font, { &graphic_context::use_font, false, false } },
@@ -913,6 +1106,7 @@ namespace eka2l1::epoc {
             { ws_gc_u139_draw_rect, { &graphic_context::draw_rect, true, false } },
             { ws_gc_u139_clear, { &graphic_context::clear, true, false } },
             { ws_gc_u139_clear_rect, { &graphic_context::clear_rect, true, false } },
+            { ws_gc_u139_draw_polygon, { &graphic_context::draw_polygon, true, false } },
             { ws_gc_u139_draw_bitmap, { &graphic_context::draw_bitmap, true, false } },
             { ws_gc_u139_draw_bitmap2, { &graphic_context::draw_bitmap_2, true, false } },
             { ws_gc_u139_draw_bitmap3, { &graphic_context::draw_bitmap_3, true, false } },
@@ -939,6 +1133,9 @@ namespace eka2l1::epoc {
             { ws_gc_u151m1_cancel_clipping_region, { &graphic_context::cancel_clipping_region, false, false } },
             { ws_gc_u151m1_set_brush_color, { &graphic_context::set_brush_color, false, false } },
             { ws_gc_u151m1_set_brush_style, { &graphic_context::set_brush_style, false, false } },
+            { static_cast<ws_graphics_context_opcode>(14), { &graphic_context::set_brush_origin, false, false } },
+            { static_cast<ws_graphics_context_opcode>(15), { &graphic_context::use_brush_pattern, false, false } },
+            { static_cast<ws_graphics_context_opcode>(16), { &graphic_context::discard_brush_pattern, false, false } },
             { ws_gc_u151m1_set_pen_color, { &graphic_context::set_pen_color, false, false } },
             { ws_gc_u151m1_set_pen_style, { &graphic_context::set_pen_style, false, false } },
             { ws_gc_u151m1_set_pen_size, { &graphic_context::set_pen_size, false, false } },
@@ -950,6 +1147,7 @@ namespace eka2l1::epoc {
             { ws_gc_u151m1_draw_rect, { &graphic_context::draw_rect, true, false } },
             { ws_gc_u151m1_clear, { &graphic_context::clear, true, false } },
             { ws_gc_u151m1_clear_rect, { &graphic_context::clear_rect, true, false } },
+            { static_cast<ws_graphics_context_opcode>(26), { &graphic_context::draw_polygon, true, false } },
             { ws_gc_u151m1_draw_bitmap, { &graphic_context::draw_bitmap, true, false } },
             { ws_gc_u151m1_draw_bitmap2, { &graphic_context::draw_bitmap_2, true, false } },
             { ws_gc_u151m1_draw_bitmap3, { &graphic_context::draw_bitmap_3, true, false } },
@@ -981,7 +1179,10 @@ namespace eka2l1::epoc {
             { ws_gc_u151m2_set_pen_size, { &graphic_context::set_pen_size, false, false } },
             { ws_gc_u151m2_set_underline_style, { &graphic_context::set_underline_style, false, false } },
             { ws_gc_u151m2_set_strikethrough_style, { &graphic_context::set_strikethrough_style, false, false } },
-            { ws_gc_u151m2_set_draw_mode, { &graphic_context::set_draw_mode, false, false } }, 
+            { ws_gc_u151m2_set_draw_mode, { &graphic_context::set_draw_mode, false, false } },
+            { ws_gc_u151m2_set_brush_origin, { &graphic_context::set_brush_origin, false, false } },
+            { ws_gc_u151m2_use_brush_pattern, { &graphic_context::use_brush_pattern, false, false } },
+            { ws_gc_u151m2_discard_brush_pattern, { &graphic_context::discard_brush_pattern, false, false } },
             { ws_gc_u151m2_deactive, { &graphic_context::deactive, false, false } },
             { ws_gc_u151m2_reset, { &graphic_context::reset, false, false } },
             { ws_gc_u151m2_use_font, { &graphic_context::use_font, false, false } },
@@ -990,6 +1191,7 @@ namespace eka2l1::epoc {
             { ws_gc_u151m2_draw_rect, { &graphic_context::draw_rect, true, false } },
             { ws_gc_u151m2_clear, { &graphic_context::clear, true, false } },
             { ws_gc_u151m2_clear_rect, { &graphic_context::clear_rect, true, false } },
+            { ws_gc_u151m2_draw_polygon, { &graphic_context::draw_polygon, true, false } },
             { ws_gc_u151m2_draw_bitmap, { &graphic_context::draw_bitmap, true, false } },
             { ws_gc_u151m2_draw_bitmap2, { &graphic_context::draw_bitmap_2, true, false } },
             { ws_gc_u151m2_draw_bitmap3, { &graphic_context::draw_bitmap_3, true, false } },
@@ -1023,7 +1225,10 @@ namespace eka2l1::epoc {
             { ws_gc_curr_set_pen_size, { &graphic_context::set_pen_size, false, false } },
             { ws_gc_curr_set_underline_style, { &graphic_context::set_underline_style, false, false } },
             { ws_gc_curr_set_strikethrough_style, { &graphic_context::set_strikethrough_style, false, false } },
-            { ws_gc_curr_set_draw_mode, { &graphic_context::set_draw_mode, false, false } }, 
+            { ws_gc_curr_set_draw_mode, { &graphic_context::set_draw_mode, false, false } },
+            { ws_gc_curr_set_brush_origin, { &graphic_context::set_brush_origin, false, false } },
+            { ws_gc_curr_use_brush_pattern, { &graphic_context::use_brush_pattern, false, false } },
+            { ws_gc_curr_discard_brush_pattern, { &graphic_context::discard_brush_pattern, false, false } },
             { ws_gc_curr_deactive, { &graphic_context::deactive, false, false } },
             { ws_gc_curr_reset, { &graphic_context::reset, false, false } },
             { ws_gc_curr_use_font, { &graphic_context::use_font, false, false } },
@@ -1032,6 +1237,7 @@ namespace eka2l1::epoc {
             { ws_gc_curr_draw_rect, { &graphic_context::draw_rect, true, false } },
             { ws_gc_curr_clear, { &graphic_context::clear, true, false } },
             { ws_gc_curr_clear_rect, { &graphic_context::clear_rect, true, false } },
+            { ws_gc_curr_draw_polygon, { &graphic_context::draw_polygon, true, false } },
             { ws_gc_curr_draw_bitmap, { &graphic_context::draw_bitmap, true, false } },
             { ws_gc_curr_draw_bitmap2, { &graphic_context::draw_bitmap_2, true, false } },
             { ws_gc_curr_draw_bitmap3, { &graphic_context::draw_bitmap_3, true, false } },
@@ -1058,17 +1264,20 @@ namespace eka2l1::epoc {
         bool need_to_set_flushed = false;
         bool need_quit = false;
 
-#define FIND_OPCODE(op, table)                                                               \
-    auto result = table.find(op);                                                            \
-    if (result == table.end()) {                                                             \
-        LOG_WARN(SERVICE_WINDOW, "Unimplemented graphics context opcode {}", cmd.header.op); \
-        return false;                                                                        \
-    }                                                                                        \
-    if (!std::get<0>(result->second)) {                                                    \
-        return false;                                                                        \
-    }                                                                                        \
-    handler = std::get<0>(result->second);                                                   \
-    need_to_set_flushed = std::get<1>(result->second);                                       \
+#define FIND_OPCODE(op, table)                                                                                       \
+    auto result = table.find(op);                                                                                    \
+    if (result == table.end()) {                                                                                     \
+        LOG_WARN(SERVICE_WINDOW, "Unimplemented graphics context opcode {} with payload size {}", cmd.header.op,     \
+            cmd.header.cmd_len);                                                                                     \
+        ctx.complete(epoc::error_not_supported);                                                                     \
+        return false;                                                                                                \
+    }                                                                                                                \
+    if (!std::get<0>(result->second)) {                                                                              \
+        ctx.complete(epoc::error_none);                                                                              \
+        return false;                                                                                                \
+    }                                                                                                                \
+    handler = std::get<0>(result->second);                                                                           \
+    need_to_set_flushed = std::get<1>(result->second);                                                               \
     need_quit = std::get<2>(result->second);
 
         kernel_system *kern = client->get_ws().get_kernel_system();
@@ -1080,7 +1289,18 @@ namespace eka2l1::epoc {
                 if (kern->get_epoc_version() <= epocver::epoc80) {
                     FIND_OPCODE(op, v139u_opcode_handlers)
                 } else if (kern->get_epoc_version() <= epocver::epoc81b) {
-                    FIND_OPCODE(op, v151u_m1_opcode_handlers)
+                    if (op == static_cast<ws_graphics_context_opcode>(61)) {
+                        handler = (cmd.header.cmd_len >= sizeof(ws_cmd_gdi_blt2)) ? &graphic_context::gdi_blt2 : &graphic_context::discard_font;
+                        need_to_set_flushed = cmd.header.cmd_len >= sizeof(ws_cmd_gdi_blt2);
+                    } else if (op == static_cast<ws_graphics_context_opcode>(62)) {
+                        handler = (cmd.header.cmd_len >= sizeof(ws_cmd_gdi_blt3)) ? &graphic_context::gdi_blt3 : &graphic_context::set_underline_style;
+                        need_to_set_flushed = cmd.header.cmd_len >= sizeof(ws_cmd_gdi_blt3);
+                    } else if (op == static_cast<ws_graphics_context_opcode>(63)) {
+                        handler = (cmd.header.cmd_len >= sizeof(ws_cmd_gdi_blt_masked)) ? &graphic_context::gdi_blt_masked : &graphic_context::set_strikethrough_style;
+                        need_to_set_flushed = cmd.header.cmd_len >= sizeof(ws_cmd_gdi_blt_masked);
+                    } else {
+                        FIND_OPCODE(op, v151u_m1_opcode_handlers)
+                    }
                 } else if (kern->get_epoc_version() <= epocver::epoc94) {
                     FIND_OPCODE(op, v151u_m2_opcode_handlers)
                 } else {
@@ -1090,6 +1310,13 @@ namespace eka2l1::epoc {
                 // Execute table 3
                 FIND_OPCODE(op, curr_opcode_handlers)
             }
+        }
+
+        if (!handler) {
+            LOG_WARN(SERVICE_WINDOW, "Unsupported graphics context client version {}.{}.{} for opcode {}",
+                cli_ver.major, cli_ver.minor, cli_ver.build, cmd.header.op);
+            ctx.complete(epoc::error_not_supported);
+            return false;
         }
 
         if (need_to_set_flushed) {
@@ -1108,10 +1335,14 @@ namespace eka2l1::epoc {
         , line_mode(pen_style::solid)
         , brush_color(0xFFFFFFFF)
         , pen_color(0)
-        , pen_size(1, 1) {
+        , pen_size(1, 1)
+        , brush_origin(0, 0)
+        , brush_pattern(nullptr)
+        , brush_pattern_bitmap(nullptr) {
     }
-    
+
     graphic_context::~graphic_context() {
+        release_brush_pattern();
         context_attach_link.deque();
     }
 }

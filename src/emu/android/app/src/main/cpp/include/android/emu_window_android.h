@@ -19,9 +19,9 @@
  */
 #pragma once
 
+#include <android/native_window_jni.h>
 #include <common/vecx.h>
 #include <drivers/graphics/emu_window.h>
-#include <android/native_window_jni.h>
 
 #include <any>
 #include <functional>
@@ -30,12 +30,14 @@ namespace eka2l1 {
     namespace drivers {
         class emu_window_android : public emu_window {
             eka2l1::vec2 fb_size;
+            ANativeWindow *surface;
             void *userdata;
 
         public:
             explicit emu_window_android();
 
             void surface_changed(ANativeWindow *surf, int width, int height);
+            window_system_info get_window_system_info() override;
             bool get_mouse_button_hold(const int mouse_btt) override;
 
             void change_title(std::string new_title) override;

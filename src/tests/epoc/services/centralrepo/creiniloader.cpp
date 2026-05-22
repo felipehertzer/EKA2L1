@@ -1,24 +1,24 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_all.hpp>
 #include <services/centralrepo/centralrepo.h>
 
 #include <iostream>
@@ -60,4 +60,21 @@ TEST_CASE("ini_loader_meta_default_and_range", "centralrepo") {
 
     REQUIRE(e1->metadata_val == 10);
     REQUIRE(e2->metadata_val == 12);
+}
+
+TEST_CASE("ini_loader_empty_quoted_string", "centralrepo") {
+    central_repo repo;
+
+    REQUIRE(parse_new_centrep_ini("centralrepoassets/EFFF0002.ini", repo));
+    REQUIRE(repo.entries.size() == 2);
+
+    central_repo_entry *empty = repo.find_entry(1);
+    central_repo_entry *filled = repo.find_entry(2);
+
+    REQUIRE(empty);
+    REQUIRE(filled);
+    REQUIRE(empty->data.etype == central_repo_entry_type::string);
+    REQUIRE(empty->data.strd.empty());
+    REQUIRE(filled->data.etype == central_repo_entry_type::string);
+    REQUIRE(!filled->data.strd.empty());
 }

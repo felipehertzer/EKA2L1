@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -38,7 +38,7 @@ namespace eka2l1::common {
 
         /**
          * \brief Set pixel at given coordinate.
-         * 
+         *
          * \param pos Coordinate of the pixel.
          * \param color The color to set.
          */
@@ -47,7 +47,7 @@ namespace eka2l1::common {
         /**
          * \brief Get pixel at given index.
          * \param pos Coordinate of the pixel.
-         * 
+         *
          * \returns A vector-4 contains the color of the pixel.
          */
         virtual eka2l1::vecx<int, 4> get_pixel(const eka2l1::vec2 &pos) = 0;
@@ -60,7 +60,7 @@ namespace eka2l1::common {
 
     /**
      * \brief A basic 24-bit bitmap pixel plotter.
-     * 
+     *
      * This plotter only stores R,G and B channel, and ignore the alpha channel.
      * This plotter produces 24 bits per pixel bitmap.
      */
@@ -126,16 +126,16 @@ namespace eka2l1::common {
 
         /**
          * \brief Start a drawing session.
-         * 
+         *
          * The function resizes the plotter, and then clear the canavas.
-         * 
+         *
          * \param size The size of the new canavas.
          */
         void new_art(const eka2l1::vec2 &size);
 
         /**
          * \brief Draws a line.
-         * 
+         *
          * \param start The position to start drawing the line from.
          * \param end   The position that the line ends.
          */
@@ -143,7 +143,7 @@ namespace eka2l1::common {
 
         /**
          * \brief Draw a line with given (X, Y) length.
-         * 
+         *
          * \param start     The position to start drawing the line from.
          * \param direction The length of the line in both X axis and Y axis.
          */
@@ -169,7 +169,7 @@ namespace eka2l1::common {
 
         /**
          * \brief Draw an ellipse with one-pixel thick.
-         * 
+         *
          * \param pos The origin of the ellipse.
          * \param rad (X, Y) radius of the ellipse.
          */
@@ -181,14 +181,14 @@ namespace eka2l1::common {
 
         /**
          * \brief Draws a rectangle.
-         * 
+         *
          * \param re The rectangle to draw.
          */
         void rect(const eka2l1::rect &re);
 
         /**
          * \brief Flood-fill a region with scan-line algorithm.
-         * 
+         *
          * \param pos       The position to start the fill.
          * \param fill_mode If this is set to true, the flood will stop until encouters pixels
          *                  that have the same color as the brush. Else it will stop until encounters

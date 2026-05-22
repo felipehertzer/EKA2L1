@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,8 +24,8 @@
 
 #include <cstdint>
 #include <functional>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 namespace eka2l1 {
     class kernel_system;
@@ -168,7 +168,7 @@ namespace eka2l1::kernel {
 
     /**
      * @brief List of configuration flag, with default flags being in the ROM header.
-     * 
+     *
      * Kernel is able to enable/disable these flags to enable different kernel features.
      * Refer to u32std.h for more flags. This only contains currently flags that emulator uses.
      */

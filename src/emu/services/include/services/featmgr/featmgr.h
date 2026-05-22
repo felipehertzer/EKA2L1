@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -58,7 +58,16 @@ namespace eka2l1 {
 
         // Load the feature manager config files.
         bool load_featmgr_configs(io_system *io);
+        void ensure_features_loaded(system *sys);
+        bool is_feature_supported(epoc::uid feature_id) const;
+
         void feature_supported(service::ipc_context &ctx);
+        void features_supported(service::ipc_context &ctx);
+        void list_supported_features(service::ipc_context &ctx);
+        void number_of_supported_features(service::ipc_context &ctx);
+        void notify_stub(service::ipc_context &ctx);
+        void modify_feature(service::ipc_context &ctx);
+        void resource_stub(service::ipc_context &ctx);
 
         void do_feature_scanning(system *sys);
 

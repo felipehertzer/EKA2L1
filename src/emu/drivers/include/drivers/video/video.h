@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -35,32 +35,32 @@ namespace eka2l1::drivers {
 
     /**
      * @brief Class allow the use of streaming video.
-     * 
+     *
      * With EKA2L1's usage, the audio will be directly handled by this class, while the image will be
      * perodically provided through callback with the interval depends on the set/provided FPS.
-     * 
+     *
      * The reason for image callback varies from direct display to mixed display in situations like windowing.
      */
     class video_player {
     public:
         /**
          * @brief Callback that will be invoked when the play of the video is completed.
-         * 
+         *
          * Note that this will not be called on stop. Second argument provides the error code of the play.
          * 0 indicates that the play is done and no problem.
          */
-        using play_complete_callback = std::function<void(void*, const int)>;
+        using play_complete_callback = std::function<void(void *, const int)>;
 
         /**
          * @brief Callback that will be invoked when a new frame is available.
-         * 
+         *
          * The frame data is in RGBA format. Any backend must convert to this format before calling this
          * function. Second parameter provided the pointer to the data buffer, and the thrid parameter provides
          * the size of the buffer.
-         * 
+         *
          * YUV is not preferred due to some platforms not having native support for it.
          */
-        using image_frame_available_callback = std::function<void(void*, const std::uint8_t*, const std::size_t)>;
+        using image_frame_available_callback = std::function<void(void *, const std::uint8_t *, const std::size_t)>;
 
     protected:
         play_complete_callback play_complete_callback_;

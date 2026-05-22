@@ -1,23 +1,26 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if EKA2L1_ENABLE_FFMPEG
 #include <drivers/audio/backend/ffmpeg/dsp_ffmpeg.h>
+#endif
+#include <drivers/audio/backend/dsp_shared.h>
 #include <drivers/audio/dsp.h>
 
 #include <common/log.h>
@@ -81,11 +84,44 @@ namespace eka2l1::drivers {
         return nullptr;
     }
 
+#if !EKA2L1_ENABLE_FFMPEG
+    struct dsp_output_stream_pcm final : public dsp_output_stream_shared {
+        explicit dsp_output_stream_pcm(drivers::audio_driver *aud)
+            : dsp_output_stream_shared(aud) {
+        }
+
+        bool format(const four_cc fmt) override {
+            if (fmt != PCM16_FOUR_CC_CODE) {
+                LOG_WARN(DRIVER_AUD, "Compressed DSP format is unavailable because FFmpeg is disabled");
+                return false;
+            }
+
+            return dsp_stream::format(fmt);
+        }
+
+        void get_supported_formats(std::vector<four_cc> &cc_list) override {
+            cc_list = { PCM16_FOUR_CC_CODE };
+        }
+
+        bool decode_data(std::vector<std::uint8_t> &dest) override {
+            dest.clear();
+            return false;
+        }
+
+        void queue_data_decode(const std::uint8_t *original, const std::size_t original_size) override {
+            LOG_WARN(DRIVER_AUD, "Dropping compressed DSP buffer because FFmpeg is disabled");
+        }
+    };
+#endif
 
     std::unique_ptr<dsp_stream> new_dsp_out_stream(drivers::audio_driver *aud, const dsp_stream_backend dsp_backend) {
         switch (dsp_backend) {
         case dsp_stream_backend_ffmpeg:
+#if EKA2L1_ENABLE_FFMPEG
             return std::make_unique<dsp_output_stream_ffmpeg>(aud);
+#else
+            return std::make_unique<dsp_output_stream_pcm>(aud);
+#endif
 
         default:
             break;

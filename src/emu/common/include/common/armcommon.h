@@ -8,7 +8,7 @@
 
 namespace eka2l1::common {
     /*! \brief ARM conditional flags
-    */
+     */
     enum cc_flags {
         CC_EQ = 0, ///< Equal
         CC_NEQ, ///< Not equal

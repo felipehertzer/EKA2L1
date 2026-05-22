@@ -1,21 +1,30 @@
 include(ExternalProject)
 include(CheckSymbolExists)
 
+if(POLICY CMP0079)
+    cmake_policy(SET CMP0079 NEW)
+endif()
+
 add_library(miniz miniz/miniz.h miniz/miniz.c)
 target_include_directories(miniz PUBLIC miniz)
 
 # Force Boost directory for Dynarmic - we never use one
 set (Boost_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext-boost/" CACHE PATH "Boost include directory")
-if (ANDROID)
-    add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY
-            -DBOOST_SYSTEM_NO_LIB
-            -DBOOST_DATE_TIME_NO_LIB
-            -DBOOST_REGEX_NO_LIB
-            -DBOOST_ALL_NO_LIB
-            )
-    set (BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ext-boost/")
+set (Boost_INCLUDE_DIRS "${Boost_INCLUDE_DIR}" CACHE PATH "Boost include directories")
+set (BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ext-boost/")
+if (NOT TARGET boost)
     add_library(boost INTERFACE)
-    target_include_directories(boost SYSTEM INTERFACE ${Boost_INCLUDE_DIR})
+    target_include_directories(boost SYSTEM INTERFACE ${Boost_INCLUDE_DIRS})
+    target_compile_definitions(boost INTERFACE
+            BOOST_ERROR_CODE_HEADER_ONLY
+            BOOST_SYSTEM_NO_LIB
+            BOOST_DATE_TIME_NO_LIB
+            BOOST_REGEX_NO_LIB
+            BOOST_ALL_NO_LIB)
+
+    if (APPLE)
+        target_compile_definitions(boost INTERFACE _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION)
+    endif()
 endif()
 
 # PugiXML
@@ -25,11 +34,6 @@ add_library(pugixml
     pugixml/src/pugixml.hpp)
 
 target_include_directories(pugixml PUBLIC pugixml/src)
-
-# fmt
-add_subdirectory(fmt)
-add_library(fmt::fmt ALIAS fmt)
-set (fmt_DIR fmt)
 
 set(CMAKE_REQUIRED_QUIET 1)
 
@@ -43,13 +47,58 @@ endif()
 
 unset(CMAKE_REQUIRED_QUIET)
 
+set(EKA2L1_BUILD_DYNARMIC OFF)
+if (EKA2L1_ENABLE_DYNARMIC AND NOT ARCHITECTURE_ARM32)
+    set(EKA2L1_BUILD_DYNARMIC ON)
+endif()
+
+# fmt
+add_subdirectory(fmt)
+
+if (NOT TARGET fmt::fmt)
+    add_library(fmt::fmt ALIAS fmt)
+endif()
+
+set (fmt_DIR fmt)
+if (IOS OR VITA)
+    target_compile_definitions(fmt PUBLIC FMT_DISABLE_STRING_MACRO)
+    if (TARGET fmt-header-only)
+        target_compile_definitions(fmt-header-only INTERFACE FMT_DISABLE_STRING_MACRO)
+    endif()
+endif()
+if (VITA)
+    target_compile_definitions(fmt PUBLIC FMT_USE_FLOCKFILE=0)
+    if (TARGET fmt-header-only)
+        target_compile_definitions(fmt-header-only INTERFACE FMT_USE_FLOCKFILE=0)
+    endif()
+endif()
+
 if (EKA2L1_ENABLE_SCRIPTING_ABILITY)
     set(LUA_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/luaorg)
 
     add_library(liblua INTERFACE)
 
     if (ANDROID)
-        target_include_directories(liblua INTERFACE  "${CMAKE_CURRENT_SOURCE_DIR}/luajit-android-src/src/")
+        set(LUAJIT_ANDROID_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/luajit-android-src/src")
+        set(LUAJIT_ANDROID_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/luajit-android-generated")
+
+        file(MAKE_DIRECTORY "${LUAJIT_ANDROID_GENERATED_DIR}")
+        file(READ "${LUAJIT_ANDROID_INCLUDE_DIR}/luajit_rolling.h" LUAJIT_ANDROID_HEADER)
+        string(REGEX REPLACE "#error[^\n]*\n" "" LUAJIT_ANDROID_HEADER "${LUAJIT_ANDROID_HEADER}")
+        execute_process(
+            COMMAND git -C "${CMAKE_CURRENT_SOURCE_DIR}/luajit-android-src" log -1 --format=%ct
+            OUTPUT_VARIABLE LUAJIT_ANDROID_RELVER
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET)
+        if (NOT LUAJIT_ANDROID_RELVER MATCHES "^[0-9]+$")
+            set(LUAJIT_ANDROID_RELVER "ROLLING")
+        endif()
+        string(REPLACE "ROLLING" "${LUAJIT_ANDROID_RELVER}" LUAJIT_ANDROID_HEADER "${LUAJIT_ANDROID_HEADER}")
+        file(WRITE "${LUAJIT_ANDROID_GENERATED_DIR}/luajit.h" "${LUAJIT_ANDROID_HEADER}")
+
+        target_include_directories(liblua INTERFACE
+            "${LUAJIT_ANDROID_GENERATED_DIR}"
+            "${LUAJIT_ANDROID_INCLUDE_DIR}")
 
         if (ARCHITECTURE_ARM32)
             target_link_libraries(liblua INTERFACE
@@ -88,7 +137,20 @@ option (SPDLOG_BUILD_EXAMPLES "Build spdlog Examples" OFF)
 option (SPDLOG_BUILD_BENCH "Build spdlog benchmarks" OFF)
 option (SPDLOG_FMT_EXTERNAL "Use external fmt library instead of bundled" ON)
 
+if (VITA)
+    set(SPDLOG_NO_TZ_OFFSET ON CACHE BOOL "Omit timezone offset on Vita" FORCE)
+    set(SPDLOG_FWRITE_UNLOCKED OFF CACHE BOOL "Use regular fwrite on Vita" FORCE)
+endif()
+
 add_subdirectory(spdlog)
+if (IOS OR VITA)
+    target_compile_definitions(spdlog PUBLIC SPDLOG_DISABLE_FMT_STRING)
+    target_compile_definitions(spdlog_header_only INTERFACE SPDLOG_DISABLE_FMT_STRING)
+endif()
+if (VITA)
+    target_compile_definitions(spdlog PUBLIC _POSIX_C_SOURCE=200809L)
+    target_compile_definitions(spdlog_header_only INTERFACE _POSIX_C_SOURCE=200809L)
+endif()
 
 # GLM
 option (GLM_TEST_ENABLE "Enable glm tests" OFF)
@@ -97,7 +159,8 @@ add_subdirectory(glm)
 # Dynarmic: disable tests
 option(DYNARMIC_TESTS "Enable dynarmic tests" OFF)
 
-if (NOT ARCHITECTURE_ARM32)
+if (EKA2L1_BUILD_DYNARMIC)
+    set(DYNARMIC_NO_BUNDLED_FMT ON CACHE BOOL "Use EKA2L1's fmt target for Dynarmic" FORCE)
     add_subdirectory(dynarmic)
 endif()
 
@@ -114,9 +177,6 @@ if (MSVC)
     target_include_directories(libdemangle PUBLIC libdemangle/include)
 endif()
 
-add_library(glad glad/include/glad/glad.h glad/src/glad.c)
-target_include_directories(glad PUBLIC glad/include)
-
 #stb
 add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE stb)
@@ -125,19 +185,15 @@ target_include_directories(stb INTERFACE stb)
 option (CATCH_BUILD_TESTING "Build catch testing" OFF)
 option (CATCH_ENABLE_WERROR "Disable catch werror" OFF)
 
-add_subdirectory(Catch2)
-
-# Microprofile
-add_library(microprofile STATIC microprofile/microprofile.cpp microprofile/microprofile.h)
-target_include_directories(microprofile PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/microprofile")
-set_property(TARGET microprofile PROPERTY CXX_STANDARD 11)
-target_compile_definitions(microprofile PUBLIC MICROPROFILE_ENABLED=0 MICROPROFILE_GPU_TIMERS=0)
+if (NOT VITA OR EKA2L1_BUILD_TESTS)
+    add_subdirectory(Catch2)
+endif()
 
 ## XXHash
 add_library(xxHash STATIC xxHash/xxhash.c)
 target_include_directories(xxHash PUBLIC xxHash)
 
-if (BUILD_TOOLS)
+if (EKA2L1_BUILD_TOOLS)
     find_package(LibClang QUIET)
 
     if (LIBCLANG_FOUND)
@@ -150,52 +206,57 @@ if (BUILD_TOOLS)
 endif()
 
 # Find Vulkan SDK
-find_package(Vulkan QUIET)
+if (EKA2L1_BUILD_VULKAN_BACKEND)
+    find_package(Vulkan QUIET)
 
-if (NOT Vulkan_FOUND)
-    message("Couldn't find Vulkan SDK, building Vulkan backend not enabled!")
-    set (BUILD_WITH_VULKAN 0 PARENT_SCOPE)
+    if (NOT Vulkan_FOUND)
+        message(FATAL_ERROR "Vulkan SDK is required for the Vulkan-only graphics backend.")
+    endif()
+
+    add_library(Vulkan INTERFACE)
+    target_include_directories(Vulkan INTERFACE ${Vulkan_INCLUDE_DIRS})
+    if (ANDROID AND CMAKE_ANDROID_NDK)
+        set(ANDROID_VULKAN_INCLUDE_DIR "${CMAKE_ANDROID_NDK}/sources/third_party/vulkan/src/include")
+        if (EXISTS "${ANDROID_VULKAN_INCLUDE_DIR}/vulkan/vulkan.hpp")
+            target_include_directories(Vulkan INTERFACE "${ANDROID_VULKAN_INCLUDE_DIR}")
+        endif()
+    endif()
+    target_link_libraries(Vulkan INTERFACE ${Vulkan_LIBRARIES})
 endif()
 
-add_library(Vulkan INTERFACE)
-target_include_directories(Vulkan INTERFACE ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(Vulkan INTERFACE ${Vulkan_LIBRARIES})
-
 # Cubeb
-option (BUILD_TOOLS "Build tools" OFF)
-option (BUILD_TESTS "Build cubeb tests" OFF)
+if (NOT IOS AND NOT VITA)
+    option (BUILD_TOOLS "Build tools" OFF)
+    option (BUILD_TESTS "Build cubeb tests" OFF)
 
-# Forcefully disable AAudio (we build with API target 21 minimum)
-set (USE_AAUDIO FALSE CACHE INTERNAL "" FORCE)
+    # Forcefully disable AAudio (we build with API target 21 minimum)
+    set (USE_AAUDIO FALSE CACHE INTERNAL "" FORCE)
 
-add_subdirectory(cubeb)
+    add_subdirectory(cubeb)
+endif()
 
 
 # FFMPEG
-add_subdirectory(ffmpeg)
-if (APPLE)
-    target_link_libraries(ffmpeg INTERFACE "-framework CoreVideo" "iconv")
+if (EKA2L1_ENABLE_FFMPEG)
+    add_subdirectory(ffmpeg)
 endif()
 
-option(CAPSTONE_BUILD_SHARED "Build shared library" OFF)
-option(CAPSTONE_BUILD_TESTS "Build tests" OFF)
-option(CAPSTONE_ARM_SUPPORT "ARM support" ON)
-option(CAPSTONE_ARM64_SUPPORT "ARM64 support" OFF)
-option(CAPSTONE_MIPS_SUPPORT "MIPS support" OFF)
-option(CAPSTONE_PPC_SUPPORT "PowerPC support" OFF)
-option(CAPSTONE_SPARC_SUPPORT "Sparc support" OFF)
-option(CAPSTONE_SYSZ_SUPPORT "SystemZ support" OFF)
-option(CAPSTONE_XCORE_SUPPORT "XCore support" OFF)
-option(CAPSTONE_X86_SUPPORT "x86 support" OFF)
+set(CAPSTONE_BUILD_SHARED_LIBS OFF CACHE BOOL "Build Capstone shared library." FORCE)
+set(CAPSTONE_BUILD_STATIC_LIBS ON CACHE BOOL "Build Capstone static library." FORCE)
+set(CAPSTONE_BUILD_LEGACY_TESTS OFF CACHE BOOL "Build Capstone legacy tests." FORCE)
+set(CAPSTONE_BUILD_CSTOOL OFF CACHE BOOL "Build Capstone cstool." FORCE)
+set(CAPSTONE_BUILD_CSTEST OFF CACHE BOOL "Build Capstone cstest." FORCE)
+set(CAPSTONE_BUILD_WERROR OFF CACHE BOOL "Treat Capstone warnings as errors." FORCE)
+set(CAPSTONE_ARCHITECTURE_DEFAULT OFF CACHE BOOL "Enable all Capstone architectures by default." FORCE)
+foreach(_capstone_arch IN ITEMS AARCH64 M68K MIPS PPC SPARC SYSTEMZ XCORE X86 TMS320C64X M680X EVM MOS65XX WASM BPF RISCV SH TRICORE ALPHA HPPA LOONGARCH XTENSA ARC)
+    set(CAPSTONE_${_capstone_arch}_SUPPORT OFF CACHE BOOL "${_capstone_arch} support" FORCE)
+endforeach()
+set(CAPSTONE_ARM_SUPPORT ON CACHE BOOL "ARM support" FORCE)
 
 add_subdirectory(capstone EXCLUDE_FROM_ALL)
 
 # libfat
 add_subdirectory(libfat)
-
-# mbedtls
-set(ENABLE_TESTING OFF CACHE BOOL "Build mbed TLS tests." FORCE)
-add_subdirectory(mbedtls)
 
 # SQLite3
 add_library(sqlite3
@@ -204,6 +265,10 @@ add_library(sqlite3
     sqlite3/sqlite3ext.h)
 
 target_include_directories(sqlite3 PUBLIC sqlite3)
+if (VITA)
+    target_compile_definitions(sqlite3 PRIVATE SQLITE_MAX_MMAP_SIZE=0 SQLITE_OMIT_WAL SQLITE_OMIT_LOAD_EXTENSION)
+    target_compile_options(sqlite3 PRIVATE -O1)
+endif()
 
 # miniBae. Later in driver, we will implement the full thing hopefully :D
 file(GLOB MINIBAE_SHARED_SOURCES
@@ -227,7 +292,7 @@ set (TSF_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "TSF include path")
 
 # SDL2
 # Can't believe in 2022 the official CMake can't still ship a FindSDL2 with the program...
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT IOS)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/sdl2-cmake-scripts")
 
     if(APPLE)
@@ -235,33 +300,63 @@ if (NOT ANDROID)
     elseif(WIN32)
         set(SDL2_PATH "${CMAKE_CURRENT_SOURCE_DIR}/sdl2/Windows" CACHE PATH "Where SDL2 is located" FORCE)
         set(SDL2_INCLUDE_DIR "${SDL2_PATH}/include" CACHE PATH "Where the SDL2 include files can be found" FORCE)
+    elseif(VITA AND DEFINED ENV{VITASDK})
+        set(SDL2_PATH "$ENV{VITASDK}/arm-vita-eabi" CACHE PATH "Where SDL2 is located" FORCE)
+        set(SDL2_INCLUDE_DIR "${SDL2_PATH}/include/SDL2" CACHE PATH "Where the SDL2 include files can be found" FORCE)
+        set(SDL2_BUILDING_LIBRARY ON CACHE BOOL "Do not require SDL2main for Vita" FORCE)
+
+        execute_process(
+            COMMAND "${SDL2_PATH}/bin/sdl2-config" --libs
+            OUTPUT_VARIABLE EKA2L1_SDL2_VITA_LIBS_RAW
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET)
+        separate_arguments(EKA2L1_SDL2_VITA_LIBS UNIX_COMMAND "${EKA2L1_SDL2_VITA_LIBS_RAW}")
+        set(SDL2_LIBRARY ${EKA2L1_SDL2_VITA_LIBS} CACHE STRING "Where the SDL2 Library can be found" FORCE)
     endif()
 
     find_package(SDL2 REQUIRED)
-    add_library(SDL2 INTERFACE)
+    if (NOT TARGET SDL2)
+        add_library(SDL2 INTERFACE)
+    endif()
 
-    target_include_directories(SDL2 INTERFACE "${SDL2_INCLUDE_DIR}")
-    target_link_libraries(SDL2 INTERFACE "${SDL2_LIBRARY}")
+    if (TARGET SDL2::SDL2)
+        target_link_libraries(SDL2 INTERFACE SDL2::SDL2)
+    else()
+        target_include_directories(SDL2 INTERFACE "${SDL2_INCLUDE_DIR}")
+        target_link_libraries(SDL2 INTERFACE "${SDL2_LIBRARY}")
+    endif()
 endif()
 
 # libuv
-option(LIBUV_BUILD_TESTS "Build test for libuv" OFF)
-option(LIBUV_BUILD_BENCH "Build bench for libuv" OFF)
-option(BUILD_UVW_LIBS "Build UVW libraries" ON)
-option(FETCH_LIBUV "Fetch the libuv repo using CMake FetchContent facility" ON)
-set (BUILD_TESTING OFF CACHE INTERNAL "Enable testing with ctest." FORCE)
+if (EKA2L1_ENABLE_NETWORKING)
+    if (POLICY CMP0079)
+        cmake_policy(SET CMP0079 NEW)
+    endif()
 
-add_subdirectory(uvw)
-add_subdirectory(uvlooper)
+    option(LIBUV_BUILD_TESTS "Build test for libuv" OFF)
+    option(LIBUV_BUILD_BENCH "Build bench for libuv" OFF)
+    set(LIBUV_BUILD_SHARED OFF CACHE BOOL "Build shared libuv library" FORCE)
+    set(UVW_BUILD_LIBS ON CACHE BOOL "Prepare uvw targets for static library builds." FORCE)
+    set(UVW_BUILD_SHARED_LIB OFF CACHE BOOL "Build uvw as a shared library." FORCE)
+    set(UVW_FETCH_LIBUV OFF CACHE BOOL "Fetch the libuv repo using CMake FetchContent facility." FORCE)
+    set (BUILD_TESTING OFF CACHE INTERNAL "Enable testing with ctest." FORCE)
+
+    add_subdirectory(libuv)
+    add_subdirectory(uvw)
+    target_include_directories(uvw PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/libuv/include")
+    add_subdirectory(uvlooper)
+endif()
 
 # UPNP
 
-option (UPNPC_BUILD_SHARED "Build shared library" FALSE)
-option (UPNPC_BUILD_TESTS "Build test executables" FALSE)
-option (UPNPC_BUILD_SAMPLE "Build sample executables" FALSE)
-option (UPNPC_NO_INSTALL "Disable installation" TRUE)
+if (EKA2L1_ENABLE_UPNP)
+    option (UPNPC_BUILD_SHARED "Build shared library" FALSE)
+    option (UPNPC_BUILD_TESTS "Build test executables" FALSE)
+    option (UPNPC_BUILD_SAMPLE "Build sample executables" FALSE)
+    option (UPNPC_NO_INSTALL "Disable installation" TRUE)
 
-add_subdirectory(miniupnp/miniupnpc)
+    add_subdirectory(miniupnp/miniupnpc)
+endif()
 
 # libtess2
 
@@ -285,10 +380,6 @@ target_include_directories(libtess2 PUBLIC libtess2/Include)
 
 # RectangleBinPack
 add_subdirectory(RectangleBinPack)
-
-# Re2
-option(RE2_BUILD_TESTING "enable testing for RE2" OFF)
-add_subdirectory(re2)
 
 # Discord-RPC
 # NOTE: Literally brought this code from Vita3K. I give credits to the contributors! if you want
@@ -338,9 +429,6 @@ if(ENABLE_DISCORD_RICH_PRESENCE)
 	target_include_directories(discord-rpc PUBLIC "${CMAKE_BINARY_DIR}/external/discord_game_sdk/cpp")
 	set_property(TARGET discord-rpc PROPERTY FOLDER externals)
 endif()
-
-add_library(thread-pool INTERFACE)
-target_include_directories(thread-pool INTERFACE thread-pool/include)
 
 add_definitions(-DFT_CONFIG_OPTION_SUBPIXEL_RENDERING)
 

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,10 +22,10 @@
 
 #include <QComboBox>
 #include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QVBoxLayout>
 
 #include <functional>
 #include <mutex>
@@ -83,7 +83,7 @@ public:
     const QString value() const;
 };
 
-class applist_device_combo: public QWidget {
+class applist_device_combo : public QWidget {
     Q_OBJECT;
 
 private:
@@ -171,7 +171,7 @@ public:
         eka2l1::j2me::app_list *lister_j2me, eka2l1::config::state &conf, const bool hide_system_apps = true, const bool ngage_mode = false);
     ~applist_widget();
 
-    bool launch_from_widget_item(applist_widget_item *item, std::function<void(eka2l1::kernel::process*)> done_cb);
+    bool launch_from_widget_item(applist_widget_item *item, std::function<void(eka2l1::kernel::process *)> done_cb);
     std::string get_app_name_from_widget_item(applist_widget_item *item);
     void set_hide_system_apps(const bool should_hide);
     void update_devices(eka2l1::device_manager *mngr);

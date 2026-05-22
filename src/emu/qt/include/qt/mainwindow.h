@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,9 +21,8 @@
 #define MAINWINDOW_H
 
 #include <drivers/input/common.h>
-#include <drivers/graphics/context.h>
-#include <drivers/ui/input_dialog.h>
 #include <drivers/itc.h>
+#include <drivers/ui/input_dialog.h>
 
 #include <QActionGroup>
 #include <QListWidgetItem>
@@ -31,8 +30,9 @@
 #include <QPointer>
 #include <QProgressDialog>
 #include <QSystemTrayIcon>
-#include <memory>
+#include <atomic>
 #include <map>
+#include <memory>
 
 #include <qt/discord_rpc.h>
 
@@ -47,6 +47,7 @@ class symbian_input_dialog;
 class btnetplay_friends_dialog;
 class btnet_dialog;
 class editor_widget;
+class QTimer;
 
 namespace eka2l1 {
     class system;
@@ -92,6 +93,8 @@ private:
     std::size_t active_screen_draw_callback_;
     std::size_t active_screen_mode_change_callback_;
     std::size_t active_screen_focus_change_callback_;
+    std::atomic_bool screen_draw_pending_;
+    std::atomic_bool screen_draw_needs_dsa_;
 
     QProgressDialog *current_progress_dialog_;
 
@@ -123,7 +126,7 @@ private:
     eka2l1::drivers::handle background_image_texture_;
     eka2l1::vec2 previous_background_image_size_;
     std::string previous_background_image_path_;
-    
+
     std::u16string question_dialog_text_;
     std::u16string question_dialog_button1_text_;
     std::u16string question_dialog_button2_text_;
@@ -131,6 +134,7 @@ private:
 
     QSystemTrayIcon *tray_icon_;
     QIcon emu_icon_;
+    QTimer *controller_poll_timer_;
 
     eka2l1::qt::discord_rpc rpc_;
 
@@ -156,7 +160,7 @@ private:
     void restore_ui_layouts();
     bool load_background_image(const std::string &path);
 
-private slots:
+private:
     void on_about_triggered();
     void on_settings_triggered();
     void on_package_manager_triggered();
@@ -235,6 +239,7 @@ public:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    bool eventFilter(QObject *object, QEvent *event) override;
 
     void setup_and_switch_to_game_mode();
     void draw_enabled_overlay(eka2l1::drivers::graphics_driver *driver,

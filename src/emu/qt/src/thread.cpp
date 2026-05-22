@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
  * Copyright 2015 Dolphin Emulator Project.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * A portion of the code is borrowed from MainWindow.cpp in DolphinQt
  * source folder.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -41,9 +41,9 @@
 #include <drivers/input/common.h>
 #include <drivers/input/emu_controller.h>
 
-#include <services/window/window.h>
 #include <qt/custom_question_dialog.h>
 #include <qt/dialog_driver.h>
+#include <services/window/window.h>
 
 #include <kernel/kernel.h>
 
@@ -52,10 +52,11 @@
 #endif
 
 #include <QApplication>
+#include <QTimer>
 #include <QWindow>
 
-#include <qt/mainwindow.h>
 #include <iostream>
+#include <qt/mainwindow.h>
 
 static eka2l1::drivers::input_event make_mouse_event_driver(const float x, const float y, const float z, const int button, const int action,
     const int mouse_id) {
@@ -74,13 +75,13 @@ static eka2l1::drivers::input_event make_mouse_event_driver(const float x, const
 
 /**
  * \brief Callback when a host mouse event is triggered
- * \param mouse_pos    position of mouse pointer          
- * \param button       0: left, 1: right, 2: other, -1: no button     
- * \param action       0: press, 1: repeat(move), 2: release      
+ * \param mouse_pos    position of mouse pointer
+ * \param button       0: left, 1: right, 2: other, -1: no button
+ * \param action       0: press, 1: repeat(move), 2: release
  */
 static void on_ui_window_mouse_evt(void *userdata, eka2l1::vec3 mouse_pos, int button, int action, int mouse_id) {
     float mouse_pos_x = static_cast<float>(mouse_pos.x), mouse_pos_y = static_cast<float>(mouse_pos.y),
-        mouse_pos_z = static_cast<float>(mouse_pos.z);
+          mouse_pos_z = static_cast<float>(mouse_pos.z);
 
     eka2l1::desktop::emulator *emu = reinterpret_cast<eka2l1::desktop::emulator *>(userdata);
 
@@ -135,10 +136,13 @@ static void on_ui_window_key_release(void *userdata, const int key) {
 
     const std::lock_guard<std::mutex> guard(emu->lockdown);
     if (emu->ui_main && emu->ui_main->deliver_key_event(static_cast<std::uint32_t>(key), false)) {
+        LOG_TRACE(eka2l1::FRONTEND_UI, "Qt key release consumed by frontend mapping: key=0x{:X}", key);
         return;
     }
-    if (emu->winserv)
+    if (emu->winserv) {
+        LOG_TRACE(eka2l1::FRONTEND_UI, "Queue Qt key release to window server: key=0x{:X}", key);
         emu->winserv->queue_input_from_driver(key_evt);
+    }
 }
 
 static void on_ui_window_key_press(void *userdata, const int key) {
@@ -147,15 +151,27 @@ static void on_ui_window_key_press(void *userdata, const int key) {
 
     const std::lock_guard<std::mutex> guard(emu->lockdown);
     if (emu->ui_main && emu->ui_main->deliver_key_event(static_cast<std::uint32_t>(key), true)) {
+        LOG_TRACE(eka2l1::FRONTEND_UI, "Qt key press consumed by frontend mapping: key=0x{:X}", key);
         return;
     }
-    if (emu->winserv)
+    if (emu->winserv) {
+        LOG_TRACE(eka2l1::FRONTEND_UI, "Queue Qt key press to window server: key=0x{:X}", key);
         emu->winserv->queue_input_from_driver(key_evt);
+    }
 }
 
 namespace eka2l1::desktop {
     static constexpr const char *graphics_driver_thread_name = "Graphics thread";
     static constexpr const char *os_thread_name = "Symbian OS thread";
+
+    constexpr drivers::graphic_api qt_graphics_api =
+#if EKA2L1_BUILD_VULKAN_BACKEND
+        drivers::graphic_api::vulkan;
+#elif EKA2L1_BUILD_NATIVE_BACKEND
+        drivers::graphic_api::native;
+#else
+#error "eka2l1_qt requires at least one graphics backend"
+#endif
 
     static int graphics_driver_thread_initialization(emulator &state) {
         // Halloween decoration breath of the graphics
@@ -169,9 +185,13 @@ namespace eka2l1::desktop {
         state.window->init("Emulator display", eka2l1::vec2(800, 600), drivers::emu_window_flag_maximum_size);
         state.window->set_userdata(&state);
 
-        // We got window and context ready (OpenGL, let makes stuff now)
-        // TODO: Configurable
-        state.graphics_driver = drivers::create_graphics_driver(drivers::graphic_api::opengl, state.window->get_window_system_info());
+        state.graphics_driver = drivers::create_graphics_driver(qt_graphics_api, state.window->get_window_system_info());
+
+        if (!state.graphics_driver) {
+            LOG_CRITICAL(DRIVER_GRAPHICS, "Graphics backend initialization failed");
+            return -1;
+        }
+
         state.graphics_driver->update_surface_size(state.window->window_fb_size());
 
         // Now we start set the hook
@@ -184,43 +204,37 @@ namespace eka2l1::desktop {
 
         drivers::emu_window *window = state.window;
 
-        switch (state.graphics_driver->get_current_api()) {
-        case drivers::graphic_api::opengl: {
-            state.graphics_driver->set_display_hook([window]() {
-                window->swap_buffer();
-                window->poll_events();
-            });
+        state.graphics_driver->set_display_hook([window]() {
+            window->poll_events();
+        });
 
-            break;
+        if (!state.joystick_controller) {
+            state.joystick_controller = drivers::new_emu_controller(eka2l1::drivers::controller_type::sdl2);
         }
 
-        default: {
-            state.graphics_driver->set_display_hook([window]() {
-                window->poll_events();
-            });
+        if (state.joystick_controller) {
+            state.joystick_controller->on_button_event = [&](int jid, int button, bool pressed) {
+                const std::lock_guard<std::mutex> guard(state.lockdown);
+                auto evt = make_controller_event_driver(jid, button, pressed);
 
-            break;
+                // If the handler accepts it
+                if (state.ui_main->controller_event_handler(evt) && state.winserv) {
+                    state.winserv->queue_input_from_driver(evt);
+                }
+            };
+            state.joystick_controller->on_joy_move = [&](int jid, int button, float axisx, float axisy) {
+                const std::lock_guard<std::mutex> guard(state.lockdown);
+                auto evt = make_controller_event_driver(jid, button, axisx, axisy);
+
+                state.ui_main->controller_event_handler(evt);
+            };
+        } else {
+            LOG_WARN(FRONTEND_CMDLINE, "Failed to create SDL2 game controller input backend");
         }
-        }
-
-        state.joystick_controller = drivers::new_emu_controller(eka2l1::drivers::controller_type::sdl2);
-        state.joystick_controller->on_button_event = [&](int jid, int button, bool pressed) {
-            const std::lock_guard<std::mutex> guard(state.lockdown);
-            auto evt = make_controller_event_driver(jid, button, pressed);
-
-            // If the handler accepts it
-            if (state.ui_main->controller_event_handler(evt) && state.winserv) {
-                state.winserv->queue_input_from_driver(evt);
-            }
-        };
-        state.joystick_controller->on_joy_move = [&](int jid, int button, float axisx, float axisy) {
-            const std::lock_guard<std::mutex> guard(state.lockdown);
-            auto evt = make_controller_event_driver(jid, button, axisx, axisy);
-
-            state.ui_main->controller_event_handler(evt);
-        };
 
         // Signal that the initialization is done
+        state.graphics_init_failed = false;
+        state.inited_graphics = true;
         state.graphics_event.set();
         return 0;
     }
@@ -229,7 +243,9 @@ namespace eka2l1::desktop {
         if (state.stage_two_inited)
             state.graphics_event.wait();
 
-        state.joystick_controller->stop_polling();
+        if (state.joystick_controller) {
+            state.joystick_controller->stop_polling();
+        }
         state.graphics_driver.reset();
 
         return 0;
@@ -239,17 +255,22 @@ namespace eka2l1::desktop {
         int result = graphics_driver_thread_initialization(state);
 
         if (result != 0) {
+            state.graphics_init_failed = true;
+            state.graphics_event.set();
             LOG_ERROR(FRONTEND_CMDLINE, "Graphics driver initialization failed with code {}", result);
             return;
         }
 
-        state.joystick_controller->start_polling();
+        if (state.joystick_controller) {
+            state.joystick_controller->start_polling();
+        }
 
-        // Keep running. User which want to change the graphics backend will have to restart EKA2L1.
-        state.graphics_event.reset();
+        // Keep running. Users who want to change the graphics backend will have to restart EKA2L1.
+        // graphics_event is consumed by the OS thread, so resetting it here can lose the init signal.
         state.graphics_driver->run();
 
         result = graphics_driver_thread_deinitialization(state);
+        state.inited_graphics = false;
 
         if (result != 0) {
             LOG_ERROR(FRONTEND_CMDLINE, "Graphics driver deinitialization failed with code {}", result);
@@ -336,19 +357,23 @@ namespace eka2l1::desktop {
 
         state.pause_event.set();
 
-        kernel_system *kern = state.symsys->get_kernel_system();
+        kernel_system *kern = state.symsys ? state.symsys->get_kernel_system() : nullptr;
 
         if (kern) {
             kern->stop_cores_idling();
         }
 
-        state.graphics_driver->abort();
+        if (state.graphics_driver) {
+            state.graphics_driver->abort();
+        }
+
         state.init_event.set();
         state.kill_event.set();
     }
 
     int emulator_entry(QApplication &application, emulator &state, const int argc, const char **argv) {
         state.stage_one();
+        state.joystick_controller = drivers::new_emu_controller(eka2l1::drivers::controller_type::sdl2);
 
         // Instantiate UI and High-level interface threads
         std::thread os_thread_obj(os_thread, std::ref(state));
@@ -360,23 +385,23 @@ namespace eka2l1::desktop {
         parser.add("--listapp", "List all installed applications", list_app_option_handler);
         parser.add("--listdevices", "List all installed devices", list_devices_option_handler);
         parser.add("--app, -a, --run", "Run an app with given name or UID, or the absolute virtual path to executable.\n"
-                                        "\t\t\t  See list of apps with --listapp.\n"
-                                        "\t\t\t  Extra command line arguments can be passed to the application.\n"
-                                        "\n"
-                                        "\t\t\t  Some example:\n"
-                                        "\t\t\t    eka2l1 --run C:\\sys\\bin\\BitmapTest.exe \"--hi --arg 5\"\n"
-                                        "\t\t\t    eka2l1 --run Bounce\n"
-                                        "\t\t\t    eka2l1 --run 0x200412ED\n",
+                                       "\t\t\t  See list of apps with --listapp.\n"
+                                       "\t\t\t  Extra command line arguments can be passed to the application.\n"
+                                       "\n"
+                                       "\t\t\t  Some example:\n"
+                                       "\t\t\t    eka2l1 --run C:\\sys\\bin\\BitmapTest.exe \"--hi --arg 5\"\n"
+                                       "\t\t\t    eka2l1 --run Bounce\n"
+                                       "\t\t\t    eka2l1 --run 0x200412ED\n",
             app_specifier_option_handler);
         parser.add("--device, -dvc", "Set a device to be ran, through the given firmware code. This device will also be saved in the configuration as the current device.\n"
-                               "\t\t\t Example: --device RH-29",
+                                     "\t\t\t Example: --device RH-29",
             device_set_option_handler);
         parser.add("--install, -i", "Install a SIS.", app_install_option_handler);
         parser.add("--remove, -r", "Remove an package.", package_remove_option_handler);
         parser.add("--fullscreen, -f", "Display the emulator in fullscreen.", fullscreen_option_handler);
         parser.add("--mount, -m", "Load a folder/zip as a Game Card ROM.", mount_card_option_handler);
         parser.add("--keybindprofile, -kbp", "Set a keybind profile to associate with the emulator launch. Don't include any file extension here.\n"
-                                              "\t Example: eka2l1 --kbp controller_for_octopus",
+                                             "\t Example: eka2l1 --kbp controller_for_octopus",
             keybind_profile_option_handler);
         parser.add("--mmcid, --cid, -cid", "Set the MMC-ID for the mounted card", set_mmcid_option_handler);
         parser.add("--runng, --appng, -rng, -ang", "Run a single N-Gage game inside the E drive", run_ngage_game_option_handler);
@@ -412,10 +437,40 @@ namespace eka2l1::desktop {
         std::thread graphics_thread_obj(graphics_driver_thread, std::ref(state));
 
         if (state.app_launch_from_command_line) {
-            if (!state.launched_app_name_.empty()) {
-                state.ui_main->set_discord_presence_current_playing(state.launched_app_name_);
-            }
-            state.ui_main->setup_and_switch_to_game_mode();
+            QTimer *command_line_launch_timer = new QTimer(&application);
+            command_line_launch_timer->setInterval(1);
+            QObject::connect(command_line_launch_timer, &QTimer::timeout, &application, [&application, &state, command_line_launch_timer]() {
+                if (!state.inited_graphics) {
+                    if (state.graphics_init_failed) {
+                        command_line_launch_timer->stop();
+                        command_line_launch_timer->deleteLater();
+
+                        std::cout << "Graphics driver initialization failed" << std::endl;
+                        kill_emulator(state);
+                        application.exit(-1);
+                    }
+
+                    return;
+                }
+
+                command_line_launch_timer->stop();
+                command_line_launch_timer->deleteLater();
+
+                state.ui_main->setup_and_switch_to_game_mode();
+
+                std::string err;
+                if (!launch_pending_command_line_app(&state, &err)) {
+                    std::cout << err << std::endl;
+                    kill_emulator(state);
+                    application.exit(-1);
+                    return;
+                }
+
+                if (!state.launched_app_name_.empty()) {
+                    state.ui_main->set_discord_presence_current_playing(state.launched_app_name_);
+                }
+            });
+            command_line_launch_timer->start();
         }
 
         const int exec_code = application.exec();

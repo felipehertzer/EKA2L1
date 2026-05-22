@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,8 +24,8 @@
 #pragma once
 
 #include <services/window/common.h>
-#include <utils/reqsts.h>
 #include <utils/err.h>
+#include <utils/reqsts.h>
 
 #include <algorithm>
 #include <array>
@@ -73,9 +73,9 @@ namespace eka2l1::epoc {
     protected:
         /*! \brief Queue an event. This doesn't care about whenther the queue has reached maximum size
          *         yet
-         * 
+         *
          * This method is unsafe
-        */
+         */
         std::uint32_t queue_event_dont_care(const T &evt) {
             fifo_element element(static_cast<std::uint32_t>(q_.size()) + 1, evt);
             q_.push_back(std::move(element));
@@ -89,10 +89,10 @@ namespace eka2l1::epoc {
         /*! \brief Set a listener to all events that are going to be queued.
          *
          * If an event is pending, this will mostly returns immidiately with the request finished.
-         * 
+         *
          * \params nof_info The notification. If the queue is not empty, this will be finished with KErrNone.
          *                  Otherwise, it will be stored until another event is queued.
-        */
+         */
         void set_listener(epoc::notify_info nof_info) {
             const std::lock_guard<std::mutex> guard(lock_);
 
@@ -115,7 +115,7 @@ namespace eka2l1::epoc {
         /*! \brief Cancel an already-queued event.
          *
          * \params id The id of the event.
-        */
+         */
         void cancel_event_queue(std::uint32_t id) {
             const std::lock_guard<std::mutex> guard(lock_);
 
@@ -132,12 +132,12 @@ namespace eka2l1::epoc {
         /**
          * \brief Walkthrough the event queue and purge requested events through
          * callback result.
-         * 
+         *
          * The function iterates all events pending in the queue, then let the callback
          * decide to whether keep them or delete them.
-         * 
+         *
          * If the callback returns true, the event is kept.
-         * 
+         *
          * \param walker        The callback function.
          * \param userdata      Userdata passed to callback.
          */
@@ -155,7 +155,7 @@ namespace eka2l1::epoc {
         /*! \brief Get an event on the queue.
          *
          * \returns nullopt if nothing is on the queue.
-        */
+         */
         std::optional<T> get_evt_opt() {
             const std::lock_guard<std::mutex> guard(lock_);
             if (q_.size() == 0) {
@@ -175,7 +175,7 @@ namespace eka2l1::epoc {
         /*! \brief Check if the event is high-priority
          *
          * High priority events are password, switch on and off event.
-        */
+         */
         bool is_my_priority_really_high(epoc::event_code evt);
 
         /*! \brief Purge some events on the queue.
@@ -183,11 +183,11 @@ namespace eka2l1::epoc {
          * When the queue reached the maximum declared, it will purge some
          * events (if the condition is met) to free space for other events to be
          * queued.
-         * 
+         *
          * On hardware, this is to prevent memory being wasted due to no users
-         * requests a notification for a long time. We should do this too, there 
+         * requests a notification for a long time. We should do this too, there
          * is no reason not to do it.
-        */
+         */
         void do_purge();
 
     public:
@@ -197,7 +197,7 @@ namespace eka2l1::epoc {
         /*! \brief Get an on-queue event
          *
          * If there is nothing on the queue, a null event is returned.
-        */
+         */
         event get_event();
 
         std::uint32_t queue_event(const event &evt);

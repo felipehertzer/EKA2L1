@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -29,8 +29,8 @@
 #include <common/chunkyseri.h>
 #include <common/time.h>
 
-#include <loader/sis_fields.h>
 #include <common/cvt.h>
+#include <loader/sis_fields.h>
 
 namespace eka2l1 {
     static void populate_all_packages(common::chunkyseri &seri, manager::packages *mngr) {
@@ -166,7 +166,7 @@ namespace eka2l1 {
     void sisregistry_client_session::fetch(service::ipc_context *ctx) {
         if (ctx->sys->get_symbian_version_use() < epocver::epoc95) {
             if ((ctx->msg->function >= sisregistry_get_matching_supported_languages) && (ctx->msg->function <= sisregistry_separator_minimum_read_user_data)) {
-                ctx->msg->function++;                
+                ctx->msg->function++;
 
                 if (ctx->sys->get_symbian_version_use() == epocver::epoc93fp1) {
                     ctx->msg->function++;
@@ -452,7 +452,12 @@ namespace eka2l1 {
         sisregistry_client_subsession_inst inst = std::make_unique<sisregistry_client_subsession>(uid.value());
         std::uint32_t handle = static_cast<std::uint32_t>(subsessions_.add(inst));
 
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, handle);
+        if (!ctx->write_handle_argument(3, handle)) {
+            subsessions_.remove(handle);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -487,7 +492,12 @@ namespace eka2l1 {
         sisregistry_client_subsession_inst inst = std::make_unique<sisregistry_client_subsession>(real_package->uid, real_package->index);
         std::uint32_t handle = static_cast<std::uint32_t>(subsessions_.add(inst));
 
-        ctx->write_data_to_descriptor_argument<std::uint32_t>(3, handle);
+        if (!ctx->write_handle_argument(3, handle)) {
+            subsessions_.remove(handle);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 
@@ -918,7 +928,7 @@ namespace eka2l1 {
                     ctx->complete(epoc::error_overflow);
                     return;
                 }
-                
+
                 std::vector<char> buf(final_size);
                 seri = common::chunkyseri(reinterpret_cast<std::uint8_t *>(&buf[0]), buf.size(), common::SERI_MODE_WRITE);
                 populate_filenames_with_limitation(seri, obj, 0, final_size, total_filename_can_store);

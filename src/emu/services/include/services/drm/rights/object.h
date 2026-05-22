@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,8 +21,8 @@
 
 #include <array>
 #include <cstdint>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace eka2l1::common {
     class chunkyseri;
@@ -99,7 +99,7 @@ namespace eka2l1::epoc::drm {
     struct rights_permission {
         std::uint32_t unique_id_ = 0;
         std::uint64_t insert_time_ = 0;
-        
+
         rights_constraint top_level_constraint_;
         rights_constraint play_constraint_;
         rights_constraint display_constraint_;
@@ -117,7 +117,7 @@ namespace eka2l1::epoc::drm {
         std::uint16_t version_rights_sub_ = 0;
 
         std::uint32_t info_bits_ = 0;
-        std::array<std::uint8_t, 20> right_issuer_identifier_;       // 20 in length
+        std::array<std::uint8_t, 20> right_issuer_identifier_; // 20 in length
         std::string on_expired_url_;
 
         void absorb(common::chunkyseri &seri, std::uint32_t version);

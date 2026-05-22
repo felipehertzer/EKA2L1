@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -44,6 +44,10 @@ namespace eka2l1::mem::flexible {
                 mmu->cpu_->imb_range(fixed_mapping_->base_, max_size_);
             }
         }
+
+        if (fixed_mapping_ && mem_obj_) {
+            mem_obj_->detach_mapping(fixed_mapping_.get());
+        }
     }
 
     int flexible_mem_model_chunk::do_create(const mem_model_chunk_creation_info &create_info) {
@@ -62,8 +66,7 @@ namespace eka2l1::mem::flexible {
             page_bma_ = std::make_unique<common::bitmap_allocator>(total_pages_occupied);
 
         permission_ = create_info.perm;
-        is_addr_shared_ = (create_info.flags & MEM_MODEL_CHUNK_REGION_USER_CODE) || (create_info.flags & MEM_MODEL_CHUNK_REGION_USER_ROM) ||
-            (create_info.flags & MEM_MODEL_CHUNK_REGION_KERNEL_MAPPING);
+        is_addr_shared_ = (create_info.flags & MEM_MODEL_CHUNK_REGION_USER_CODE) || (create_info.flags & MEM_MODEL_CHUNK_REGION_USER_ROM) || (create_info.flags & MEM_MODEL_CHUNK_REGION_KERNEL_MAPPING);
 
         if (is_addr_shared_) {
             // Treats this as for kernel
@@ -78,7 +81,7 @@ namespace eka2l1::mem::flexible {
         return 0;
     }
 
-    std::size_t flexible_mem_model_chunk::commit(const vm_address offset, const std::size_t size, bool ignore_committed) { 
+    std::size_t flexible_mem_model_chunk::commit(const vm_address offset, const std::size_t size, bool ignore_committed) {
         const vm_address dropping_place = static_cast<vm_address>(offset >> control_->page_size_bits_);
         const vm_address dropping_place_end = static_cast<vm_address>((offset + size + control_->page_size() - 1) >> control_->page_size_bits_);
 

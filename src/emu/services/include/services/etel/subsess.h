@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -81,6 +81,7 @@ namespace eka2l1 {
         void get_subscriber_id(eka2l1::service::ipc_context *ctx);
         void get_subscriber_id_old(eka2l1::service::ipc_context *ctx);
         void get_current_network(eka2l1::service::ipc_context *ctx);
+        void get_current_network_name(eka2l1::service::ipc_context *ctx);
         void get_signal_strength(eka2l1::service::ipc_context *ctx);
         void get_battery_info(eka2l1::service::ipc_context *ctx);
         void notify_network_registration_status_change(eka2l1::service::ipc_context *ctx);
@@ -110,9 +111,21 @@ namespace eka2l1 {
         etel_line *line_;
         epoc::notify_info status_change_nof_;
         epoc::notify_info incoming_call_nof_;
+        epoc::notify_info hook_change_nof_;
+        epoc::notify_info call_added_nof_;
+        epoc::notify_info caps_change_nof_;
 
     protected:
+        void get_info(service::ipc_context *ctx);
+        void get_caps(service::ipc_context *ctx);
         void get_status(service::ipc_context *ctx);
+        void get_hook_status(service::ipc_context *ctx);
+        void notify_hook_change(service::ipc_context *ctx);
+        void cancel_notify_hook_change(service::ipc_context *ctx);
+        void notify_call_added(service::ipc_context *ctx);
+        void cancel_notify_call_added(service::ipc_context *ctx);
+        void notify_caps_change(service::ipc_context *ctx);
+        void cancel_notify_caps_change(service::ipc_context *ctx);
         void notify_status_change(service::ipc_context *ctx);
         void cancel_notify_status_change(service::ipc_context *ctx);
         void notify_incoming_call(service::ipc_context *ctx);

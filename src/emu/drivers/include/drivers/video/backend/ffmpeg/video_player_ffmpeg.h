@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -22,12 +22,12 @@
 #include <atomic>
 #include <thread>
 
-#include <common/sync.h>
-#include <common/queue.h>
 #include <common/container.h>
+#include <common/queue.h>
+#include <common/sync.h>
 
-#include <drivers/video/video.h>
 #include <drivers/audio/stream.h>
+#include <drivers/video/video.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -40,7 +40,7 @@ namespace eka2l1::drivers {
     private:
         std::unique_ptr<audio_output_stream> stream_;
         std::unique_ptr<std::thread> decode_thread_;
-        threadsafe_cn_queue<AVPacket*> audio_packets_;
+        threadsafe_cn_queue<AVPacket *> audio_packets_;
 
         common::ring_buffer<std::uint16_t, 0x20000> pending_samples_;
         common::event done_event_;

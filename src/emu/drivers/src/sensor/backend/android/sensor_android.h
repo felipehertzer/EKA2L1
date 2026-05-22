@@ -19,16 +19,16 @@
 
 #pragma once
 
+#include <android/sensor.h>
 #include <common/linked.h>
 #include <drivers/sensor/sensor.h>
-#include <android/sensor.h>
 #include <mutex>
 #include <vector>
 
 namespace eka2l1::drivers {
     class sensor_driver_android;
 
-    class sensor_android: public sensor {
+    class sensor_android : public sensor {
     private:
         friend class sensor_driver_android;
 
@@ -59,7 +59,7 @@ namespace eka2l1::drivers {
         ~sensor_android() override;
 
         bool get_property(const sensor_property prop, const std::int32_t item_index,
-                          const std::int32_t array_index, sensor_property_data &data) override;
+            const std::int32_t array_index, sensor_property_data &data) override;
         bool set_property(const sensor_property_data &data) override;
 
         bool listen_for_data(std::size_t desired_buffering_count, std::size_t max_buffering_count, std::size_t delay_us) override;
@@ -78,7 +78,7 @@ namespace eka2l1::drivers {
         }
     };
 
-    class sensor_driver_android: public sensor_driver {
+    class sensor_driver_android : public sensor_driver {
     private:
         ASensorList all_sensors_;
         int sensor_count_;

@@ -1,29 +1,29 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <services/sms/mtm/send.h>
 #include <services/msv/common.h>
 #include <services/msv/entry.h>
 #include <services/msv/msv.h>
+#include <services/msv/operations/base.h>
 #include <services/msv/store.h>
 #include <services/sms/common.h>
-#include <services/msv/operations/base.h>
+#include <services/sms/mtm/send.h>
 
 #include <common/chunkyseri.h>
 #include <utils/err.h>
@@ -32,9 +32,8 @@
 
 namespace eka2l1::epoc::sms {
     schedule_copy_operation::schedule_copy_operation(const epoc::msv::msv_id operation_id, const epoc::msv::operation_buffer &buffer,
-        epoc::notify_info complete_info) 
+        epoc::notify_info complete_info)
         : epoc::msv::operation(operation_id, buffer, complete_info) {
-
     }
 
     void schedule_copy_operation::execute(msv_server *server, const kernel::uid process_uid) {
@@ -68,7 +67,7 @@ namespace eka2l1::epoc::sms {
         sms_prog->state_ = epoc::msv::send_state_sending;
 
         io_system *io = server->get_io_system();
-        
+
         for (std::size_t i = 0; i < ids.size(); i++) {
             epoc::msv::entry *ent = indexer->get_entry(ids[i]);
             if (!ent) {
@@ -98,7 +97,7 @@ namespace eka2l1::epoc::sms {
                 std::optional<std::u16string> target_file_path = indexer->get_entry_data_file(ent);
                 if (target_file_path.has_value() && io->exist(target_file_path.value())) {
                     symfile target_file_obj = io->open_file(target_file_path.value(), READ_MODE | BIN_MODE);
-                    
+
                     if (target_file_obj) {
                         eka2l1::ro_file_stream target_file_read_stream(target_file_obj.get());
                         msv::store target_store;
@@ -123,7 +122,7 @@ namespace eka2l1::epoc::sms {
                             goto QUEUE_EVENT;
                         }
 
-                        sms_submit *submit_pdu = reinterpret_cast<sms_submit*>(target_header.message_.pdu_.get());
+                        sms_submit *submit_pdu = reinterpret_cast<sms_submit *>(target_header.message_.pdu_.get());
                         if (submit_pdu->dest_addr_.buffer_.empty()) {
                             if (target_header.recipients_.empty()) {
                                 LOG_ERROR(SERVICE_SMS, "No recipient to sent to for id 0x{:X}!", ids[i]);
@@ -159,7 +158,7 @@ namespace eka2l1::epoc::sms {
                     }
                 }
 
-QUEUE_EVENT:
+            QUEUE_EVENT:
 
                 if ((moved_event.arg2_ == 0) || (moved_event.arg2_ == old_parent)) {
                     flushed = false;

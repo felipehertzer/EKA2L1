@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -401,7 +401,7 @@ void CMMFMdaAudioRecorderUtility::OnStateChanged(const TMdaState aCurrentState, 
     }
 
     TInt realError = aError;
-    if (aError == 1)  {
+    if (aError == 1) {
         realError = 0;
     } else if ((aError == 2) && (currentTrans == CMdaAudioClipUtility::EOpen)) {
         // Cite from Symbian OS C++ for Mobile Phones: Programming with Extended Functionality, page 269 and page 267
@@ -526,14 +526,14 @@ TInt CMMFMdaAudioToneUtility::SetBalance(const TInt aBalance) {
     return ETonePlayerSetBalance(0, iDispatchInstance, aBalance);
 }
 
-#define CALL_PREARE(function, ARGS...)                                                  \
-    iOpener.FixupActiveStatus();                                                        \
-    TInt err = function(0, iDispatchInstance, ##ARGS);                                  \
-    if (err != KErrNone) {                                                          \
-        CompletePrepare(err);                                                       \
-    } else {                                                                        \
-        iOpener.Open(this);                                                         \
-}
+#define CALL_PREARE(function, ARGS...)                 \
+    iOpener.FixupActiveStatus();                       \
+    TInt err = function(0, iDispatchInstance, ##ARGS); \
+    if (err != KErrNone) {                             \
+        CompletePrepare(err);                          \
+    } else {                                           \
+        iOpener.Open(this);                            \
+    }
 
 void CMMFMdaAudioToneUtility::PrepareToPlayFileSequence(const TDesC &aFileName) {
     CALL_PREARE(ETonePlayerSetFileToneSequence, aFileName)

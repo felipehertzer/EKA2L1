@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -27,8 +27,8 @@
 #include <vector>
 
 namespace eka2l1 {
-    /*! \brief A basic template type vector 
-    */
+    /*! \brief A basic template type vector
+     */
     template <typename T, int SIZE>
     struct vecx {
         mutable std::vector<T> elements;
@@ -124,19 +124,19 @@ namespace eka2l1 {
         vec2 operator*(const int rhs) const {
             return vec2(x * rhs, y * rhs);
         }
-        
-        vec2 operator /(const int rhs) const {
+
+        vec2 operator/(const int rhs) const {
             return vec2(x / rhs, y / rhs);
         }
-        
-        vec2 operator /(const float rhs) const {
+
+        vec2 operator/(const float rhs) const {
             return vec2(static_cast<int>(x / rhs), static_cast<int>(y / rhs));
         }
 
-        vec2 operator /(const vec2f &rhs) const {
+        vec2 operator/(const vec2f &rhs) const {
             return vec2(static_cast<int>(x / rhs[0]), static_cast<int>(y / rhs[1]));
         }
-        
+
         vec2 operator*(const float rhs) const {
             return vec2(static_cast<int>(x * rhs), static_cast<int>(y * rhs));
         }
@@ -242,7 +242,7 @@ namespace eka2l1 {
 
     struct vec4 : public vec3 {
         int w;
-        
+
         vec4() {}
 
         vec4(const int x, const int y, const int z, const int w)
@@ -290,17 +290,16 @@ namespace eka2l1 {
             x = rhs.x;
             y = rhs.y;
         }
-
     };
 
     using point = vec2;
 
     /**
      * \brief A simple structure represents a rectangle.
-     * 
+     *
      * This struct describes the rectangle by the position of the top left of the rectangle,
      * and the size of the rectangle.
-     * 
+     *
      * This rectangle is in 2D.
      */
     struct rect {
@@ -335,7 +334,7 @@ namespace eka2l1 {
 
         /**
          * \brief Check if the rectangle region is empty.
-         * 
+         *
          * This is equals to checking if the size is 0
          */
         bool empty() const {
@@ -397,15 +396,15 @@ namespace eka2l1 {
             return r;
         }
 
-        const bool operator == (const eka2l1::rect &rhs) const {
+        const bool operator==(const eka2l1::rect &rhs) const {
             return ((top == rhs.top) && (size == rhs.size));
         }
 
         /**
          * @brief Transform raw rectangle from Symbian's guest.
-         * 
+         *
          * This function turns the size variable, which offset corresponds to iBr in Symbian, to size of the rectangle.
-         * 
+         *
          * You can use this utility outside of Symbian.
          */
         void transform_from_symbian_rectangle() {

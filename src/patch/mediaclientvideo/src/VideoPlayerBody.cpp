@@ -1,11 +1,10 @@
+#include <Log.h>
 #include <VideoPlayerBody.h>
 #include <dispatch.h>
-#include <Log.h>
 
 CVideoPlayerFeedbackHandler::CVideoPlayerFeedbackHandler(MVideoPlayerUtilityObserver &aObserver)
     : iObserver(aObserver)
     , iCurrentState(EVideoPlayerStateIdle) {
-    
 }
 
 void CVideoPlayerFeedbackHandler::OpenComplete(const TInt aError) {
@@ -25,7 +24,7 @@ void CVideoPlayerFeedbackHandler::PrepareComplete(const TInt aError) {
 }
 
 void CVideoPlayerFeedbackHandler::PlayComplete(const TInt aError) {
-    iCurrentState = EVideoPlayerStatePrepared;      // Whatever error it's, gonna stop anyway.
+    iCurrentState = EVideoPlayerStatePrepared; // Whatever error it's, gonna stop anyway.
     iObserver.MvpuoPlayComplete(aError);
 }
 
@@ -38,25 +37,25 @@ void CVideoPlayerFeedbackHandler::Play() {
 }
 
 CVideoPlayerUtility::CBody::CBody(MVideoPlayerUtilityObserver &aObserver, TInt aVersion)
-        : CActive(CActive::EPriorityHigh)
-        , iFeedbackHandler(aObserver)
-        , iActiveWindow(NULL)
-        , iDispatchInstance(NULL)
-        , iVideoFps(-1.0f)
-        , iVideoBitRate(-1)
-        , iAudioBitRate(-1)
-        , iCurrentVolume(-1)
-        , iCurrentRotation(EVideoRotationNone)
-        , iCompleteIdle(NULL)
-        , iVersion(aVersion) {
+    : CActive(CActive::EPriorityHigh)
+    , iFeedbackHandler(aObserver)
+    , iActiveWindow(NULL)
+    , iDispatchInstance(NULL)
+    , iVideoFps(-1.0f)
+    , iVideoBitRate(-1)
+    , iAudioBitRate(-1)
+    , iCurrentVolume(-1)
+    , iCurrentRotation(EVideoRotationNone)
+    , iCompleteIdle(NULL)
+    , iVersion(aVersion) {
 }
 
 CVideoPlayerUtility::CBody::~CBody() {
     iCompleteIdle->Deque();
     Deque();
-    
+
     delete iCompleteIdle;
-    
+
     EVideoPlayerDestroy(0, iDispatchInstance);
 }
 
@@ -67,7 +66,7 @@ void CVideoPlayerUtility::CBody::ConstructL(RWsSession &aWsSession, RWindowBase 
 
     SetOwnedWindowL(aWsSession, aWindow);
     SetDisplayRectL(aClipRect);
-    
+
     iCompleteIdle = CIdle::NewL(CActive::EPriorityHigh);
     CActiveScheduler::Add(this);
 }
@@ -149,14 +148,14 @@ void CVideoPlayerUtility::CBody::RemoveDisplayWindow(const RWindow &aWindow) {
 }
 
 TInt McvPlayerOpenCompleteIdleCallback(TAny *aData) {
-    CVideoPlayerFeedbackHandler *util = reinterpret_cast<CVideoPlayerFeedbackHandler*>(aData);
+    CVideoPlayerFeedbackHandler *util = reinterpret_cast<CVideoPlayerFeedbackHandler *>(aData);
     util->OpenComplete(KErrNone);
 
     return KErrNone;
 }
 
 TInt McvPlayerPrepareCompleteIdleCallback(TAny *aData) {
-    CVideoPlayerFeedbackHandler *util = reinterpret_cast<CVideoPlayerFeedbackHandler*>(aData);
+    CVideoPlayerFeedbackHandler *util = reinterpret_cast<CVideoPlayerFeedbackHandler *>(aData);
     util->PrepareComplete(KErrNone);
 
     return KErrNone;
@@ -166,7 +165,7 @@ void CVideoPlayerUtility::CBody::OpenFileL(const TDesC &aPath) {
     if ((iFeedbackHandler.CurrentState() == EVideoPlayerStatePlaying) || (iFeedbackHandler.CurrentState() == EVideoPlayerStatePaused)) {
         LogOut(KMcvCat, _L("Open a new video player when the video player is not stopped yet is not valid!"));
         User::Leave(KErrInUse);
-        
+
         return;
     }
 
@@ -179,7 +178,7 @@ void CVideoPlayerUtility::CBody::OpenFileL(const TDesC &aPath) {
         iFeedbackHandler.OpenComplete(result);
         return;
     }
-    
+
     if (result == KErrNone) {
         iVideoBitRate = -1;
         iAudioBitRate = -1;
@@ -188,7 +187,7 @@ void CVideoPlayerUtility::CBody::OpenFileL(const TDesC &aPath) {
         iCompleteIdle->Start(TCallBack(McvPlayerOpenCompleteIdleCallback, &iFeedbackHandler));
         return;
     }
-    
+
     // Who are you? I don't know you!!!!
     User::Leave(result);
 }
@@ -197,7 +196,7 @@ void CVideoPlayerUtility::CBody::OpenDesL(const TDesC8 &aContent) {
     if ((iFeedbackHandler.CurrentState() == EVideoPlayerStatePlaying) || (iFeedbackHandler.CurrentState() == EVideoPlayerStatePaused)) {
         LogOut(KMcvCat, _L("Open a new video player when the video player is not stopped yet is not valid!"));
         User::Leave(KErrInUse);
-        
+
         return;
     }
 
@@ -206,12 +205,12 @@ void CVideoPlayerUtility::CBody::OpenDesL(const TDesC8 &aContent) {
         iFeedbackHandler.OpenComplete(result);
         return;
     }
-    
+
     if (result == KErrNone) {
         iCompleteIdle->Start(TCallBack(McvPlayerOpenCompleteIdleCallback, &iFeedbackHandler));
         return;
     }
-    
+
     // Who are you? I don't know you!!!!
     User::Leave(result);
 }
@@ -273,7 +272,7 @@ void CVideoPlayerUtility::CBody::Close() {
     if (iFeedbackHandler.CurrentState() == EVideoPlayerStateIdle) {
         return;
     }
-    
+
     EVideoPlayerClose(0, iDispatchInstance);
 }
 
@@ -282,14 +281,14 @@ void CVideoPlayerUtility::CBody::SetPositionL(const TTimeIntervalMicroSeconds &a
         LogOut(KMcvCat, _L("Attempt to set video's time position when the video is still playing!"));
         User::Leave(KErrInUse);
     }
-    
+
     User::LeaveIfError(EVideoPlayerSetPosition(0, iDispatchInstance, &aWhere));
 }
 
 TTimeIntervalMicroSeconds CVideoPlayerUtility::CBody::PositionL() const {
     TTimeIntervalMicroSeconds position;
     User::LeaveIfError(EVideoPlayerGetPosition(0, iDispatchInstance, &position));
-    
+
     return position;
 }
 
@@ -302,7 +301,7 @@ TInt CVideoPlayerUtility::CBody::Volume() {
     if (iCurrentVolume == -1) {
         iCurrentVolume = EVideoPlayerCurrentVolume(0, iDispatchInstance);
     }
-    
+
     return iCurrentVolume;
 }
 
@@ -319,14 +318,14 @@ TReal32 CVideoPlayerUtility::CBody::Fps() {
     if (iVideoFps < 0) {
         EVideoPlayerGetVideoFps(0, iDispatchInstance, &iVideoFps);
     }
-    
+
     return iVideoFps;
 }
 
 TTimeIntervalMicroSeconds CVideoPlayerUtility::CBody::DurationL() const {
     TTimeIntervalMicroSeconds duration;
     User::LeaveIfError(EVideoPlayerGetDuration(0, iDispatchInstance, &duration));
-    
+
     return duration;
 }
 
@@ -334,7 +333,7 @@ TInt CVideoPlayerUtility::CBody::VideoBitRate() {
     if (iVideoBitRate < 0) {
         iVideoBitRate = EVideoPlayerGetBitrate(0, iDispatchInstance, EFalse);
     }
-    
+
     return iVideoBitRate;
 }
 
@@ -342,7 +341,7 @@ TInt CVideoPlayerUtility::CBody::AudioBitRate() {
     if (iAudioBitRate < 0) {
         iAudioBitRate = EVideoPlayerGetBitrate(0, iDispatchInstance, ETrue);
     }
-    
+
     return iAudioBitRate;
 }
 
@@ -369,7 +368,7 @@ CVideoPlayerUtility::CBody *CVideoPlayerUtility::CBody::NewL(MVideoPlayerUtility
     CleanupStack::PushL(self);
     self->ConstructL(aWsSession, aWindow, aClipRect);
     CleanupStack::Pop();
-    
+
     return self;
 }
 
@@ -379,58 +378,58 @@ CVideoPlayerUtility::CBody *CVideoPlayerUtility::CBody::New2L(MVideoPlayerUtilit
     CleanupStack::PushL(self);
     self->Construct2L();
     CleanupStack::Pop();
-    
+
     return self;
 }
 
-EXPORT_C CVideoPlayerUtility* CVideoPlayerUtility::NewL(MVideoPlayerUtilityObserver& aObserver,
-                                          TInt aPriority,
-                                          TMdaPriorityPreference aPref,
-                                          RWsSession& aWs,
-                                          CWsScreenDevice& aScreenDevice,
-                                          RWindowBase& aWindow,
-                                          const TRect& aScreenRect,
-                                          const TRect& aClipRect) {
+EXPORT_C CVideoPlayerUtility *CVideoPlayerUtility::NewL(MVideoPlayerUtilityObserver &aObserver,
+    TInt aPriority,
+    TMdaPriorityPreference aPref,
+    RWsSession &aWs,
+    CWsScreenDevice &aScreenDevice,
+    RWindowBase &aWindow,
+    const TRect &aScreenRect,
+    const TRect &aClipRect) {
     CVideoPlayerUtility *self = new (ELeave) CVideoPlayerUtility;
     CleanupStack::PushL(self);
 
     self->iBody = CVideoPlayerUtility::CBody::NewL(aObserver, aWs, aWindow, aClipRect);
     CleanupStack::Pop();
-    
+
     return self;
 }
 
-EXPORT_C CVideoPlayerUtility2* CVideoPlayerUtility2::NewL(MVideoPlayerUtilityObserver& aObserver, TInt aPriority, TInt aPref) {
+EXPORT_C CVideoPlayerUtility2 *CVideoPlayerUtility2::NewL(MVideoPlayerUtilityObserver &aObserver, TInt aPriority, TInt aPref) {
     CVideoPlayerUtility2 *self = new (ELeave) CVideoPlayerUtility2;
     CleanupStack::PushL(self);
 
     self->iBody = CVideoPlayerUtility::CBody::New2L(aObserver);
     CleanupStack::Pop();
-    
+
     return self;
 }
 
-EXPORT_C void CVideoPlayerUtility::OpenFileL(const TDesC& aFileName,TUid aControllerUid) {
+EXPORT_C void CVideoPlayerUtility::OpenFileL(const TDesC &aFileName, TUid aControllerUid) {
     iBody->OpenFileL(aFileName);
 }
 
-EXPORT_C void CVideoPlayerUtility::OpenFileL(const RFile& aFileName, TUid aControllerUid) {
+EXPORT_C void CVideoPlayerUtility::OpenFileL(const RFile &aFileName, TUid aControllerUid) {
     TBufC<512> nameFull;
     TDes nameFullDesc = nameFull.Des();
     aFileName.FullName(nameFullDesc);
-    
+
     iBody->OpenFileL(nameFull);
 }
 
-EXPORT_C void CVideoPlayerUtility::OpenFileL(const TMMSource& aSource, TUid aControllerUid) {
+EXPORT_C void CVideoPlayerUtility::OpenFileL(const TMMSource &aSource, TUid aControllerUid) {
     LogOut(KMcvCat, _L("Video Player's open file through MMSource is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility::OpenDesL(const TDesC8& aDescriptor,TUid aControllerUid) {
+EXPORT_C void CVideoPlayerUtility::OpenDesL(const TDesC8 &aDescriptor, TUid aControllerUid) {
     iBody->OpenDesL(aDescriptor);
 }
 
-EXPORT_C void CVideoPlayerUtility::OpenUrlL(const TDesC& aUrl, TInt aIapId, const TDesC8& aMimeType, TUid aControllerUid) {
+EXPORT_C void CVideoPlayerUtility::OpenUrlL(const TDesC &aUrl, TInt aIapId, const TDesC8 &aMimeType, TUid aControllerUid) {
     LogOut(KMcvCat, _L("Video Player's open URL is not yet implemented!"));
 }
 
@@ -446,11 +445,11 @@ EXPORT_C void CVideoPlayerUtility::Play() {
     iBody->Play(NULL);
 }
 
-EXPORT_C void CVideoPlayerUtility::Play(const TTimeIntervalMicroSeconds& aStartPoint, const TTimeIntervalMicroSeconds& aEndPoint) {
+EXPORT_C void CVideoPlayerUtility::Play(const TTimeIntervalMicroSeconds &aStartPoint, const TTimeIntervalMicroSeconds &aEndPoint) {
     TTimeIntervalMicroSeconds range[2];
     range[0] = aStartPoint;
     range[1] = aEndPoint;
-    
+
     iBody->Play(range);
 }
 
@@ -466,19 +465,19 @@ EXPORT_C void CVideoPlayerUtility::SetPriorityL(TInt aPriority, TMdaPriorityPref
     LogOut(KMcvCat, _L("Video Player's set priority is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility::PriorityL(TInt& aPriority, TMdaPriorityPreference& aPref) const {
+EXPORT_C void CVideoPlayerUtility::PriorityL(TInt &aPriority, TMdaPriorityPreference &aPref) const {
     LogOut(KMcvCat, _L("Video Player's get priority is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility::SetDisplayWindowL(RWsSession& aWs,CWsScreenDevice& aScreenDevice,RWindowBase& aWindow,const TRect& aWindowRect,const TRect& aClipRect) {
+EXPORT_C void CVideoPlayerUtility::SetDisplayWindowL(RWsSession &aWs, CWsScreenDevice &aScreenDevice, RWindowBase &aWindow, const TRect &aWindowRect, const TRect &aClipRect) {
     iBody->SetOwnedWindowL(aWs, aWindow);
 }
 
-EXPORT_C void CVideoPlayerUtility::RegisterForVideoLoadingNotification(MVideoLoadingObserver& aCallback) {
+EXPORT_C void CVideoPlayerUtility::RegisterForVideoLoadingNotification(MVideoLoadingObserver &aCallback) {
     LogOut(KMcvCat, _L("Video Player's register video loading notification is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility::GetVideoLoadingProgressL(TInt& aPercentageComplete) {
+EXPORT_C void CVideoPlayerUtility::GetVideoLoadingProgressL(TInt &aPercentageComplete) {
     aPercentageComplete = 100;
 }
 
@@ -502,11 +501,11 @@ EXPORT_C void CVideoPlayerUtility::SetVideoFrameRateL(TReal32 aFramesPerSecond) 
     iBody->SetFpsL(aFramesPerSecond);
 }
 
-EXPORT_C void CVideoPlayerUtility::VideoFrameSizeL(TSize& aSize) const {
+EXPORT_C void CVideoPlayerUtility::VideoFrameSizeL(TSize &aSize) const {
     LogOut(KMcvCat, _L("Video Player's video frame size is not yet implemented!"));
 }
 
-EXPORT_C const TDesC8& CVideoPlayerUtility::VideoFormatMimeType() const {
+EXPORT_C const TDesC8 &CVideoPlayerUtility::VideoFormatMimeType() const {
     return _L8("video/mp4");
 }
 
@@ -527,7 +526,7 @@ EXPORT_C TBool CVideoPlayerUtility::AudioEnabledL() const {
     return ETrue;
 }
 
-EXPORT_C void CVideoPlayerUtility::SetPositionL(const TTimeIntervalMicroSeconds& aPosition) {
+EXPORT_C void CVideoPlayerUtility::SetPositionL(const TTimeIntervalMicroSeconds &aPosition) {
     iBody->SetPositionL(aPosition);
 }
 
@@ -555,7 +554,7 @@ EXPORT_C void CVideoPlayerUtility::SetBalanceL(TInt aBalance) {
     LogOut(KMcvCat, _L("Video Player's set balance is not yet implemented!"));
 }
 
-EXPORT_C TInt CVideoPlayerUtility::Balance()const {
+EXPORT_C TInt CVideoPlayerUtility::Balance() const {
     LogOut(KMcvCat, _L("Video Player's get balance is not yet implemented!"));
 }
 
@@ -571,15 +570,15 @@ EXPORT_C void CVideoPlayerUtility::SetScaleFactorL(TReal32 aWidthPercentage, TRe
     LogOut(KMcvCat, _L("Video Player's set scale factor is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility::GetScaleFactorL(TReal32& aWidthPercentage, TReal32& aHeightPercentage, TBool& aAntiAliasFiltering) const {
+EXPORT_C void CVideoPlayerUtility::GetScaleFactorL(TReal32 &aWidthPercentage, TReal32 &aHeightPercentage, TBool &aAntiAliasFiltering) const {
     LogOut(KMcvCat, _L("Video Player's get scale factor is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility::SetCropRegionL(const TRect& aCropRegion) {
+EXPORT_C void CVideoPlayerUtility::SetCropRegionL(const TRect &aCropRegion) {
     iBody->SetDisplayRectL(aCropRegion);
 }
 
-EXPORT_C void CVideoPlayerUtility::GetCropRegionL(TRect& aCropRegion) const {
+EXPORT_C void CVideoPlayerUtility::GetCropRegionL(TRect &aCropRegion) const {
     iBody->GetDisplayRect(aCropRegion);
 }
 
@@ -588,40 +587,40 @@ EXPORT_C TInt CVideoPlayerUtility::NumberOfMetaDataEntriesL() const {
     return 0;
 }
 
-EXPORT_C CMMFMetaDataEntry* CVideoPlayerUtility::MetaDataEntryL(TInt aIndex) const {
+EXPORT_C CMMFMetaDataEntry *CVideoPlayerUtility::MetaDataEntryL(TInt aIndex) const {
     LogOut(KMcvCat, _L("Video Player's get metadata entry is not yet implemented!"));
     return NULL;
 }
 
-EXPORT_C const CMMFControllerImplementationInformation& CVideoPlayerUtility::ControllerImplementationInformationL() {
+EXPORT_C const CMMFControllerImplementationInformation &CVideoPlayerUtility::ControllerImplementationInformationL() {
     LogOut(KMcvCat, _L("Video Player's controller implementation information is not yet implemented!"));
 }
 
-EXPORT_C TInt CVideoPlayerUtility::CustomCommandSync(const TMMFMessageDestinationPckg& aDestination, TInt aFunction, const TDesC8& aDataTo1, const TDesC8& aDataTo2, TDes8& aDataFrom) {
+EXPORT_C TInt CVideoPlayerUtility::CustomCommandSync(const TMMFMessageDestinationPckg &aDestination, TInt aFunction, const TDesC8 &aDataTo1, const TDesC8 &aDataTo2, TDes8 &aDataFrom) {
     LogOut(KMcvCat, _L("Video Player's custom command sync v1 is not yet implemented!"));
     return 0;
 }
 
-EXPORT_C TInt CVideoPlayerUtility::CustomCommandSync(const TMMFMessageDestinationPckg& aDestination, TInt aFunction, const TDesC8& aDataTo1, const TDesC8& aDataTo2) {
+EXPORT_C TInt CVideoPlayerUtility::CustomCommandSync(const TMMFMessageDestinationPckg &aDestination, TInt aFunction, const TDesC8 &aDataTo1, const TDesC8 &aDataTo2) {
     LogOut(KMcvCat, _L("Video Player's custom command sync v2 is not yet implemented!"));
     return 0;
 }
 
-EXPORT_C void CVideoPlayerUtility::CustomCommandAsync(const TMMFMessageDestinationPckg& aDestination, TInt aFunction, const TDesC8& aDataTo1, const TDesC8& aDataTo2, TDes8& aDataFrom, TRequestStatus& aStatus) {
+EXPORT_C void CVideoPlayerUtility::CustomCommandAsync(const TMMFMessageDestinationPckg &aDestination, TInt aFunction, const TDesC8 &aDataTo1, const TDesC8 &aDataTo2, TDes8 &aDataFrom, TRequestStatus &aStatus) {
     LogOut(KMcvCat, _L("Video Player's custom command async v1 is not yet implemented!"));
 
-    TRequestStatus *statusPtr = &aStatus;    
+    TRequestStatus *statusPtr = &aStatus;
     User::RequestComplete(statusPtr, KErrNone);
 }
 
-EXPORT_C void CVideoPlayerUtility::CustomCommandAsync(const TMMFMessageDestinationPckg& aDestination, TInt aFunction, const TDesC8& aDataTo1, const TDesC8& aDataTo2, TRequestStatus& aStatus) {
+EXPORT_C void CVideoPlayerUtility::CustomCommandAsync(const TMMFMessageDestinationPckg &aDestination, TInt aFunction, const TDesC8 &aDataTo1, const TDesC8 &aDataTo2, TRequestStatus &aStatus) {
     LogOut(KMcvCat, _L("Video Player's custom command async v2 is not yet implemented!"));
 
-    TRequestStatus *statusPtr = &aStatus;    
+    TRequestStatus *statusPtr = &aStatus;
     User::RequestComplete(statusPtr, KErrNone);
 }
 
-EXPORT_C MMMFDRMCustomCommand* CVideoPlayerUtility::GetDRMCustomCommand() {
+EXPORT_C MMMFDRMCustomCommand *CVideoPlayerUtility::GetDRMCustomCommand() {
     LogOut(KMcvCat, _L("Video Player's get drm custom command is not yet implemented!"));
     return NULL;
 }
@@ -634,7 +633,7 @@ EXPORT_C void CVideoPlayerUtility::StartDirectScreenAccessL() {
     // Does nothing ;)
 }
 
-EXPORT_C TInt CVideoPlayerUtility::RegisterAudioResourceNotification(MMMFAudioResourceNotificationCallback& aCallback, TUid aNotificationEventUid, const TDesC8& aNotificationRegistrationData) {
+EXPORT_C TInt CVideoPlayerUtility::RegisterAudioResourceNotification(MMMFAudioResourceNotificationCallback &aCallback, TUid aNotificationEventUid, const TDesC8 &aNotificationRegistrationData) {
     LogOut(KMcvCat, _L("Video Player's register audio resource notification is not yet implemented!"));
 }
 
@@ -665,7 +664,7 @@ EXPORT_C void CVideoPlayerUtility::StepFrameL(TInt aStep) {
     LogOut(KMcvCat, _L("Video Player's Step frame is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility::GetPlayRateCapabilitiesL(TVideoPlayRateCapabilities& aCapabilities) const {
+EXPORT_C void CVideoPlayerUtility::GetPlayRateCapabilitiesL(TVideoPlayRateCapabilities &aCapabilities) const {
     LogOut(KMcvCat, _L("Video Player's get play rate capabilities is not yet implemented!"));
 }
 
@@ -687,7 +686,7 @@ EXPORT_C void CVideoPlayerUtility::SetAutoScaleL(TAutoScaleType aScaleType) {
 }
 
 EXPORT_C void CVideoPlayerUtility::SetAutoScaleL(TAutoScaleType aScaleType, TInt aHorizPos, TInt aVertPos) {
-    LogOut(KMcvCat, _L("Video Player's set video scale is not yet implemented!"));    
+    LogOut(KMcvCat, _L("Video Player's set video scale is not yet implemented!"));
 }
 
 CVideoPlayerUtility::~CVideoPlayerUtility() {
@@ -695,35 +694,32 @@ CVideoPlayerUtility::~CVideoPlayerUtility() {
 }
 
 CVideoPlayerUtility2::~CVideoPlayerUtility2() {
-    
 }
 
-EXPORT_C void CVideoPlayerUtility2::AddDisplayWindowL(RWsSession& aWs, CWsScreenDevice& aScreenDevice, RWindow& aWindow, const TRect& aVideoExtent, 
-    const TRect& aWindowClipRect) {
+EXPORT_C void CVideoPlayerUtility2::AddDisplayWindowL(RWsSession &aWs, CWsScreenDevice &aScreenDevice, RWindow &aWindow, const TRect &aVideoExtent,
+    const TRect &aWindowClipRect) {
     iBody->AddDisplayWindowL(aWs, aWindow);
     iBody->SetDisplayRectForWindowL(aWindow, aWindowClipRect);
 }
 
-EXPORT_C void CVideoPlayerUtility2::AddDisplayWindowL(RWsSession& aWs, CWsScreenDevice& aScreenDevice, RWindow& aWindow) {
+EXPORT_C void CVideoPlayerUtility2::AddDisplayWindowL(RWsSession &aWs, CWsScreenDevice &aScreenDevice, RWindow &aWindow) {
     iBody->AddDisplayWindowL(aWs, aWindow);
 }
 
-EXPORT_C void CVideoPlayerUtility2::RemoveDisplayWindow(RWindow& aWindow) {
+EXPORT_C void CVideoPlayerUtility2::RemoveDisplayWindow(RWindow &aWindow) {
     iBody->RemoveDisplayWindow(aWindow);
 }
 
-EXPORT_C void CVideoPlayerUtility2::SetVideoExtentL(const RWindow& aWindow, const TRect& aVideoExtent) {
+EXPORT_C void CVideoPlayerUtility2::SetVideoExtentL(const RWindow &aWindow, const TRect &aVideoExtent) {
     LogOut(KMcvCat, _L("Video Player 2's set video extent is not yet implemented!"));
 }
 
-EXPORT_C void CVideoPlayerUtility2::SetWindowClipRectL(const RWindow& aWindow, const TRect& aWindowClipRect) {
+EXPORT_C void CVideoPlayerUtility2::SetWindowClipRectL(const RWindow &aWindow, const TRect &aWindowClipRect) {
     iBody->SetDisplayRectForWindowL(aWindow, aWindowClipRect);
 }
 
 EXPORT_C void Reserved1() {
-    
 }
 
 EXPORT_C void Reserved2() {
-    
 }

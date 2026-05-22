@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -21,9 +21,9 @@
 
 #include <services/msv/common.h>
 
-#include <utils/des.h>
 #include <cstdint>
 #include <memory>
+#include <utils/des.h>
 
 namespace eka2l1::epoc::sms {
     enum sms_pid_conversion : std::uint16_t {
@@ -45,9 +45,9 @@ namespace eka2l1::epoc::sms {
 
     enum sms_time_validity_period_format : std::uint8_t {
         sms_vpf_none = 0x0,
-        sms_vpf_enhanced = 8,           // 7 octets
-        sms_vpf_integer = 0x10,         // Relative
-        sms_vpf_semi_octet = 0x18       // Absolute
+        sms_vpf_enhanced = 8, // 7 octets
+        sms_vpf_integer = 0x10, // Relative
+        sms_vpf_semi_octet = 0x18 // Absolute
     };
 
     enum sms_delivery : std::uint8_t {
@@ -155,13 +155,13 @@ namespace eka2l1::epoc::sms {
         virtual void absorb(common::chunkyseri &seri);
     };
 
-    struct sms_type_of_address: public sms_octet {
+    struct sms_type_of_address : public sms_octet {
     };
 
     struct sms_first_octet : public sms_octet {
     };
 
-    struct sms_protocol_identifier: public sms_octet {
+    struct sms_protocol_identifier : public sms_octet {
     };
 
     struct sms_data_encoding_scheme : public sms_octet {
@@ -185,6 +185,7 @@ namespace eka2l1::epoc::sms {
         sms_pdu_type pdu_type_;
         sms_address service_center_address_;
 
+        virtual ~sms_pdu() = default;
         virtual void absorb(common::chunkyseri &seri) = 0;
     };
 

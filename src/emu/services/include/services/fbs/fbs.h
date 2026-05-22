@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -244,7 +244,7 @@ namespace eka2l1 {
         fbs_server *serv;
 
         epoc::font_atlas atlas;
-        std::vector<std::uint8_t*> shapings;
+        std::vector<std::uint8_t *> shapings;
 
         struct tf_table_info {
             std::uint32_t offset;
@@ -393,23 +393,23 @@ namespace eka2l1 {
 
         /**
          * @brief       Check if a bitmap is considered to be large bitmap.
-         * 
+         *
          * For legacy level 2 or lower server, the size of compressed must be larger or equal to 2^12 to be consider large.
          * For newer legacy level, this is always true.
-         * 
+         *
          * @returns     True if it's large.
          */
         bool is_large_bitmap(const std::uint32_t compressed_size) const;
 
         /**
          * \brief  Create a new empty bitmap.
-         * 
+         *
          * \param  info           Bitmap creation info struct.
          * \param  alloc_data     If true, bitmap data will be allocated right away.
          * \param  support_dirty  True if this bitmap supports clean variant. For backwards compatibility.
-         * 
+         *
          * \returns Bitmap object. The ID of bitmap is the server handle.
-         * 
+         *
          * \see    free_bitmap
          */
         fbsbitmap *create_bitmap(fbs_bitmap_data_info &info, const bool alloc_data = true, const bool support_current_display_mod_flag = true,
@@ -417,28 +417,28 @@ namespace eka2l1 {
 
         /**
          * \brief   Free a bitmap object.
-         * 
+         *
          * The function frees bitmap pixels and allocated object from the server's heap.
-         * 
+         *
          * It will fail if the object is still being referenced by some forces, meaning, if the object
          * reference count is bigger than 0, the function will fail.
-         * 
+         *
          * \param   bmp The server bitmap object.
          * \returns True if success.
-         * 
+         *
          * \see     create_bitmap
          */
         bool free_bitmap(fbsbitmap *bmp);
 
         /**
          * @brief   Get the legacy level of FBS we are working on.
-         * 
-         * - Level 0 (FBS_LEGACY_LEVEL_MORDEN): Morden FBS, no large bitmap. 
+         *
+         * - Level 0 (FBS_LEGACY_LEVEL_MORDEN): Morden FBS, no large bitmap.
          * - Level 1 (FBS_LEGACY_LEVEL_EARLY_EKA2): Large bitmap flag is available.
          * - Level 2 (FBS_LEGACY_LEVEL_KERNEL_TRANSITION): Large bitmap flag is not available, but current display mode flag is available
          * - Level 3 (FBS_LEGACY_LEVEL_S60V1): Bitwise bitmap flag is replaced with the display mode of the bitmap (persistent across use).
          *            Dirty bitmap is non-existent concept.
-         * 
+         *
          * @returns Legacy level of FBS.
          */
         int legacy_level() const;
@@ -459,6 +459,8 @@ namespace eka2l1 {
             return base_large_chunk + start_offset;
         }
 
+        bool ensure_host_range_accessible(const void *ptr, std::size_t size);
+
         ptr<std::uint8_t> host_ptr_to_guest_general_data(void *ptr) {
             return shared_chunk->base(nullptr) + static_cast<std::uint32_t>(reinterpret_cast<std::uint8_t *>(ptr) - base_shared_chunk);
         }
@@ -476,17 +478,17 @@ namespace eka2l1 {
 
         /**
          * \brief Load image data to large chunk.
-         * 
+         *
          * Normally it's compressed as it is in the source MBM file, but in circumstances where the legacy system
          * forces it to be unable to compress as it is, the data will be decompressed.
-         * 
+         *
          * In that case upper, the size parameter will be assigned with uncompressed size. Normally it will be 0.
-         * 
+         *
          * \param mbmf_         The MBM file stream
          * \param idx_          Index of the bitmap in MBM. Index base is 0.
          * \param size_         Reference variable to assign the new size in case the data is decompressed.
          * \param err_code      Pointer to integer which will holds error code. Must not be null.
-         * 
+         *
          * \return Pointer to the data.
          */
         void *load_data_to_rom(loader::mbm_file &mbmf_, const std::size_t idx_, std::size_t &size_decomp, int *err_code);
@@ -495,9 +497,9 @@ namespace eka2l1 {
          *
          * Symbian usually avoids sending struct that usually changes its structure
          * to preserve compatibility. Especially, struct with vtable should be avoided.
-         * 
+         *
          * Using a shared global chunk, this could be solved someway.
-        */
+         */
         void *allocate_general_data_impl(const std::size_t s);
 
         // General...
@@ -505,9 +507,9 @@ namespace eka2l1 {
 
         /**
          * \brief Use to allocate large data such as bitmap (font bitmap, raw bitmap, etc...).
-         * 
+         *
          * \param     s Size of data to be allocated.
-         * \returns   Pointer to the large data if memory is efficient.   
+         * \returns   Pointer to the large data if memory is efficient.
          */
         void *allocate_large_data(const std::size_t s);
 
@@ -521,9 +523,9 @@ namespace eka2l1 {
          *
          * Symbian usually avoids sendings struct that usually changes its structure
          * to preserve compability. Especially, struct with vtable should be avoided.
-         * 
+         *
          * Using a shared global chunk, this could be solved someway.
-        */
+         */
         template <typename T, typename... Args>
         T *allocate_general_data(Args... construct_args) {
             return shared_chunk_allocator->allocate_struct<T>(construct_args...);
@@ -531,7 +533,7 @@ namespace eka2l1 {
 
         /**
          * \brief   Get a font by its ID.
-         * 
+         *
          * \param   id The ID of the font.
          * \returns Pointer to the font object if it exists.
          */

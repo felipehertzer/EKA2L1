@@ -76,27 +76,27 @@ namespace eka2l1 {
 
             /**
              * @brief   Add new object to the container.
-             * 
+             *
              * @param   obj     Pointer to the kernel object.
              * @returns Handle to the object
-            */
+             */
             std::uint32_t add_object(kernel_obj_ptr obj);
 
             /**
-             * @brief   Duplicate an existing object handle. 
-             * 
+             * @brief   Duplicate an existing object handle.
+             *
              * @param   handle The existing handle to duplicate.
-             * 
+             *
              * @returns New handle. 0 if fail to create.
-            */
+             */
             std::uint32_t duplicate(uint32_t handle);
 
             /**
              * @brief   Get the kernel object reference by the handle.
-             * 
+             *
              * @param   handle  The handle to extract kernel object from.
              * @returns The kernel object referenced. Nullptr if there is none found.
-            */
+             */
             kernel_obj_ptr get_object(uint32_t handle);
 
             int close(uint32_t handle);
@@ -114,7 +114,7 @@ namespace eka2l1 {
 
             /**
              * @brief   Check if the container currently has this object opened.
-             * 
+             *
              * @param   obj         Pointer to this kernel object.
              * @returns True if this container has given object.
              */
@@ -122,18 +122,18 @@ namespace eka2l1 {
 
             /**
              * @brief   Count the number of times this object appeared in the handle list.
-             * 
+             *
              * This function counts the number of time a kernel object has been opened in this object container.
              * Operates by iterating through all the container and searchs if this kernel object is associated with an index.
-             * 
+             *
              * This function returns 0 if the object does not appear at all.
-             * 
+             *
              * This function differs from the "has" function by searching through all index non-stop, while if "has" has found
              * the object, it stops.
-             * 
+             *
              * @param   obj     Pointer to the kernel object to be counted.
              * @returns Number of times this object has appeared in this container
-             * 
+             *
              * @see     has
              */
             std::uint32_t count(kernel_obj_ptr obj);

@@ -24,40 +24,46 @@
 
 #include "vibractrl.hpp"
 
-class CVibraControlImpl: public CVibraControl, public MSharedDataNotifyHandler, public MCoeForegroundObserver {
-  public:
+class CVibraControlImpl : public CVibraControl, public MSharedDataNotifyHandler, public MCoeForegroundObserver {
+public:
     ~CVibraControlImpl();
-  public: //CVibraControl
+
+public: // CVibraControl
     void StartVibraL(TUint16 aDuration);
     void StopVibraL(void);
 
     TVibraModeState VibraSettings(void) const;
-    void StartVibraL(TUint16 aDuration,TInt aIntensity);
-  public: //MCoeForegroundObserver
+    void StartVibraL(TUint16 aDuration, TInt aIntensity);
+
+public: // MCoeForegroundObserver
     void HandleGainingForeground(void);
     void HandleLosingForeground(void);
-  public: //MSharedDataNotifyHandler
-    void HandleNotifyL(TUid anUid,const TDesC16& aKey,const TDesC16& aValue);
-  public:
-    static const TDesC8& Copyright(void);
-  private:
-    CVibraControlImpl(MVibraControlObserver* aCallback);
+
+public: // MSharedDataNotifyHandler
+    void HandleNotifyL(TUid anUid, const TDesC16 &aKey, const TDesC16 &aValue);
+
+public:
+    static const TDesC8 &Copyright(void);
+
+private:
+    CVibraControlImpl(MVibraControlObserver *aCallback);
     void ConstructL(void);
-    static void DoCleanup(TAny* aPtr);
-    static void DoCleanupIntensity(TAny* aPtr);
-  private:
+    static void DoCleanup(TAny *aPtr);
+    static void DoCleanupIntensity(TAny *aPtr);
+
+private:
     void Open(void);
     void Close(void);
 
-  private:
-    MVibraControlObserver* iCallback;
+private:
+    MVibraControlObserver *iCallback;
     RSharedDataClient iShared;
     RHWRMVibraRaw iVibraController;
     TVibraModeState iVibraState;
 
     TBool iCaptured;
     TBool iProfileAvailable;
-  friend class VibraFactory;
+    friend class VibraFactory;
 };
 
 #endif

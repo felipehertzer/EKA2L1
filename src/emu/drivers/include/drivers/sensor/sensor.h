@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -20,9 +20,9 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace eka2l1::drivers {
@@ -73,7 +73,7 @@ namespace eka2l1::drivers {
         SENSOR_UNIT_NONE = 0,
         SENSOR_UNIT_MS_PER_S2 = 10,
         SENSOR_UNIT_GRAVITY = 11,
-        SENSOR_UNIT_TELSA = 12 
+        SENSOR_UNIT_TELSA = 12
     };
 
     enum sensor_data_format {
@@ -181,11 +181,11 @@ namespace eka2l1::drivers {
 
         /**
          * @brief Listen for sensor data.
-         * 
+         *
          * @param desired_buffering_count   Number of packets desired to received on the callback.
          * @param max_buffering_count       Maximum number of packets to received on the callback.
          * @param delay_us                  Specify the time after all packets are prepared, to call the callback.
-         * 
+         *
          * @returns True on success.
          */
         virtual bool listen_for_data(std::size_t desired_buffering_count, std::size_t max_buffering_count, std::size_t delay_us) = 0;
@@ -205,6 +205,8 @@ namespace eka2l1::drivers {
 
     class sensor_driver {
     public:
+        virtual ~sensor_driver() = default;
+
         virtual std::vector<sensor_info> queries_active_sensor(const sensor_info &search_info) = 0;
         virtual std::unique_ptr<sensor> new_sensor_controller(const std::uint32_t id) = 0;
 

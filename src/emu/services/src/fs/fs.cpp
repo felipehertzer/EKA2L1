@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -44,7 +44,6 @@
 #include <utils/err.h>
 
 #include <services/fs/sec.h>
-#include <re2/re2.h>
 
 namespace eka2l1 {
     bool check_path_capabilities_pass(const std::u16string &path, kernel::process *pr, epoc::security_policy &private_policy, epoc::security_policy &sys_policy, epoc::security_policy &resource_policy) {
@@ -179,7 +178,7 @@ namespace eka2l1 {
 
     fs_server::~fs_server() {
         io_system *io = sys->get_io_system();
-        for (const std::u16string &path: temporary_file_cleanset_) {
+        for (const std::u16string &path : temporary_file_cleanset_) {
             io->delete_entry(path);
         }
     }
@@ -288,6 +287,8 @@ namespace eka2l1 {
             HANDLE_CLIENT_IPC(notify_change, epoc::fs_msg_notify_change, "Fs::NotifyChange");
             HANDLE_CLIENT_IPC(notify_change_cancel, epoc::fs_msg_notify_change_cancel, "Fs::NotifyChangeCancel"); // Same implementation on emulator.
             HANDLE_CLIENT_IPC(notify_change_cancel_ex, epoc::fs_msg_notify_change_cancel_ex, "Fs::NotifyChangeCancelEx");
+            HANDLE_CLIENT_IPC(notify_disk_space, epoc::fs_msg_notify_disk_space, "Fs::NotifyDiskSpace");
+            HANDLE_CLIENT_IPC(notify_disk_space_cancel, epoc::fs_msg_notify_disk_space_cancel, "Fs::NotifyDiskSpaceCancel");
             HANDLE_CLIENT_IPC(mkdir, epoc::fs_msg_mkdir, "Fs::MkDir");
             HANDLE_CLIENT_IPC(rmdir, epoc::fs_msg_rmdir, "Fs::RmDir");
             HANDLE_CLIENT_IPC(parse, epoc::fs_msg_parse, "Fs::Parse");
@@ -430,6 +431,7 @@ namespace eka2l1 {
             return;
         }
 
+        check_disk_space_notifications();
         ctx->complete(epoc::error_none);
     }
 
@@ -488,6 +490,9 @@ namespace eka2l1 {
             }
         }
 
+        std::u16string private_root_dir = u"?:\\Private\\";
+        std::u16string data_root_dir = u"?:\\Data\\";
+        std::u16string share_temp_dir = u"?:\\Data\\sharetemp\\";
         std::u16string temp_data_dir = u"?:\\System\\Temp\\";
 
         io_system *io = sys->get_io_system();
@@ -495,7 +500,14 @@ namespace eka2l1 {
         // Ignore drive z.
         for (drive_number drv = drive_y; drv >= drive_a; drv--) {
             if (io->get_drive_entry(drv)) {
+                private_root_dir[0] = drive_to_char16(drv);
+                data_root_dir[0] = drive_to_char16(drv);
+                share_temp_dir[0] = drive_to_char16(drv);
                 temp_data_dir[0] = drive_to_char16(drv);
+
+                io->create_directories(private_root_dir);
+                io->create_directories(data_root_dir);
+                io->create_directories(share_temp_dir);
 
                 if (auto dir = io->open_dir(temp_data_dir)) {
                     while (auto dir_entry = dir->get_next_entry()) {
@@ -532,7 +544,7 @@ namespace eka2l1 {
 
         auto result = sessions.find(ss->unique_id());
         if (result != sessions.end()) {
-            return reinterpret_cast<fs_server_client*>(result->second.get());
+            return reinterpret_cast<fs_server_client *>(result->second.get());
         }
 
         return create_session_impl<fs_server_client>(ss->unique_id(), epoc::version{ 0 }, nullptr);
@@ -580,7 +592,7 @@ namespace eka2l1 {
             return;
         }
 
-        if (!io->create_directory(private_path)) {
+        if (!io->create_directories(private_path)) {
             ctx->complete(epoc::error_permission_denied);
             return;
         }
@@ -620,9 +632,8 @@ namespace eka2l1 {
             return;
         }
 
-        RE2 pattern("[<>:\"/|*?]+");
         std::string path_utf8 = common::ucs2_to_utf8(path.value());
-        std::uint32_t valid = !(RE2::PartialMatch(path_utf8, pattern) || path->empty());
+        std::uint32_t valid = (path_utf8.find_first_of("<>:\"/|*?") == std::string::npos) && !path->empty();
 
         ctx->write_data_to_descriptor_argument<std::uint32_t>(1, valid);
         ctx->complete(epoc::error_none);
@@ -702,6 +713,97 @@ namespace eka2l1 {
         ctx->complete(epoc::error_none);
     }
 
+    static std::optional<drive_number> normalise_notify_drive(std::int32_t drive) {
+        if (drive < drive_a || drive >= drive_count) {
+            return std::nullopt;
+        }
+
+        return static_cast<drive_number>(drive);
+    }
+
+    void fs_server_client::notify_disk_space(service::ipc_context *ctx) {
+        const auto threshold_low = ctx->get_argument_value<std::uint32_t>(0);
+        const auto threshold_high = ctx->get_argument_value<std::int32_t>(1);
+        const auto drive = ctx->get_argument_value<std::int32_t>(2);
+
+        if (!threshold_low || !threshold_high || !drive) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        const std::int64_t threshold = (static_cast<std::int64_t>(*threshold_high) << 32) | *threshold_low;
+        std::int32_t drive_id = *drive;
+        if (static_cast<std::uint32_t>(drive_id) == DEFAULT_DRIVE_NUM) {
+            drive_id = server<fs_server>()->system_drive_prop->get_int();
+        }
+
+        const auto normalised_drive = normalise_notify_drive(drive_id);
+
+        if (!normalised_drive) {
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
+        if (!ctx->sys->get_io_system()->get_drive_entry(*normalised_drive)) {
+            ctx->complete(epoc::error_not_found);
+            return;
+        }
+
+        const std::optional<volume_space_info> volume_space = query_volume_space(ctx->sys->get_io_system(), *normalised_drive);
+        if (!volume_space) {
+            ctx->complete(epoc::error_not_ready);
+            return;
+        }
+
+        if (volume_space->free <= threshold) {
+            ctx->complete(epoc::error_none);
+            return;
+        }
+
+        disk_space_notify_entry entry;
+        entry.threshold = threshold;
+        entry.drive = *normalised_drive;
+        entry.info = epoc::notify_info(ctx->msg->request_sts, ctx->msg->own_thr);
+        entry.info.pending();
+        disk_space_notify_entries.push_back(entry);
+    }
+
+    void fs_server_client::notify_disk_space_cancel(service::ipc_context *ctx) {
+        const auto request_status_addr = ctx->get_argument_value<address>(0);
+
+        if (!request_status_addr || request_status_addr.value() == 0) {
+            for (auto &entry : disk_space_notify_entries) {
+                entry.info.complete(epoc::error_cancel);
+            }
+
+            disk_space_notify_entries.clear();
+            ctx->complete(epoc::error_none);
+            return;
+        }
+
+        for (auto it = disk_space_notify_entries.begin(); it != disk_space_notify_entries.end(); ++it) {
+            if (it->info.sts.ptr_address() == request_status_addr.value()) {
+                it->info.complete(epoc::error_cancel);
+                disk_space_notify_entries.erase(it);
+                break;
+            }
+        }
+
+        ctx->complete(epoc::error_none);
+    }
+
+    void fs_server_client::check_disk_space_notifications() {
+        for (auto it = disk_space_notify_entries.begin(); it != disk_space_notify_entries.end();) {
+            const std::optional<volume_space_info> volume_space = query_volume_space(server<fs_server>()->get_system()->get_io_system(), it->drive);
+            if (volume_space && volume_space->free <= it->threshold) {
+                it->info.complete(epoc::error_none);
+                it = disk_space_notify_entries.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
     void fs_server_client::notify_dismount(service::ipc_context *ctx) {
         LOG_TRACE(SERVICE_EFSRV, "Notify dismount stubbed");
         dismount_notify_ = epoc::notify_info(ctx->msg->request_sts, ctx->msg->own_thr);
@@ -744,11 +846,33 @@ namespace eka2l1 {
 
         bool res = false;
 
-        if (!io->exist(dir.value())) {
-            if (*ctx->get_argument_value<std::int32_t>(1)) {
-                res = io->create_directories(eka2l1::file_directory(*dir));
+        const bool create_all = static_cast<bool>(*ctx->get_argument_value<std::int32_t>(1));
+        std::u16string target_dir = *dir;
+
+        if (create_all && !target_dir.empty() && !eka2l1::is_separator(target_dir.back())) {
+            target_dir = eka2l1::file_directory(target_dir, true);
+        }
+
+        if (target_dir.empty()) {
+            ctx->complete(epoc::error_bad_name);
+            return;
+        }
+
+        LOG_TRACE(SERVICE_EFSRV, "MkDir requested: {}, recursive={}, target={}", common::ucs2_to_utf8(*dir),
+            create_all, common::ucs2_to_utf8(target_dir));
+
+        if (!io->exist(target_dir)) {
+            if (create_all) {
+                res = io->create_directories(target_dir);
             } else {
-                res = io->create_directory(eka2l1::file_directory(*dir));
+                res = io->create_directory(target_dir);
+            }
+            LOG_TRACE(SERVICE_EFSRV, "MkDir result for {}: {}", common::ucs2_to_utf8(target_dir), res);
+        } else {
+            LOG_TRACE(SERVICE_EFSRV, "MkDir target already exists: {}", common::ucs2_to_utf8(target_dir));
+            if (create_all) {
+                ctx->complete(epoc::error_none);
+                return;
             }
         }
 

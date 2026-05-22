@@ -389,13 +389,13 @@ namespace eka2l1::common::armgen {
     inline operand2 R(arm_reg Reg) { return operand2(Reg, TYPE_REG); }
     inline operand2 IMM(std::uint32_t Imm) { return operand2(Imm, TYPE_IMM); }
     inline operand2 Mem(void *ptr) { return operand2((std::uint32_t)(uintptr_t)ptr, TYPE_IMM); }
-//usage: struct {int e;} s; STRUCT_OFFSET(s,e)
-#define STRUCT_OFF(str, elem) ((std::uint32_t)((std::uint32_t) & (str).elem - (std::uint32_t) & (str)))
+// usage: struct {int e;} s; STRUCT_OFFSET(s,e)
+#define STRUCT_OFF(str, elem) ((std::uint32_t)((std::uint32_t)&(str).elem - (std::uint32_t)&(str)))
 
     struct fixup_branch {
         std::uint8_t *ptr;
         std::uint32_t condition; // Remembers our codition at the time
-        int type; //0 = B 1 = BL
+        int type; // 0 = B 1 = BL
     };
 
     struct literal_pool {
@@ -571,7 +571,7 @@ namespace eka2l1::common::armgen {
         void YIELD();
 
         // Do nothing
-        void NOP(int count = 1); //nop padding - TODO: fast nop slides, for amd and intel (check their manuals)
+        void NOP(int count = 1); // nop padding - TODO: fast nop slides, for amd and intel (check their manuals)
 
 #ifdef CALL
 #undef CALL

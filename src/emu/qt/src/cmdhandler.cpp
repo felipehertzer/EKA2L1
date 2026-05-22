@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -39,9 +39,9 @@
 #include <kernel/kernel.h>
 #include <services/applist/applist.h>
 
+#include <qt/utils.h>
 #include <utils/apacmd.h>
 #include <vfs/vfs.h>
-#include <qt/utils.h>
 
 #include <iostream>
 
@@ -60,9 +60,9 @@ bool app_install_option_handler(eka2l1::common::arg_parser *parser, void *userda
     // Since it's inconvenient for user to specify the drive (they are all the same on computer),
     // and it's better to install in C since there is many apps required
     // to be in it and hardcoded the drive, just hardcode drive E here.
-    bool result = emu->symsys->install_package(common::utf8_to_ucs2(path), drive_e);
+    const int result = emu->symsys->install_package(common::utf8_to_ucs2(path), drive_e);
 
-    if (!result) {
+    if (result != static_cast<int>(package::installation_result_success)) {
         *err = "Installation of SIS failed";
         return false;
     }
@@ -124,9 +124,29 @@ bool app_specifier_option_handler(eka2l1::common::arg_parser *parser, void *user
     }
 
     desktop::emulator *emu = reinterpret_cast<desktop::emulator *>(userdata);
+    emu->app_launch_from_command_line = true;
+    emu->pending_command_line_launch_ = true;
+    emu->pending_command_line_launch_ngage_ = false;
+    emu->pending_command_line_launch_token_ = tokstr;
+    emu->pending_command_line_launch_args_ = cmdlinestr;
+    emu->launched_app_name_ = tokstr;
 
-    // Get app list server
-    kernel_system *kern = emu->symsys->get_kernel_system();
+    return true;
+}
+
+bool launch_pending_command_line_app(desktop::emulator *emu, std::string *err) {
+    if (!emu || !emu->pending_command_line_launch_) {
+        return true;
+    }
+
+    emu->pending_command_line_launch_ = false;
+
+    kernel_system *kern = emu->symsys ? emu->symsys->get_kernel_system() : nullptr;
+    if (!kern) {
+        *err = "Can't get kernel system!\n";
+        return false;
+    }
+
     eka2l1::applist_server *svr = nullptr;
 
     if (kern) {
@@ -139,6 +159,40 @@ bool app_specifier_option_handler(eka2l1::common::arg_parser *parser, void *user
         return false;
     }
 
+    auto process_exit_callback = [emu](kernel::process *pr) {
+        if (emu->ui_main) {
+            emu->ui_main->get_process_exit_callback()(pr);
+        }
+    };
+
+    if (emu->pending_command_line_launch_ngage_) {
+        eka2l1::apa_app_registry registry;
+
+        if (!emu->symsys->get_ngage_game_info_mounted(registry)) {
+            *err = "Can't find the game mounted in E drive! If you believe this is a mistake, contact the emulator developers!";
+            return false;
+        }
+
+        epoc::apa::command_line launch_cmdline;
+        launch_cmdline.launch_cmd_ = epoc::apa::command_create;
+
+        if (!svr->launch_app(registry, launch_cmdline, nullptr, process_exit_callback)) {
+            *err = "Launch app failed!";
+            return false;
+        }
+
+        emu->app_launch_from_command_line = true;
+        emu->launched_app_name_ = common::ucs2_to_utf8(registry.mandatory_info.long_caption.to_std_string(nullptr));
+        if (emu->launched_app_name_.empty()) {
+            emu->launched_app_name_ = "N-Gage game";
+        }
+
+        return true;
+    }
+
+    const std::string &tokstr = emu->pending_command_line_launch_token_;
+    const std::string &cmdlinestr = emu->pending_command_line_launch_args_;
+
     // It's an UID if it's starting with 0x
     if (tokstr.length() > 2 && tokstr.substr(0, 2) == "0x") {
         const std::uint32_t uid = common::pystr(tokstr).as_int<std::uint32_t>();
@@ -146,12 +200,13 @@ bool app_specifier_option_handler(eka2l1::common::arg_parser *parser, void *user
 
         if (registry) {
             // Load the app
-            epoc::apa::command_line cmdline;
-            cmdline.launch_cmd_ = epoc::apa::command_create;
+            epoc::apa::command_line launch_cmdline;
+            launch_cmdline.launch_cmd_ = epoc::apa::command_open;
 
-            svr->launch_app(*registry, cmdline, nullptr, [emu](kernel::process *pr) {
-                return emu->ui_main->get_process_exit_callback()(pr);
-            });
+            if (!svr->launch_app(*registry, launch_cmdline, nullptr, process_exit_callback)) {
+                *err = "Launch app failed!";
+                return false;
+            }
 
             emu->app_launch_from_command_line = true;
             emu->launched_app_name_ = common::ucs2_to_utf8(registry->mandatory_info.long_caption.to_std_string(nullptr));
@@ -169,10 +224,11 @@ bool app_specifier_option_handler(eka2l1::common::arg_parser *parser, void *user
 
             if (!pr) {
                 LOG_ERROR(FRONTEND_CMDLINE, "Unable to launch process: {}", tokstr);
+                *err = "Unable to launch process: ";
+                *err += tokstr;
+                return false;
             } else {
-                pr->logon([emu](kernel::process *pr) {
-                    return emu->ui_main->get_process_exit_callback()(pr);
-                });
+                pr->logon(process_exit_callback);
 
                 pr->run();
 
@@ -190,14 +246,15 @@ bool app_specifier_option_handler(eka2l1::common::arg_parser *parser, void *user
             if (common::ucs2_to_utf8(reg.mandatory_info.long_caption.to_std_string(nullptr))
                 == tokstr) {
                 // Load the app
-                epoc::apa::command_line cmdline;
-                cmdline.launch_cmd_ = epoc::apa::command_create;
+                epoc::apa::command_line launch_cmdline;
+                launch_cmdline.launch_cmd_ = epoc::apa::command_open;
 
                 emu->launched_app_name_ = tokstr;
 
-                svr->launch_app(reg, cmdline, nullptr, [emu](kernel::process *pr) {
-                    return emu->ui_main->get_process_exit_callback()(pr);
-                });
+                if (!svr->launch_app(reg, launch_cmdline, nullptr, process_exit_callback)) {
+                    *err = "Launch app failed!";
+                    return false;
+                }
 
                 emu->app_launch_from_command_line = true;
 
@@ -205,7 +262,7 @@ bool app_specifier_option_handler(eka2l1::common::arg_parser *parser, void *user
             }
         }
 
-        *err = "No app name found with the name: {}";
+        *err = "No app name found with the name: ";
         *err += tokstr;
         *err += ". Make sure the name is right and try again.";
     }
@@ -421,37 +478,13 @@ bool set_mmcid_option_handler(eka2l1::common::arg_parser *parser, void *userdata
 
 bool run_ngage_game_option_handler(eka2l1::common::arg_parser *parser, void *userdata, std::string *err) {
     desktop::emulator *emu = reinterpret_cast<desktop::emulator *>(userdata);
-    eka2l1::apa_app_registry registry;
-
-    if (!emu->symsys->get_ngage_game_info_mounted(registry)) {
-        *err = "Can't find the game mounted in E drive! If you believe this is a mistake, contact the emulator developers!";
-        return false;
-    }
-
-    kernel_system *kern = emu->symsys->get_kernel_system();
-    eka2l1::applist_server *svr = nullptr;
-
-    if (kern) {
-        svr = reinterpret_cast<eka2l1::applist_server *>(kern->get_by_name<service::server>(
-            get_app_list_server_name_by_epocver(kern->get_epoc_version())));
-    }
-
-    if (!svr) {
-        *err = "Can't get app list server!\n";
-        return false;
-    }
-
-    epoc::apa::command_line cmdline;
-    cmdline.launch_cmd_ = epoc::apa::command_create;
-
-    if (!svr->launch_app(registry, cmdline, nullptr, [](kernel::process*) {
-        exit(0);
-    })) {
-        *err = "Launch app failed!";
-        return false;
-    }
-
     emu->app_launch_from_command_line = true;
+    emu->pending_command_line_launch_ = true;
+    emu->pending_command_line_launch_ngage_ = true;
+    emu->pending_command_line_launch_token_.clear();
+    emu->pending_command_line_launch_args_.clear();
+    emu->launched_app_name_ = "N-Gage game";
+
     return true;
 }
 

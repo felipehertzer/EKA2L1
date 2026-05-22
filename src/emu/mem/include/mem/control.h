@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -131,10 +131,10 @@ namespace eka2l1::mem {
 
         /**
          * \brief Create a new page table.
-         * 
+         *
          * The new page table will not be assigned to any existing page directory, until
          * the user decide to assign an index to it using the MMU.
-         * 
+         *
          * When we assign an index to it, it will be attached to the current page directory
          * the MMU is managing.
          */
@@ -142,7 +142,7 @@ namespace eka2l1::mem {
 
         /**
          * \brief Create or renew an address space if possible.
-         * 
+         *
          * \returns An ASID identify the address space. -1 if a new one can't be create.
          */
         virtual asid rollover_fresh_addr_space() = 0;

@@ -1,24 +1,24 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <services/drm/rights/object.h>
 #include <common/chunkyseri.h>
+#include <services/drm/rights/object.h>
 
 namespace eka2l1::epoc::drm {
     static constexpr std::uint32_t SYNC_MARK = 0xAFCE;
@@ -51,7 +51,7 @@ namespace eka2l1::epoc::drm {
         seri.absorb(timed_counter_);
         seri.absorb(timed_interval_);
         seri.absorb(accumulated_time_);
-        seri.absorb(individual_);   // U32 size
+        seri.absorb(individual_); // U32 size
 
         if (version == 0) {
             seri.absorb(system_);
@@ -75,7 +75,7 @@ namespace eka2l1::epoc::drm {
         }
     }
 
-    void rights_permission::absorb(common::chunkyseri &seri, std::uint32_t version) { 
+    void rights_permission::absorb(common::chunkyseri &seri, std::uint32_t version) {
         std::uint32_t possible_sync_mark = 0;
         if ((version >= 1) || (seri.get_seri_mode() == common::SERI_MODE_READ)) {
             possible_sync_mark = SYNC_MARK;
@@ -109,7 +109,7 @@ namespace eka2l1::epoc::drm {
         seri.absorb(version_rights_sub_);
         seri.absorb(info_bits_);
         seri.absorb_impl(right_issuer_identifier_.data(), right_issuer_identifier_.size());
-        
+
         if (version == 1) {
             seri.absorb(on_expired_url_);
 
@@ -131,7 +131,7 @@ namespace eka2l1::epoc::drm {
                 return &display_constraint_;
 
             break;
-        
+
         case rights_intent_execute:
             if (available_rights_ & rights_type_execute)
                 return &execute_constraint_;
@@ -155,25 +155,25 @@ namespace eka2l1::epoc::drm {
         if ((available_rights_ & rights_type_top_level) && (top_level_constraint_.active_constraints_ & (rights_constraint_software | rights_constraint_vendor))) {
             return true;
         }
-        
+
         if ((available_rights_ & rights_type_play) && (play_constraint_.active_constraints_ & (rights_constraint_software | rights_constraint_vendor))) {
             return true;
         }
-        
+
         if ((available_rights_ & rights_type_display) && (display_constraint_.active_constraints_ & (rights_constraint_software | rights_constraint_vendor))) {
             return true;
         }
-        
+
         if ((available_rights_ & rights_type_execute) && (execute_constraint_.active_constraints_ & (rights_constraint_software | rights_constraint_vendor))) {
             return true;
         }
-        
+
         if ((available_rights_ & rights_type_print) && (print_constraint_.active_constraints_ & (rights_constraint_software | rights_constraint_vendor))) {
             return true;
         }
 
         if ((available_rights_ & rights_type_export) && (export_contraint_.active_constraints_ & (rights_constraint_software | rights_constraint_vendor))) {
-            return true; 
+            return true;
         }
 
         return false;

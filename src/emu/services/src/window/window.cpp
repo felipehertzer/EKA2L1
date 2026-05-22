@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -60,6 +60,7 @@
 
 #include <loader/rom.h>
 
+#include <cstring>
 #include <optional>
 #include <string>
 
@@ -69,6 +70,65 @@
 namespace eka2l1::epoc {
     bool operator<(const event_capture_key_notifier &lhs, const event_capture_key_notifier &rhs) {
         return lhs.pri_ < rhs.pri_;
+    }
+
+    bool operator==(const event_capture_key_notifier &lhs, const event_capture_key_notifier &rhs) {
+        return lhs.id == rhs.id;
+    }
+
+    bool parse_window_command_buffer(const std::uint8_t *data, const std::size_t data_size,
+        const std::uint32_t session_handle, std::vector<ws_cmd> &cmds) {
+        cmds.clear();
+
+        if (!data) {
+            return data_size == 0;
+        }
+
+        const std::uint8_t *beg = data;
+        const std::uint8_t *end = data + data_size;
+        std::uint32_t current_obj_handle = session_handle;
+
+        while (beg < end) {
+            if (static_cast<std::size_t>(end - beg) < sizeof(ws_cmd_header)) {
+                LOG_WARN(SERVICE_WINDOW, "Truncated window command header: {} bytes left", end - beg);
+                cmds.clear();
+                return false;
+            }
+
+            ws_cmd cmd{};
+            std::memcpy(&cmd.header, beg, sizeof(cmd.header));
+            beg += sizeof(cmd.header);
+
+            cmd.obj_handle = current_obj_handle;
+
+            if (cmd.header.op & 0x8000) {
+                cmd.header.op = static_cast<std::uint16_t>(cmd.header.op & ~0x8000U);
+
+                if (static_cast<std::size_t>(end - beg) < sizeof(cmd.obj_handle)) {
+                    LOG_WARN(SERVICE_WINDOW, "Truncated window command object handle for op 0x{:X}", cmd.header.op);
+                    cmds.clear();
+                    return false;
+                }
+
+                std::memcpy(&current_obj_handle, beg, sizeof(current_obj_handle));
+                cmd.obj_handle = current_obj_handle;
+                beg += sizeof(cmd.obj_handle);
+            }
+
+            if (static_cast<std::size_t>(end - beg) < cmd.header.cmd_len) {
+                LOG_WARN(SERVICE_WINDOW, "Truncated window command payload for op 0x{:X}: need {}, got {}",
+                    cmd.header.op, cmd.header.cmd_len, end - beg);
+                cmds.clear();
+                return false;
+            }
+
+            cmd.data_ptr = const_cast<std::uint8_t *>(beg);
+            beg += cmd.header.cmd_len;
+
+            cmds.push_back(cmd);
+        }
+
+        return true;
     }
 
     graphics_orientation number_to_orientation(int rot) {
@@ -94,7 +154,7 @@ namespace eka2l1::epoc {
         }
         }
 
-        assert(false && "UNREACHABLE");
+        LOG_WARN(SERVICE_WINDOW, "Unsupported screen rotation {}, falling back to normal orientation", rot);
         return graphics_orientation::normal;
     }
 
@@ -134,29 +194,11 @@ namespace eka2l1::epoc {
             return;
         }
 
-        char *beg = dat->data();
-        char *end = dat->data() + dat->size();
-
         std::vector<ws_cmd> cmds;
-
-        while (beg < end) {
-            ws_cmd cmd;
-
-            cmd.header = *reinterpret_cast<ws_cmd_header *>(beg);
-
-            if (cmd.header.op & 0x8000) {
-                cmd.header.op &= ~0x8000;
-                cmd.obj_handle = *reinterpret_cast<std::uint32_t *>(beg + sizeof(ws_cmd_header));
-
-                beg += sizeof(ws_cmd_header) + sizeof(cmd.obj_handle);
-            } else {
-                beg += sizeof(ws_cmd_header);
-            }
-
-            cmd.data_ptr = reinterpret_cast<void *>(beg);
-            beg += cmd.header.cmd_len;
-
-            cmds.push_back(std::move(cmd));
+        if (!parse_window_command_buffer(reinterpret_cast<const std::uint8_t *>(dat->data()), dat->size(),
+                static_cast<std::uint32_t>(guest_session->unique_id()), cmds)) {
+            ctx.complete(epoc::error_argument);
+            return;
         }
 
         execute_commands(ctx, std::move(cmds));
@@ -247,14 +289,28 @@ namespace eka2l1::epoc {
     void window_server_client::create_screen_device(service::ipc_context &ctx, ws_cmd &cmd) {
         LOG_INFO(SERVICE_WINDOW, "Create screen device.");
 
-        ws_cmd_screen_device_header *header = reinterpret_cast<decltype(header)>(cmd.data_ptr);
+        std::int32_t screen_number = 0;
+        if (cmd.header.cmd_len == 0) {
+            screen_number = 0;
+        } else if (cmd.header.cmd_len == sizeof(screen_number)) {
+            std::memcpy(&screen_number, cmd.data_ptr, sizeof(screen_number));
+        } else if (cmd.header.cmd_len == sizeof(ws_cmd_screen_device_header)) {
+            ws_cmd_screen_device_header header;
+            std::memcpy(&header, cmd.data_ptr, sizeof(header));
+            screen_number = header.num_screen;
+        } else {
+            LOG_ERROR(SERVICE_WINDOW, "Screen device command has invalid payload length {}",
+                cmd.header.cmd_len);
+            ctx.complete(epoc::error_argument);
+            return;
+        }
 
         // Get screen object
-        epoc::screen *target_screen = get_ws().get_screen((cmd.header.cmd_len == 0) ? 0 : header->num_screen);
+        epoc::screen *target_screen = get_ws().get_screen(screen_number);
 
         if (!target_screen) {
-            LOG_ERROR(SERVICE_WINDOW, "Can't find screen object with number {}", header->num_screen);
-            ctx.complete(epoc::error_not_found);
+            LOG_ERROR(SERVICE_WINDOW, "Can't find screen object with number {}", screen_number);
+            ctx.complete(epoc::error_argument);
             return;
         }
 
@@ -284,18 +340,27 @@ namespace eka2l1::epoc {
     }
 
     void window_server_client::create_window_group(service::ipc_context &ctx, ws_cmd &cmd) {
-        ws_cmd_window_group_header *header = reinterpret_cast<decltype(header)>(cmd.data_ptr);
-        int device_handle = header->screen_device_handle;
+        static constexpr std::size_t MIN_WINDOW_GROUP_CREATE_SIZE = sizeof(std::uint32_t) + sizeof(std::int32_t);
+
+        if (cmd.header.cmd_len < MIN_WINDOW_GROUP_CREATE_SIZE) {
+            LOG_WARN(SERVICE_WINDOW, "Window group command has invalid payload length {}", cmd.header.cmd_len);
+            ctx.complete(epoc::error_argument);
+            return;
+        }
+
+        ws_cmd_window_group_header header{};
+        const std::size_t copy_len = (cmd.header.cmd_len < sizeof(header)) ? cmd.header.cmd_len : sizeof(header);
+        std::memcpy(&header, cmd.data_ptr, copy_len);
 
         epoc::screen_device *device_ptr = nullptr;
         epoc::screen *target_screen = get_ws().get_current_focus_screen();
         epoc::window *parent_group = target_screen->root.get();
 
-        if (cmd.header.cmd_len > 8) {
-            if (device_handle <= 0) {
+        if (cmd.header.cmd_len > MIN_WINDOW_GROUP_CREATE_SIZE) {
+            if ((header.screen_device_handle & 0xFFFF) == 0) {
                 device_ptr = primary_device;
             } else {
-                device_ptr = reinterpret_cast<epoc::screen_device *>(get_object(device_handle));
+                device_ptr = reinterpret_cast<epoc::screen_device *>(get_object(header.screen_device_handle));
             }
 
             if (!device_ptr) {
@@ -306,27 +371,29 @@ namespace eka2l1::epoc {
                 target_screen = device_ptr->scr;
             }
 
-            parent_group = reinterpret_cast<epoc::window *>(get_object(header->parent_id));
+            if ((header.parent_id & 0xFFFF) != 0) {
+                parent_group = reinterpret_cast<epoc::window *>(get_object(header.parent_id));
 
-            if (!parent_group) {
-                LOG_WARN(SERVICE_WINDOW, "Unable to find parent for new group with ID = 0x{:x}. Use root", header->parent_id);
-                parent_group = target_screen->root.get();
+                if (!parent_group) {
+                    LOG_TRACE(SERVICE_WINDOW, "Unable to find parent for new group with ID = 0x{:x}. Use root", header.parent_id);
+                    parent_group = target_screen->root.get();
+                }
             }
         }
 
-        window_client_obj_ptr group = std::make_unique<epoc::window_group>(this, target_screen, parent_group, header->client_handle);
+        window_client_obj_ptr group = std::make_unique<epoc::window_group>(this, target_screen, parent_group, header.client_handle);
         epoc::window_group *group_casted = reinterpret_cast<epoc::window_group *>(group.get());
 
         // If no window group is being focused on the screen, we force the screen to receive this window as focus
         // Else rely on the focus flag.
-        if (!target_screen->focus || (header->focus)) {
+        if (!target_screen->focus || header.focus) {
             group_casted->set_receive_focus(true);
             target_screen->update_focus(&get_ws(), nullptr);
         }
 
         // Give it a nice name.
         // We can give it name with id, but too much hassle
-        group_casted->name = common::utf8_to_ucs2(fmt::format("WindowGroup{:X}", header->client_handle));
+        group_casted->name = common::utf8_to_ucs2(fmt::format("WindowGroup{:X}", header.client_handle));
 
         std::uint32_t id = add_object(group);
         ctx.complete(id);
@@ -406,7 +473,7 @@ namespace eka2l1::epoc {
     }
 
     void window_server_client::create_pointer_cursor(service::ipc_context &ctx, ws_cmd &cmd) {
-        //ws_cmd_create_pointer_cursor_header *pointer_cursor_header = reinterpret_cast<decltype(pointer_cursor_header)>(cmd.data_ptr);
+        // ws_cmd_create_pointer_cursor_header *pointer_cursor_header = reinterpret_cast<decltype(pointer_cursor_header)>(cmd.data_ptr);
 
         window_client_obj_ptr spr = std::make_unique<epoc::sprite>(this, nullptr, nullptr, eka2l1::vec2(0, 0));
         ctx.complete(add_object(spr));
@@ -426,7 +493,7 @@ namespace eka2l1::epoc {
         const std::u16string dll_name(dll_name_ptr, dll_name_length);
         epoc::anim_executor_factory *factory_to_pass = nullptr;
 
-        for (auto &[dll_of_factory, factory]: get_ws().anim_factory_list_) {
+        for (auto &[dll_of_factory, factory] : get_ws().anim_factory_list_) {
             if (common::compare_ignore_case(dll_of_factory, dll_name) == 0) {
                 factory_to_pass = factory.get();
                 break;
@@ -602,7 +669,7 @@ namespace eka2l1::epoc {
         for (; group; group = reinterpret_cast<epoc::window_group *>(group->sibling)) {
             // Prevent null \0 character from being trimmed by substr
             std::wstring name_copy_raw_w;
-  
+
             if (find_info->offset == 0) {
                 name_copy_raw_w = common::ucs2_to_wstr(group->name);
             } else {
@@ -794,7 +861,7 @@ namespace eka2l1::epoc {
                 epoc::canvas_base *user = reinterpret_cast<epoc::canvas_base *>(win);
 
                 if (user->win_type == epoc::window_type::redraw) {
-                    epoc::redraw_msg_canvas *fm_user = reinterpret_cast<epoc::redraw_msg_canvas*>(win);
+                    epoc::redraw_msg_canvas *fm_user = reinterpret_cast<epoc::redraw_msg_canvas *>(win);
                     fm_user->clear_redraw_store();
                 }
             }
@@ -990,7 +1057,7 @@ namespace eka2l1::epoc {
         } value_return;
 
         // TODO: Probably not much, but maybe a proper retrieve from host?
-        value_return.max_interval_us_ = 500 * 1000;        // half a second
+        value_return.max_interval_us_ = 500 * 1000; // half a second
         value_return.max_distance_between_click_pixels_ = 20;
 
         ctx.write_data_to_descriptor_argument<double_click_settings_data>(reply_slot,
@@ -1143,6 +1210,18 @@ namespace eka2l1::epoc {
             get_ready(ctx, &cmd, event_listener_type_priority_key);
             break;
 
+        case ws_cl_op_priority_key_ready_cancel:
+            priority_keys.cancel_listener();
+            ctx.complete(epoc::error_none);
+            break;
+
+        case ws_cl_op_get_priority_key: {
+            const epoc::event evt = priority_keys.get_event();
+            ctx.write_data_to_descriptor_argument<epoc::event>(reply_slot, evt, nullptr, true);
+            ctx.complete(epoc::error_none);
+            break;
+        }
+
         case ws_cl_op_get_focus_window_group: {
             get_focus_window_group(ctx, cmd);
             break;
@@ -1248,8 +1327,30 @@ namespace eka2l1::epoc {
             get_double_click_settings(ctx, cmd);
             break;
 
+        case ws_cl_op_clear_hot_keys:
+        case ws_cl_op_set_shadow_vector:
+        case ws_cl_op_shadow_vector:
+        case ws_cl_op_set_double_click:
+        case ws_cl_op_start_custom_text_cursor:
+        case ws_cl_op_complete_custom_text_cursor:
+        case ws_cl_op_send_off_events_to_shell:
+        case ws_cl_op_set_default_fading_params:
+        case ws_cl_op_prepare_for_switch_off:
+        case ws_cl_op_set_faded:
+        case ws_cl_op_log_command:
+        case ws_cl_op_no_flicker_free:
+            LOG_TRACE(SERVICE_WINDOW, "Stubbed ClOp: 0x{:x}", cmd.header.op);
+            ctx.complete(epoc::error_none);
+            break;
+
         default:
-            LOG_INFO(SERVICE_WINDOW, "Unimplemented ClOp: 0x{:x}", cmd.header.op);
+            LOG_WARN(SERVICE_WINDOW, "Unsupported ClOp: 0x{:x}, len={}, obj=0x{:X}, data=[0x{:X},0x{:X},0x{:X},0x{:X}]",
+                cmd.header.op, cmd.header.cmd_len, cmd.obj_handle,
+                cmd.header.cmd_len >= 4 ? reinterpret_cast<std::uint32_t *>(cmd.data_ptr)[0] : 0,
+                cmd.header.cmd_len >= 8 ? reinterpret_cast<std::uint32_t *>(cmd.data_ptr)[1] : 0,
+                cmd.header.cmd_len >= 12 ? reinterpret_cast<std::uint32_t *>(cmd.data_ptr)[2] : 0,
+                cmd.header.cmd_len >= 16 ? reinterpret_cast<std::uint32_t *>(cmd.data_ptr)[3] : 0);
+            ctx.complete(epoc::error_not_supported);
             break;
         }
     }
@@ -1264,24 +1365,44 @@ namespace eka2l1::epoc {
             notifier.pri_ = rqueue.top().pri_ + 1;
         }
 
-        rqueue.push(std::move(notifier));
+        rqueue.push(notifier);
 
         return id;
     }
 
+    bool window_server_client::remove_capture_key_notifier_from_server(const epoc::ws::uid id) {
+        const std::lock_guard guard_(ws_client_lock);
+
+        epoc::event_capture_key_notifier target = {};
+        target.id = id;
+
+        auto &capture_requests = get_ws().key_capture_requests;
+        for (auto ite = capture_requests.begin(); ite != capture_requests.end(); ++ite) {
+            if (ite->second.remove(target)) {
+                if (ite->second.empty()) {
+                    capture_requests.erase(ite);
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     void window_server_client::send_screen_change_events(epoc::screen *scr) {
-        for (auto &request: screen_changes) {
+        for (auto &request : screen_changes) {
             if (request.user->scr == scr) {
                 epoc::event evt;
                 evt.type = epoc::event_code::screen_change;
 
-                get_ws().send_event_to_window_group(reinterpret_cast<epoc::window_group*>(request.user), evt);
+                get_ws().send_event_to_window_group(reinterpret_cast<epoc::window_group *>(request.user), evt);
             }
         }
     }
 
     void window_server_client::send_focus_group_change_events(epoc::screen *scr) {
-        for (auto &request: focus_group_change_notifies) {
+        for (auto &request : focus_group_change_notifies) {
             if (request.user->scr == scr) {
                 epoc::event evt;
                 evt.type = epoc::event_code::focus_group_changed;
@@ -1334,7 +1455,27 @@ namespace eka2l1 {
         }
     }
 
+    static eka2l1::vec2 default_wsini_screen_size(system *sys) {
+        static const eka2l1::vec2 ASSUMED_SCREEN_SIZE = { 176, 208 };
+        static const eka2l1::vec2 ASSUMED_SCREEN_SIZE_S80 = { 640, 200 };
+
+        return (sys && sys->is_s80_device_active()) ? ASSUMED_SCREEN_SIZE_S80 : ASSUMED_SCREEN_SIZE;
+    }
+
+    static epoc::config::screen_mode make_default_screen_mode(const int screen_number, const int mode_number, const eka2l1::vec2 &size) {
+        epoc::config::screen_mode mode;
+        mode.screen_number = screen_number;
+        mode.mode_number = mode_number;
+        mode.size = size;
+        mode.rotation = 0;
+        mode.style = "";
+
+        return mode;
+    }
+
     void window_server::parse_wsini() {
+        screen_configs.clear();
+
         common::ini_node_ptr no_redraw_storing_node = ws_config.find("NOREDRAWSTORING");
         if (no_redraw_storing_node || (kern->get_epoc_version() <= epocver::epoc81b)) {
             config_flags |= CONFIG_FLAG_NO_REDRAW_STORING;
@@ -1350,9 +1491,6 @@ namespace eka2l1 {
             modes.resize(1);
 
             window_mode_pair->get(modes);
-
-            device_manager *mngr = sys->get_device_manager();
-            device *current_dvc = mngr->get_current();
 
             bool use_in_ini = true;
 
@@ -1393,7 +1531,7 @@ namespace eka2l1 {
         if (ws_config.find("FLICKERFREEREDRAW")) {
             flicker_free = true;
         }
-        
+
         if (ws_config.find("BLTOFFSCREENBITMAP")) {
             blit_offscreen = true;
         }
@@ -1402,12 +1540,7 @@ namespace eka2l1 {
         int total_screen = 0;
 
         bool one_screen_only = false;
-
-        // Screen size is assumed to be 176x208 by default
-        static const eka2l1::vec2 ASSUMED_SCREEN_SIZE = { 176, 208 };
-        static const eka2l1::vec2 ASSUMED_SCREEN_SIZE_S80 = { 640, 200 };
-
-        bool is_s80_device = sys->is_s80_device_active();
+        const eka2l1::vec2 fallback_screen_size = default_wsini_screen_size(sys);
 
         do {
             std::string screen_key = "SCREEN";
@@ -1423,6 +1556,12 @@ namespace eka2l1 {
                 }
             } else {
                 screen_node = screen_node_shared.get();
+            }
+
+            common::ini_section *screen_section = screen_node->get_as<common::ini_section>();
+            if (!screen_section) {
+                LOG_WARN(SERVICE_WINDOW, "Malformed wsini screen section {}, using fallback screen configuration", total_screen);
+                break;
             }
 
             total_screen++;
@@ -1442,18 +1581,21 @@ namespace eka2l1 {
                 std::string screen_mode_width_key = "SCR_WIDTH";
                 screen_mode_width_key += current_mode_str;
 
-                common::ini_node_ptr mode_width = screen_node->get_as<common::ini_section>()->find(screen_mode_width_key.c_str());
+                common::ini_node_ptr mode_width = screen_section->find(screen_mode_width_key.c_str());
 
                 std::string screen_mode_height_key = "SCR_HEIGHT";
                 screen_mode_height_key += current_mode_str;
 
-                common::ini_node_ptr mode_height = screen_node->get_as<common::ini_section>()->find(screen_mode_height_key.c_str());
+                common::ini_node_ptr mode_height = screen_section->find(screen_mode_height_key.c_str());
 
                 total_mode++;
 
                 epoc::config::screen_mode scr_mode;
                 scr_mode.screen_number = total_screen - 1;
                 scr_mode.mode_number = total_mode;
+                scr_mode.size = fallback_screen_size;
+                scr_mode.rotation = 0;
+                scr_mode.style = "";
 
                 if (mode_width) {
                     mode_width->get_as<common::ini_pair>()->get(reinterpret_cast<std::uint32_t *>(&scr_mode.size.x),
@@ -1462,7 +1604,7 @@ namespace eka2l1 {
                     if (total_mode > 1)
                         break;
 
-                    scr_mode.size.x = is_s80_device ? ASSUMED_SCREEN_SIZE_S80.x : ASSUMED_SCREEN_SIZE.x;
+                    scr_mode.size.x = fallback_screen_size.x;
                     one_mode_only = true;
                 }
 
@@ -1473,8 +1615,19 @@ namespace eka2l1 {
                     if (total_mode > 1)
                         break;
 
-                    scr_mode.size.y = is_s80_device ? ASSUMED_SCREEN_SIZE_S80.y : ASSUMED_SCREEN_SIZE.y;
+                    scr_mode.size.y = fallback_screen_size.y;
                     one_mode_only = true;
+                }
+
+                if ((scr_mode.size.x <= 0) || (scr_mode.size.y <= 0)) {
+                    LOG_WARN(SERVICE_WINDOW, "Ignoring invalid wsini screen mode {}x{} for screen {} mode {}",
+                        scr_mode.size.x, scr_mode.size.y, scr.screen_number, scr_mode.mode_number);
+
+                    if (scr.modes.empty()) {
+                        scr_mode.size = fallback_screen_size;
+                    } else {
+                        continue;
+                    }
                 }
 
                 current_mode_str = std::to_string(total_mode);
@@ -1482,7 +1635,7 @@ namespace eka2l1 {
                 std::string screen_mode_rot_key = "SCR_ROTATION";
                 screen_mode_rot_key += current_mode_str;
 
-                common::ini_node_ptr mode_rot = screen_node->get_as<common::ini_section>()->find(screen_mode_rot_key.c_str());
+                common::ini_node_ptr mode_rot = screen_section->find(screen_mode_rot_key.c_str());
 
                 if (mode_rot) {
                     mode_rot->get_as<common::ini_pair>()->get(reinterpret_cast<std::uint32_t *>(&scr_mode.rotation),
@@ -1494,7 +1647,7 @@ namespace eka2l1 {
                 std::string screen_style_s60_key = "S60_SCR_STYLE_NAME";
                 screen_style_s60_key += current_mode_str;
 
-                common::ini_node_ptr style_node = screen_node->get_as<common::ini_section>()->find(screen_style_s60_key.c_str());
+                common::ini_node_ptr style_node = screen_section->find(screen_style_s60_key.c_str());
 
                 if (style_node) {
                     std::vector<std::string> styles;
@@ -1516,24 +1669,37 @@ namespace eka2l1 {
                 std::string screen_mode_normal_mode_num_key = "S60_HWSTATE_SCREENMODE";
                 screen_mode_normal_mode_num_key += current_state_num_str;
 
-                common::ini_node_ptr mode_normal_node = screen_node->get_as<common::ini_section>()->find(
+                common::ini_node_ptr mode_normal_node = screen_section->find(
                     screen_mode_normal_mode_num_key.c_str());
 
                 std::string screen_mode_alternate_mode_num_key = "S60_HWSTATE_ALT_SCREENMODE";
                 screen_mode_alternate_mode_num_key += current_state_num_str;
 
-                common::ini_node_ptr mode_alternate_node = screen_node->get_as<common::ini_section>()->find(
+                common::ini_node_ptr mode_alternate_node = screen_section->find(
                     screen_mode_alternate_mode_num_key.c_str());
 
                 total_hardware_state++;
 
                 epoc::config::hardware_state state_cfg;
                 state_cfg.state_number = total_hardware_state - 1;
+                state_cfg.mode_normal = 0;
+                state_cfg.mode_alternative = 0;
+                state_cfg.switch_keycode = 0;
 
                 if (mode_normal_node || mode_alternate_node) {
-                    mode_normal_node->get_as<common::ini_pair>()->get(reinterpret_cast<std::uint32_t *>(&state_cfg.mode_normal), 1, 0);
+                    if (mode_normal_node) {
+                        mode_normal_node->get_as<common::ini_pair>()->get(reinterpret_cast<std::uint32_t *>(&state_cfg.mode_normal), 1, 0);
+                    }
 
-                    mode_alternate_node->get_as<common::ini_pair>()->get(reinterpret_cast<std::uint32_t *>(&state_cfg.mode_alternative), 1, 0);
+                    if (mode_alternate_node) {
+                        mode_alternate_node->get_as<common::ini_pair>()->get(reinterpret_cast<std::uint32_t *>(&state_cfg.mode_alternative), 1, 0);
+                    } else {
+                        state_cfg.mode_alternative = state_cfg.mode_normal;
+                    }
+
+                    if (!mode_normal_node) {
+                        state_cfg.mode_normal = state_cfg.mode_alternative;
+                    }
 
                     // TODO: Switch key
                     scr.hardware_states.push_back(state_cfg);
@@ -1542,8 +1708,26 @@ namespace eka2l1 {
                 }
             } while (true);
 
+            if (scr.modes.empty()) {
+                LOG_WARN(SERVICE_WINDOW, "No valid wsini screen modes found for screen {}, using fallback mode", scr.screen_number);
+                scr.modes.push_back(make_default_screen_mode(scr.screen_number, 1, fallback_screen_size));
+            }
+
             screen_configs.push_back(scr);
         } while ((screen_node != nullptr) && (!one_screen_only));
+
+        if (screen_configs.empty()) {
+            LOG_WARN(SERVICE_WINDOW, "No valid wsini screens found, using fallback screen configuration");
+
+            epoc::config::screen scr;
+            scr.screen_number = 0;
+            scr.disp_mode = scr_mode_global;
+            scr.auto_clear = is_auto_clear;
+            scr.flicker_free = flicker_free;
+            scr.blt_offscreen = blit_offscreen;
+            scr.modes.push_back(make_default_screen_mode(0, 1, fallback_screen_size));
+            screen_configs.push_back(scr);
+        }
     }
 
     // TODO: Anim scheduler currently has no way to resize number of screens after construction.
@@ -1553,6 +1737,8 @@ namespace eka2l1 {
         , anim_sched(sys->get_kernel_system(), sys->get_ntimer(), 1)
         , screens(nullptr)
         , focus_screen_(nullptr)
+        , input_handler_evt_(-1)
+        , pending_driver_input_event_scheduled_(false)
         , key_shipper(this)
         , ws_global_mem_chunk(nullptr)
         , ws_code_chunk(nullptr)
@@ -1588,6 +1774,9 @@ namespace eka2l1 {
         }
 
         ntimer *timer = get_ntimer();
+        if (input_handler_evt_ >= 0) {
+            timer->remove_event(input_handler_evt_);
+        }
         timer->remove_event(repeatable_event_);
         timer->remove_event(deliver_report_visibility_evt_);
 
@@ -1631,6 +1820,10 @@ namespace eka2l1 {
         guest_evt_.key_evt_.scancode = key_received.value();
         guest_evt_.key_evt_.repeats = 0; // TODO?
         guest_evt_.key_evt_.modifiers = 0;
+
+        LOG_TRACE(SERVICE_WINDOW, "Driver key event: host=0x{:X}, state={}, mapped={}, scancode=0x{:X}",
+            driver_evt_.key_.code_, static_cast<int>(driver_evt_.key_.state_), found_correspond_mapping,
+            guest_evt_.key_evt_.scancode);
 
         return found_correspond_mapping;
     }
@@ -1735,7 +1928,39 @@ namespace eka2l1 {
 
         evt.time_ = kern->universal_time();
 
-        handle_input_from_driver(evt);
+        bool schedule_handler = false;
+        {
+            const std::lock_guard<std::mutex> guard(pending_driver_inputs_mutex_);
+            pending_driver_inputs_.push(evt);
+
+            if (!pending_driver_input_event_scheduled_) {
+                pending_driver_input_event_scheduled_ = true;
+                schedule_handler = true;
+            }
+        }
+
+        if (schedule_handler && (input_handler_evt_ >= 0)) {
+            kern->get_ntimer()->schedule_event(0, input_handler_evt_, 0);
+        }
+    }
+
+    void window_server::process_queued_driver_inputs() {
+        while (true) {
+            drivers::input_event evt;
+
+            {
+                const std::lock_guard<std::mutex> guard(pending_driver_inputs_mutex_);
+                if (pending_driver_inputs_.empty()) {
+                    pending_driver_input_event_scheduled_ = false;
+                    return;
+                }
+
+                evt = pending_driver_inputs_.front();
+                pending_driver_inputs_.pop();
+            }
+
+            handle_input_from_driver(evt);
+        }
     }
 
     void window_server::handle_input_from_driver(drivers::input_event input_event) {
@@ -2086,6 +2311,10 @@ namespace eka2l1 {
         init_screens();
         init_ws_mem();
         init_repeatable();
+        input_handler_evt_ = kern->get_ntimer()->register_event("WsDriverInputEvent",
+            [this](std::uint64_t, std::uint64_t) {
+                process_queued_driver_inputs();
+            });
 
         loaded = true;
     }
@@ -2255,7 +2484,7 @@ namespace eka2l1 {
         }
 
         bool do_it(epoc::window *win) {
-            if (win && (win->type != epoc::window_kind::group)) {
+            if (!win || (win->type != epoc::window_kind::group)) {
                 return false;
             }
 
@@ -2300,9 +2529,9 @@ namespace eka2l1 {
     std::uint32_t window_server::get_total_window_groups(const int pri, const int scr_num) {
         epoc::screen *scr = get_screen(scr_num);
 
-        if (!scr) {
+        if (!scr || !scr->root || !scr->root->child) {
             LOG_TRACE(SERVICE_WINDOW, "Screen number {} doesnt exist", scr_num);
-            return false;
+            return 0;
         }
 
         bool hit_priority = false;
@@ -2317,7 +2546,7 @@ namespace eka2l1 {
     std::uint32_t window_server::get_window_group_list(std::uint32_t *ids, const std::uint32_t max, const int pri, const int scr_num) {
         epoc::screen *scr = get_screen(scr_num);
 
-        if (!scr) {
+        if (!scr || !scr->root || !scr->root->child) {
             LOG_TRACE(SERVICE_WINDOW, "Screen number {} doesnt exist", scr_num);
             return 0;
         }
@@ -2331,9 +2560,9 @@ namespace eka2l1 {
     std::uint32_t window_server::get_window_group_list_and_chain(epoc::window_group_chain_info *infos, const std::uint32_t max, const int pri, const int scr_num) {
         epoc::screen *scr = get_screen(scr_num);
 
-        if (!scr) {
+        if (!scr || !scr->root || !scr->root->child) {
             LOG_TRACE(SERVICE_WINDOW, "Screen number {} doesnt exist", scr_num);
-            return false;
+            return 0;
         }
 
         window_group_tree_moonwalker walker(scr, infos, window_group_tree_moonwalker::FLAGS_GET_CHAIN, pri, max);
@@ -2416,7 +2645,7 @@ namespace eka2l1 {
     }
 
     void window_server::send_screen_change_events(epoc::screen *scr) {
-        for (auto &[uid, cli]: clients) {
+        for (auto &[uid, cli] : clients) {
             if (cli) {
                 cli->send_screen_change_events(scr);
             }
@@ -2424,7 +2653,7 @@ namespace eka2l1 {
     }
 
     void window_server::send_focus_group_change_events(epoc::screen *scr) {
-        for (auto &[uid, cli]: clients) {
+        for (auto &[uid, cli] : clients) {
             if (cli) {
                 cli->send_focus_group_change_events(scr);
             }

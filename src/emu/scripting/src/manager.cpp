@@ -1,28 +1,27 @@
 /*
-* Copyright (c) 2018 EKA2L1 Team
-*
-* This file is part of EKA2L1 project.
-*
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2018 EKA2L1 Team
+ *
+ * This file is part of EKA2L1 project.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <common/algorithm.h>
 #include <common/fileutils.h>
 #include <common/log.h>
 #include <common/path.h>
 #include <common/platform.h>
-#include <common/path.h>
 
 #include <scripting/instance.h>
 #include <scripting/manager.h>
@@ -35,7 +34,7 @@
 
 namespace eka2l1::manager {
     static void script_file_changed_callback(void *data, common::directory_changes &changes) {
-        scripts *manager = reinterpret_cast<scripts*>(data);
+        scripts *manager = reinterpret_cast<scripts *>(data);
         for (std::size_t i = 0; i < changes.size(); i++) {
             if (changes[i].filename_.empty()) {
                 continue;
@@ -44,8 +43,7 @@ namespace eka2l1::manager {
             if (!(changes[i].change_ & common::directory_change_action_created))
                 manager->unload_module(changes[i].filename_);
 
-            if (!(changes[i].change_ & common::directory_change_action_moved_from) &&
-                !(changes[i].change_ & common::directory_change_action_delete))
+            if (!(changes[i].change_ & common::directory_change_action_moved_from) && !(changes[i].change_ & common::directory_change_action_delete))
                 manager->import_module("scripts/" + changes[i].filename_);
         }
     }
@@ -129,13 +127,13 @@ namespace eka2l1::manager {
             break;
 
         case script_function::META_CATEGORY_BREAKPOINT:
-            for (auto &breakpoint: breakpoints) {
+            for (auto &breakpoint : breakpoints) {
                 for (std::size_t j = 0; j < breakpoint.second.list_.size(); j++) {
                     if (breakpoint.second.list_[j].invoke_ == target_func) {
                         kernel_system *kern = sys->get_kernel_system();
                         if (!breakpoint.second.source_insts_.empty()) {
-                            for (auto &process_unq: kern->get_process_list()) {
-                                kernel::process *pr = reinterpret_cast<kernel::process*>(process_unq.get());
+                            for (auto &process_unq : kern->get_process_list()) {
+                                kernel::process *pr = reinterpret_cast<kernel::process *>(process_unq.get());
                                 if ((breakpoint.second.list_[j].attached_process_ == 0) || (pr && (breakpoint.second.list_[j].attached_process_ == pr->get_uid()))) {
                                     write_back_breakpoint(pr, breakpoint.second.list_[j].addr_);
                                 }
@@ -152,10 +150,10 @@ namespace eka2l1::manager {
             }
 
             break;
-        
+
         case script_function::META_CATEGORY_IPC:
-            for (auto &opcode_map: ipc_functions) {
-                for (auto &[identifier, funcs]: opcode_map.second) {
+            for (auto &opcode_map : ipc_functions) {
+                for (auto &[identifier, funcs] : opcode_map.second) {
                     for (std::size_t j = 0; j < funcs.size(); j++) {
                         if (funcs[j] == target_func) {
                             funcs.erase(funcs.begin() + j--);
@@ -212,8 +210,7 @@ namespace eka2l1::manager {
         common::set_current_directory(cur_dir);
 
         // Listen for script change
-        folder_watcher.watch("scripts/", script_file_changed_callback, this, common::directory_change_move | common::directory_change_creation
-            | common::directory_change_last_write);
+        folder_watcher.watch("scripts/", script_file_changed_callback, this, common::directory_change_move | common::directory_change_creation | common::directory_change_last_write);
     }
 
     bool scripts::import_module(const std::string &path) {
@@ -238,7 +235,7 @@ namespace eka2l1::manager {
             if (eka2l1::path_extension(path) == ".lua") {
                 lua_State *new_state = luaL_newstate();
                 luaL_openlibs(new_state);
-                luaL_dostring(new_state, "package.path = package.path .. ';scripts/?.lua'");
+                luaL_dostring(new_state, "package.path = package.path .. ';?.lua;?/init.lua;scripts/?.lua;scripts/?/init.lua'");
 
                 common::ro_std_file_stream script_stream(name_full, true);
                 std::string script_content(script_stream.size(), '0');
@@ -275,7 +272,7 @@ namespace eka2l1::manager {
         auto find_result = modules.find(name);
         if (find_result != modules.end()) {
             std::shared_ptr<script_module> module = find_result->second;
-            for (auto &function: module->functions_) {
+            for (auto &function : module->functions_) {
                 // Delete all references in breakpoint map and IPC map
                 remove_function_impl(function.get());
             }
@@ -331,14 +328,14 @@ namespace eka2l1::manager {
         current_module = state;
 
         if (lua_pcall(state->lua_state(), 0, 0, 0) != LUA_OK) {
-            LOG_ERROR(SCRIPTING, "Error executing script entry of {}: {}", module, lua_tostring(state->lua_state(), -1));            
+            LOG_ERROR(SCRIPTING, "Error executing script entry of {}: {}", module, lua_tostring(state->lua_state(), -1));
             return false;
         }
 
         return true;
     }
 
-    std::uint32_t scripts::register_ipc(const std::string &server_name, const int opcode, const int invoke_when, void* func) {
+    std::uint32_t scripts::register_ipc(const std::string &server_name, const int opcode, const int invoke_when, void *func) {
         std::size_t handle = 0;
         script_function *managed_func = make_function(func, script_function::META_CATEGORY_IPC, &handle);
 
@@ -389,7 +386,7 @@ namespace eka2l1::manager {
             kern->get_cpu()->clear_instruction_cache();
         } else
 #endif
-        kern->get_cpu()->imb_range((target & ~1), (target & 1) ? 2 : 4);
+            kern->get_cpu()->imb_range((target & ~1), (target & 1) ? 2 : 4);
     }
 
     bool scripts::write_back_breakpoint(kernel::process *pr, const vaddress target, bool *should_full_flush) {
@@ -437,14 +434,14 @@ namespace eka2l1::manager {
         }
     }
 
-    std::uint32_t scripts::register_library_hook(const std::string &name, const std::uint32_t ord, const std::uint32_t process_uid, const std::uint32_t uid3, const std::uint32_t seghash,  breakpoint_hit_func func) {
+    std::uint32_t scripts::register_library_hook(const std::string &name, const std::uint32_t ord, const std::uint32_t process_uid, const std::uint32_t uid3, const std::uint32_t seghash, breakpoint_hit_func func) {
         const std::string lib_name_lower = common::lowercase_string(name);
 
         breakpoint_info info;
         std::size_t handle = 0;
 
         info.lib_name_ = lib_name_lower;
-        info.invoke_ = make_function(reinterpret_cast<void*>(func), script_function::META_CATEGORY_PENDING_PATCH_BREAKPOINT, &handle);
+        info.invoke_ = make_function(reinterpret_cast<void *>(func), script_function::META_CATEGORY_PENDING_PATCH_BREAKPOINT, &handle);
 
         if (!info.invoke_) {
             return INVALID_HOOK_HANDLE;
@@ -461,7 +458,7 @@ namespace eka2l1::manager {
             if (codeseg_ptr seg = manager->load(common::utf8_to_ucs2(name))) {
                 std::uint32_t uid3_seg = std::get<2>(seg->get_uids());
                 if ((uid3_seg == 0) || (uid3_seg == uid3)) {
-                    std::vector<kernel::process*> processes = seg->attached_processes();
+                    std::vector<kernel::process *> processes = seg->attached_processes();
                     auto find_res = std::find_if(processes.begin(), processes.end(), [process_uid](kernel::process *target) {
                         return (target->get_uid() == process_uid);
                     });
@@ -480,7 +477,7 @@ namespace eka2l1::manager {
                         processes.push_back(finally);
                     }
 
-                    for (kernel::process *process: processes) {
+                    for (kernel::process *process : processes) {
                         info.invoke_->category_ = script_function::META_CATEGORY_BREAKPOINT;
                         info.addr_ = seg->lookup(process, info.addr_);
                         info.flags_ = 0;
@@ -500,10 +497,11 @@ namespace eka2l1::manager {
             breakpoint_wait_patch.push_back(info);
         } else {
             kernel_system *kern = sys->get_kernel_system();
+            const auto breakpoint_addr = info.addr_;
             breakpoints[info.addr_ & ~1].list_.push_back(std::move(info));
 
             if (kern->crr_process())
-                write_breakpoint_block(kern->crr_process(), info.addr_);
+                write_breakpoint_block(kern->crr_process(), breakpoint_addr);
         }
 
         return static_cast<std::uint32_t>(handle);
@@ -517,7 +515,7 @@ namespace eka2l1::manager {
         info.lib_name_ = lib_name_lower;
         info.flags_ = breakpoint_info::FLAG_BASED_IMAGE;
         info.addr_ = addr;
-        info.invoke_ = make_function(reinterpret_cast<void*>(func), script_function::META_CATEGORY_BREAKPOINT, &handle);
+        info.invoke_ = make_function(reinterpret_cast<void *>(func), script_function::META_CATEGORY_BREAKPOINT, &handle);
         info.attached_process_ = process_uid;
 
         if (!info.invoke_) {
@@ -528,43 +526,9 @@ namespace eka2l1::manager {
             info.flags_ = 0;
             info.codeseg_uid3_ = 0;
         } else {
-            hle::lib_manager *manager = sys->get_lib_manager();
-            if (manager) {
-                if (codeseg_ptr seg = manager->load(common::utf8_to_ucs2(lib_name))) {
-                    std::vector<kernel::process*> processes = seg->attached_processes();
-
-                    if (process_uid != 0) {
-                        auto find_res = std::find_if(processes.begin(), processes.end(), [process_uid](kernel::process *target) {
-                            return (target->get_uid() == process_uid);
-                        });
-
-                        kernel::process *finally = nullptr;
-                        if (find_res != processes.end()) {
-                            finally = *find_res;
-                        }
-
-                        processes.clear();
-                        processes.push_back(finally);
-                    }
-
-                    for (kernel::process *process: processes) {
-                        address base = seg->get_code_run_addr(process);
-
-                        if (base == 0) {
-                            LOG_ERROR(SCRIPTING, "Can't retrieve code run address of process base {} with UID", process->name(), process_uid);
-                        }
-
-                        if (seg->is_rom()) {
-                            base = 0;
-                        }
-
-                        info.invoke_->category_ = script_function::META_CATEGORY_BREAKPOINT;
-                        info.addr_ += base;
-                        info.flags_ = 0;
-                    }
-                }
-            }
-
+            // Loading an image while importing scripts can execute loader side effects
+            // before the target process is ready. Defer image-relative hooks until the
+            // codeseg load callback can relocate them against the real runtime base.
             info.codeseg_uid3_ = uid3;
         }
 
@@ -574,11 +538,12 @@ namespace eka2l1::manager {
             breakpoint_wait_patch.push_back(info);
         } else {
             kernel_system *kern = sys->get_kernel_system();
+            const auto breakpoint_addr = info.addr_;
 
-            breakpoints[addr & ~1].list_.push_back(std::move(info));
+            breakpoints[breakpoint_addr & ~1].list_.push_back(std::move(info));
 
             if (kern->crr_process())
-                write_breakpoint_block(kern->crr_process(), addr);
+                write_breakpoint_block(kern->crr_process(), breakpoint_addr);
         }
 
         return static_cast<std::uint32_t>(handle);
@@ -590,8 +555,7 @@ namespace eka2l1::manager {
         const std::uint32_t uid3 = std::get<2>(seg->get_uids());
 
         for (auto &breakpoint : breakpoint_wait_patch) {
-            if ((breakpoint.flags_ & breakpoint_info::FLAG_IS_ORDINAL) && (breakpoint.lib_name_ == lib_name_lower) &&
-                ((breakpoint.codeseg_uid3_ == uid3) || (breakpoint.codeseg_uid3_ == 0))) {
+            if ((breakpoint.flags_ & breakpoint_info::FLAG_IS_ORDINAL) && (breakpoint.lib_name_ == lib_name_lower) && ((breakpoint.codeseg_uid3_ == uid3) || (breakpoint.codeseg_uid3_ == 0))) {
                 if ((breakpoint.codeseg_hash_ == 0) || (breakpoint.codeseg_hash_ == seg->get_hash())) {
                     breakpoint.addr_ = seg->get_export_table_raw()[breakpoint.addr_ - 1];
 

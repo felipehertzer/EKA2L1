@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -24,12 +24,14 @@
 #if EKA2L1_PLATFORM(WIN32)
 #include <ws2tcpip.h>
 #else
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #include <netinet/in.h>
+#if !EKA2L1_PLATFORM(VITA)
 #include <netinet/ip.h>
+#endif
 #endif
 
 #include <utils/des.h>
@@ -60,10 +62,10 @@ namespace eka2l1::epoc::internet {
     }
 
     static void host_sockaddr_v4_to_guest_saddress(const sockaddr *addr, epoc::socket::saddress &dest_addr, std::uint32_t *data_len = nullptr, const bool for_des = false) {
-        const sockaddr_in *in = reinterpret_cast<const sockaddr_in*>(addr);
+        const sockaddr_in *in = reinterpret_cast<const sockaddr_in *>(addr);
         dest_addr.family_ = INET_ADDRESS_FAMILY;
 
-        sinet_address &in_guest = static_cast<sinet_address&>(dest_addr);
+        sinet_address &in_guest = static_cast<sinet_address &>(dest_addr);
 
         std::memcpy(in_guest.addr_long(), &in->sin_addr, 4);
         in_guest.port_ = ntohs(in->sin_port);
@@ -76,14 +78,14 @@ namespace eka2l1::epoc::internet {
             }
         }
     }
-    
+
     static void host_sockaddr_v6_to_guest_saddress(const sockaddr *addr, epoc::socket::saddress &dest_addr, std::uint32_t *data_len = nullptr, const bool for_des = false) {
         dest_addr.family_ = INET6_ADDRESS_FAMILY;
 
-        const sockaddr_in6 *in6 = reinterpret_cast<const sockaddr_in6*>(addr);
+        const sockaddr_in6 *in6 = reinterpret_cast<const sockaddr_in6 *>(addr);
         dest_addr.port_ = ntohs(in6->sin6_port);
 
-        sinet6_address &in6_guest = static_cast<sinet6_address&>(dest_addr);
+        sinet6_address &in6_guest = static_cast<sinet6_address &>(dest_addr);
         std::memcpy(in6_guest.address_32x4(), &in6->sin6_addr, 16);
 
         *in6_guest.flow() = in6->sin6_flowinfo;
@@ -133,7 +135,7 @@ namespace eka2l1::epoc::internet {
 
     void inet_host_resolver::get_by_name(epoc::socket::name_entry *supply_and_result, epoc::notify_info &complete_info) {
         const std::string name_utf8 = common::ucs2_to_utf8(supply_and_result->name_.to_std_string(nullptr));
-    
+
         if (prev_info_) {
             freeaddrinfo(prev_info_);
         }
@@ -143,7 +145,7 @@ namespace eka2l1::epoc::internet {
         std::memset(&hint_info, 0, sizeof(addrinfo));
 
         hint_info.ai_family = (addr_family_ == INET6_ADDRESS_FAMILY) ? AF_INET6 : AF_INET;
-        hint_info.ai_socktype = (protocol_id_ == INET_UDP_PROTOCOL_ID) ? SOCK_DGRAM : SOCK_STREAM; 
+        hint_info.ai_socktype = (protocol_id_ == INET_UDP_PROTOCOL_ID) ? SOCK_DGRAM : SOCK_STREAM;
         hint_info.ai_protocol = (protocol_id_ == INET_UDP_PROTOCOL_ID) ? IPPROTO_UDP : IPPROTO_TCP;
 
         addrinfo *result_info = nullptr;

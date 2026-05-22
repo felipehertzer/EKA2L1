@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2018 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -59,8 +59,8 @@ namespace eka2l1 {
 
         // Copy from E32Explorer
         struct e32img_import_block {
-            //This is only for EKA1 targeted import block from PE
-            uint32_t dll_name_offset; //relative to the import section
+            // This is only for EKA1 targeted import block from PE
+            uint32_t dll_name_offset; // relative to the import section
             int32_t number_of_imports; // number of imports from this dll
             std::vector<uint32_t> ordinals; // TUint32 iImport[iNumberOfImports];
             std::string dll_name;
@@ -122,7 +122,7 @@ namespace eka2l1 {
             std::uint32_t check;
             std::uint32_t sig;
 
-            //e32_cpu cpu;
+            // e32_cpu cpu;
 
             std::uint32_t header_crc;
 
@@ -196,13 +196,13 @@ namespace eka2l1 {
 
         /**
          * @brief Parse E32Img headers separately from the whole image.
-         * 
+         *
          * @param stream                    The stream to parse from
          * @param header                    The original basic header that will be filled.
          * @param extended                  The extended header part that is filled optionally.
          * @param uncompressed_size         On success, this will contains the total size of uncompressed data.
          * @param ver                       On success, this will contains the Symbian version which this image was supposed to work on.
-         * 
+         *
          * @returns     Error code 0 on success, else see error code descriptions.
          */
         std::int32_t parse_e32img_header(common::ro_stream *stream, e32img_header &header, e32img_header_extended &extended,
@@ -210,22 +210,22 @@ namespace eka2l1 {
 
         /**
          * @brief Parse an E32 Image from stream.
-         * 
+         *
          * @param stream     The stream to parse from.
          * @param read_reloc If this is true, relocation section will be parsed.
-         * 
+         *
          * @returns An optional contains E32 Image. Nullopt if invalid.
          */
         std::optional<e32img> parse_e32img(common::ro_stream *stream, bool read_reloc = true);
 
         /**
          * @brief Check if the stream content is E32 Image.
-         * 
+         *
          * @param   stream          Pointer to target read-only stream.
          * @param   uid_array       Optional pointer to the array, which will contains the first
          *                          three UIDs, even if the stream content is not E32IMG.
-         *                          
-         * 
+         *
+         *
          * @returns True if the stream content is E32IMG.
          */
         bool is_e32img(common::ro_stream *stream, std::uint32_t *uid_array = nullptr);

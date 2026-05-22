@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -23,7 +23,7 @@
 #include <vector>
 
 namespace eka2l1::drivers {
-    class sensor_null_base: public sensor {
+    class sensor_null_base : public sensor {
     private:
         sensor_info info_;
 
@@ -48,12 +48,12 @@ namespace eka2l1::drivers {
         }
     };
 
-    class sensor_accelerometer_null: public sensor_null_base {
+    class sensor_accelerometer_null : public sensor_null_base {
     public:
         explicit sensor_accelerometer_null(const sensor_info &info);
     };
 
-    class sensor_driver_null: public sensor_driver {
+    class sensor_driver_null : public sensor_driver {
     private:
         std::vector<sensor_info> stubbed_infos_;
 

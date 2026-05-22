@@ -1,51 +1,51 @@
 /*
  * Copyright (c) 2021 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <QBitmap>
-#include <QLineEdit>
-#include <QPainter>
-#include <QMovie>
-#include <QSettings>
-#include <QMenu>
+#include <QDir>
 #include <QInputDialog>
+#include <QLineEdit>
+#include <QMenu>
+#include <QMovie>
+#include <QPainter>
+#include <QSettings>
 #include <QtSvg/QSvgRenderer>
-#include <QtConcurrent/QtConcurrent>
 
 #include <common/buffer.h>
 #include <common/cvt.h>
 #include <common/path.h>
 #include <common/pystr.h>
 #include <config/config.h>
+#include <j2me/applist.h>
+#include <j2me/interface.h>
 #include <qt/applistwidget.h>
 #include <qt/utils.h>
 #include <services/applist/applist.h>
 #include <services/fbs/fbs.h>
 #include <system/devices.h>
 #include <utils/apacmd.h>
-#include <j2me/applist.h>
-#include <j2me/interface.h>
 
 #include <vector>
 
 #include <loader/mif.h>
-#include <loader/svgb.h>
 #include <loader/nvg.h>
+#include <loader/svgb.h>
 
 static QSize ICON_GRID_SIZE = QSize(64, 64);
 static QSize ICON_GRID_SPACING_SIZE = QSize(20, 20);
@@ -114,7 +114,7 @@ applist_device_combo::~applist_device_combo() {
 
 void applist_device_combo::update_devices(const QStringList &devices, const int index) {
     device_combo_->clear();
-    for (const QString &device: devices) {
+    for (const QString &device : devices) {
         device_combo_->addItem(device);
     }
     device_combo_->setCurrentIndex(index);
@@ -361,7 +361,7 @@ void applist_widget::reload_whole_list() {
     list_j2me_widget_->hide();
     no_app_visible_normal_label_->hide();
     no_app_visible_hide_sysapp_label_->hide();
-    
+
     if (loaded_[0] && j2me_mode_btn_->isChecked()) {
         const bool app_avail = list_j2me_widget_->count() > 0;
         list_j2me_widget_->setVisible(app_avail);
@@ -395,88 +395,46 @@ void applist_widget::reload_whole_list() {
     loading_label_->show();
     loading_gif_->start();
 
-    // This vector icon list is synced with
-    QFuture<void> future;
-
     const bool in_j2me = j2me_mode_btn_->isChecked();
 
+    {
+        const std::lock_guard<std::mutex> guard(exit_mutex_);
+        scanning_ = true;
+    }
+
+    auto finish_scan = [this]() {
+        const std::lock_guard<std::mutex> guard(exit_mutex_);
+        scanning_ = false;
+        scanning_done_evt_.set();
+    };
+
     if (in_j2me) {
-        future = QtConcurrent::run([this]() {
-            exit_mutex_.lock();
-            scanning_ = true;
-            exit_mutex_.unlock();
-
-            exit_mutex_.lock();
-
+        std::vector<eka2l1::j2me::app_entry> entries = lister_j2me_->get_entries();
+        for (std::size_t i = 0; i < entries.size(); i++) {
             if (should_dead_) {
-                scanning_done_evt_.set();
+                finish_scan();
                 return;
             }
 
-            std::vector<eka2l1::j2me::app_entry> entries = lister_j2me_->get_entries();
-            exit_mutex_.unlock();
-
-            if (entries.size() == 0) {
-                show_no_apps_avail();
-            } else {
-                for (std::size_t i = 0; i < entries.size(); i++) {
-                    const std::lock_guard<std::mutex> guard(exit_mutex_);
-                    if (should_dead_) {
-                        scanning_done_evt_.set();
-                        return;
-                    }
-
-                    add_registeration_item_j2me(entries[i]);
-                }
-            }
-
-            const std::lock_guard<std::mutex> guard(exit_mutex_);
-            scanning_ = false;
-            scanning_done_evt_.set();
-        });
+            add_registeration_item_j2me(entries[i]);
+        }
     } else {
-        future = QtConcurrent::run([this]() {
-            exit_mutex_.lock();
-            scanning_ = true;
-            exit_mutex_.unlock();
-
-            exit_mutex_.lock();
+        std::vector<eka2l1::apa_app_registry> &registries = lister_->get_registerations();
+        for (std::size_t i = 0; i < registries.size(); i++) {
             if (should_dead_) {
-                scanning_done_evt_.set();
+                finish_scan();
                 return;
             }
-            std::vector<eka2l1::apa_app_registry> &registries = lister_->get_registerations();
-            exit_mutex_.unlock();
 
-            if (registries.size() == 0) {
-                show_no_apps_avail();
-            } else {
-                for (std::size_t i = 0; i < registries.size(); i++) {
-                    const std::lock_guard<std::mutex> guard(exit_mutex_);
-                    if (should_dead_) {
-                        scanning_done_evt_.set();
-                        return;
-                    }
-
-                    if (!registries[i].caps.is_hidden) {
-                        if (!hide_system_apps_ || (hide_system_apps_ && !is_app_reg_system_app(registries.data() + i))) {
-                            add_registeration_item_native(registries[i], static_cast<int>(i));
-                        }
-                    }
+            if (!registries[i].caps.is_hidden) {
+                if (!hide_system_apps_ || (hide_system_apps_ && !is_app_reg_system_app(registries.data() + i))) {
+                    add_registeration_item_native(registries[i], static_cast<int>(i));
                 }
             }
-
-            const std::lock_guard<std::mutex> guard(exit_mutex_);
-
-            scanning_ = false;
-            scanning_done_evt_.set();
-        });
+        }
     }
 
-    while (!future.isFinished()) {
-        QCoreApplication::processEvents();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    finish_scan();
 
     if (in_j2me) {
         if (list_j2me_widget_->count() == 0) {
@@ -534,7 +492,7 @@ std::string applist_widget::get_app_name_from_widget_item(applist_widget_item *i
     return "";
 }
 
-bool applist_widget::launch_from_widget_item(applist_widget_item *item, std::function<void(eka2l1::kernel::process*)> done_cb) {
+bool applist_widget::launch_from_widget_item(applist_widget_item *item, std::function<void(eka2l1::kernel::process *)> done_cb) {
     eka2l1::apa_app_registry *registry = get_registry_from_widget_item(item);
     if (registry) {
         eka2l1::epoc::apa::command_line cmd_line;
@@ -560,12 +518,12 @@ void applist_widget::add_registeration_item_j2me(const eka2l1::j2me::app_entry &
     }
 
     QListWidgetItem *newItem = new applist_widget_item(display_icon, QString::fromStdString(entry.title_),
-        static_cast<int>(entry.id_), true, list_j2me_widget_);
+        static_cast<int>(entry.id_), true, nullptr);
 
     newItem->setSizeHint(ICON_GRID_SIZE + QSize(20, 20));
     newItem->setTextAlignment(Qt::AlignHCenter | Qt::AlignBottom);
 
-    emit new_registeration_item_come(newItem);
+    on_new_registeration_item_come(newItem);
 }
 
 void applist_widget::add_registeration_item_native(eka2l1::apa_app_registry &reg, const int index) {
@@ -627,12 +585,12 @@ void applist_widget::add_registeration_item_native(eka2l1::apa_app_registry &reg
                         if (eka2l1::loader::convert_nvg_to_svg(inside_stream, *outfile_stream, errors_nvg)) {
                             outfile_stream.reset();
                             renderer = std::make_unique<QSvgRenderer>(QString::fromUtf8(cached_path.c_str()));
-                        } else  {
+                        } else {
                             LOG_ERROR(eka2l1::FRONTEND_UI, "Icon for app {} can't be decoded!", header.type, app_name.toStdString());
                             outfile_stream.reset();
 
                             eka2l1::common::remove(cached_path);
-                        }  
+                        }
                     }
                 }
             }
@@ -736,7 +694,7 @@ void applist_widget::add_registeration_item_native(eka2l1::apa_app_registry &reg
         }
     }
 
-    QListWidgetItem *newItem = new applist_widget_item(final_icon, app_name, index, false, list_widget_);
+    QListWidgetItem *newItem = new applist_widget_item(final_icon, app_name, index, false, nullptr);
     newItem->setSizeHint(ICON_GRID_SIZE + QSize(20, 20));
     newItem->setTextAlignment(Qt::AlignHCenter | Qt::AlignBottom);
 
@@ -744,7 +702,7 @@ void applist_widget::add_registeration_item_native(eka2l1::apa_app_registry &reg
     QString tool_tip = app_name + tr("<br>App UID: 0x%1").arg(reg.mandatory_info.uid, 0, 16);
     newItem->setToolTip(tool_tip);
 
-    emit new_registeration_item_come(newItem);
+    on_new_registeration_item_come(newItem);
 }
 
 void applist_widget::set_hide_system_apps(const bool should_hide) {
@@ -769,8 +727,7 @@ void applist_widget::update_devices(eka2l1::device_manager *device_mngr) {
     for (std::size_t i = 0; i < device_mngr->total(); i++) {
         eka2l1::device *dvc = device_mngr->get(static_cast<std::uint8_t>(i));
         if (dvc) {
-            QString item_des = QString("%1 (%2 - %3)").arg(QString::fromUtf8(dvc->model.c_str()), QString::fromUtf8(dvc->firmware_code.c_str()),
-                                                           epocver_to_symbian_readable_name(dvc->ver));
+            QString item_des = QString("%1 (%2 - %3)").arg(QString::fromUtf8(dvc->model.c_str()), QString::fromUtf8(dvc->firmware_code.c_str()), epocver_to_symbian_readable_name(dvc->ver));
             list_devices.append(item_des);
         }
     }
@@ -815,7 +772,7 @@ void applist_widget::on_action_rename_j2me_app_triggered() {
     bool is_ok = false;
     const QString result = QInputDialog::getText(this, tr("Enter a new name"), QString(), QLineEdit::Normal, context_j2me_item_->text(),
         &is_ok);
-    
+
     // 重命名了就马上更新db
     if (!is_ok) {
         return;
@@ -842,7 +799,7 @@ void applist_widget::on_action_delete_j2me_app_triggered() {
 }
 
 void applist_widget::on_j2me_list_widget_custom_menu_requested(const QPoint &pos) {
-    applist_widget_item *item = reinterpret_cast<applist_widget_item*>(list_j2me_widget_->itemAt(pos));
+    applist_widget_item *item = reinterpret_cast<applist_widget_item *>(list_j2me_widget_->itemAt(pos));
     if (item == nullptr) {
         return;
     }

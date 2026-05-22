@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -56,7 +56,7 @@ namespace eka2l1::arm::r12l1 {
 
         /**
          * @brief       Map a guest register to host register.
-         * 
+         *
          * @param       mee The guest register to map to.
          * @returns     INVALID_REG on failure, mapped register on success.
          */
@@ -64,7 +64,7 @@ namespace eka2l1::arm::r12l1 {
 
         /**
          * @brief   Provide a scratch register for temporary purpose.
-         * 
+         *
          * The recompiler has always two scratch registers available. However, if they are not sufficient enough
          * for the use, this function can contact the inside of the cache to provide you some other registers.
          *

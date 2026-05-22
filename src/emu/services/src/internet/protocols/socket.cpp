@@ -1,30 +1,30 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <services/internet/protocols/inet.h>
 
+#include <common/log.h>
 #include <common/platform.h>
 #include <common/thread.h>
+#include <kernel/kernel.h>
 #include <utils/des.h>
 #include <utils/err.h>
-#include <kernel/kernel.h>
-#include <common/log.h>
 
 extern "C" {
 #include <uv.h>
@@ -33,23 +33,47 @@ extern "C" {
 #if EKA2L1_PLATFORM(WIN32)
 #include <ifdef.h>
 #include <iphlpapi.h>
+#elif EKA2L1_PLATFORM(VITA)
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <psp2/net/netctl.h>
+#include <sys/socket.h>
 #else
 #include <sys/types.h>
 #if EKA2L1_PLATFORM(ANDROID)
 // SDK 21 does not have ifaddrs. From SDK 24 there is one implementation
 #include <common/android/ifaddrs.h>
 #else
-#include <net/if.h>
 #include <ifaddrs.h>
+#include <net/if.h>
 #endif
 #endif
 
 #include <uvlooper/uvlooper.h>
 
 namespace eka2l1::epoc::internet {
+#if EKA2L1_PLATFORM(VITA)
+    static bool vita_fill_ipv4_address(const char *address_text, sinet_address &addr, std::uint32_t &addr_len, std::uint32_t &addr_max_len) {
+        if (!address_text || (address_text[0] == '\0')) {
+            return false;
+        }
+
+        std::memset(&addr, 0, sizeof(sinet_address));
+        addr.family_ = INET_ADDRESS_FAMILY;
+
+        if (inet_pton(AF_INET, address_text, addr.addr_long()) != 1) {
+            return false;
+        }
+
+        epoc::set_descriptor_length_variable(addr_len, sinet_address::DATA_SIZE);
+        addr_max_len = sinet_address::DATA_SIZE;
+        return true;
+    }
+#endif
+
     std::unique_ptr<epoc::socket::socket> inet_bridged_protocol::make_socket(const std::uint32_t family_id, const std::uint32_t protocol_id, const socket::socket_type sock_type) {
         std::unique_ptr<epoc::socket::socket> sock = std::make_unique<inet_socket>(this);
-        inet_socket *sock_casted = reinterpret_cast<inet_socket*>(sock.get());
+        inet_socket *sock_casted = reinterpret_cast<inet_socket *>(sock.get());
 
         if (!sock_casted->open(family_id, protocol_id, sock_type)) {
             return nullptr;
@@ -74,6 +98,10 @@ namespace eka2l1::epoc::internet {
         , opaque_send_info_(nullptr)
         , opaque_write_info_(nullptr)
         , protocol_(0)
+        , closing_(false)
+        , connect_pending_(false)
+        , send_pending_(false)
+        , close_event_(nullptr)
         , bytes_written_(nullptr)
         , bytes_read_(nullptr)
         , read_dest_(nullptr)
@@ -87,54 +115,121 @@ namespace eka2l1::epoc::internet {
         create_frequent_common_tasks();
     }
 
+    static void close_and_delete_inet_handle(uv_handle_t *handle) {
+        inet_socket *socket = reinterpret_cast<inet_socket *>(handle->data);
+        if (socket) {
+            socket->signal_close_done();
+        }
+
+        delete handle;
+    }
+
+    void inet_socket::signal_close_done() {
+        if (close_event_) {
+            close_event_->set();
+            close_event_ = nullptr;
+        }
+    }
+
     void inet_socket::close_down() {
+        closing_ = true;
+
         if (accept_server_) {
             accept_server_->cancel_accept();
         }
 
+        if (!connect_done_info_.empty()) {
+            connect_done_info_.complete(epoc::error_cancel);
+        }
+
+        if (!send_done_info_.empty()) {
+            send_done_info_.complete(epoc::error_cancel);
+        }
+
+        if (!recv_done_info_.empty()) {
+            receive_done_cb_ = nullptr;
+            recv_done_info_.complete(epoc::error_cancel);
+        }
+
+        if (!accept_done_info_.empty()) {
+            cancel_accept();
+        }
+
+        if (!shutdown_info_.empty()) {
+            shutdown_info_.complete(epoc::error_cancel);
+        }
+
+        if (!bind_done_info_.empty()) {
+            bind_done_info_.complete(epoc::error_cancel);
+        }
+
+        bytes_written_ = nullptr;
+        bytes_read_ = nullptr;
+        read_dest_ = nullptr;
+        recv_addr_ = nullptr;
+
         if (opaque_handle_) {
-            if (protocol_ == INET_TCP_PROTOCOL_ID) {
-                looper_->one_shot([opaque_handle_copy = this->opaque_handle_] {
-                    if (uv_tcp_close_reset(reinterpret_cast<uv_tcp_t *>(opaque_handle_copy), [](uv_handle_t *handle) {
-                            delete handle;
-                        })
-                        < 0) {
-                        uv_close(reinterpret_cast<uv_handle_t*>(opaque_handle_copy), [](uv_handle_t *handle) {
-                            delete handle;
-                        });
+            common::event close_event;
+            void *opaque_handle_to_close = opaque_handle_;
+            const std::uint32_t protocol_to_close = protocol_;
+
+            close_event_ = &close_event;
+            opaque_handle_ = nullptr;
+            protocol_ = 0;
+
+            if (protocol_to_close == INET_TCP_PROTOCOL_ID) {
+                looper_->one_shot([opaque_handle_to_close] {
+                    uv_handle_t *handle = reinterpret_cast<uv_handle_t *>(opaque_handle_to_close);
+                    if (uv_is_closing(handle)) {
+                        inet_socket *socket = reinterpret_cast<inet_socket *>(handle->data);
+                        if (socket) {
+                            socket->signal_close_done();
+                        }
+                        return;
+                    }
+
+                    uv_read_stop(reinterpret_cast<uv_stream_t *>(handle));
+                    if (uv_tcp_close_reset(reinterpret_cast<uv_tcp_t *>(opaque_handle_to_close), close_and_delete_inet_handle) < 0) {
+                        uv_close(handle, close_and_delete_inet_handle);
                     }
                 });
             } else {
-                looper_->one_shot([opaque_handle_copy = this->opaque_handle_] {
-                    uv_udp_t *udp_h = reinterpret_cast<uv_udp_t*>(opaque_handle_copy);
+                looper_->one_shot([opaque_handle_to_close] {
+                    uv_handle_t *handle = reinterpret_cast<uv_handle_t *>(opaque_handle_to_close);
+                    if (uv_is_closing(handle)) {
+                        inet_socket *socket = reinterpret_cast<inet_socket *>(handle->data);
+                        if (socket) {
+                            socket->signal_close_done();
+                        }
+                        return;
+                    }
+
+                    uv_udp_t *udp_h = reinterpret_cast<uv_udp_t *>(opaque_handle_to_close);
                     uv_udp_recv_stop(udp_h);
 
-                    uv_close(reinterpret_cast<uv_handle_t*>(udp_h), [](uv_handle_t *handle) {
-                        delete handle;
-                    });
+                    uv_close(reinterpret_cast<uv_handle_t *>(udp_h), close_and_delete_inet_handle);
                 });
             }
 
-            opaque_handle_ = nullptr;
-            protocol_ = 0;
+            close_event.wait();
         }
 
-        if (opaque_connect_) {
-            uv_connect_t *connect = reinterpret_cast<uv_connect_t*>(opaque_connect_);
+        if (opaque_connect_ && !connect_pending_) {
+            uv_connect_t *connect = reinterpret_cast<uv_connect_t *>(opaque_connect_);
             delete connect;
 
             opaque_connect_ = nullptr;
         }
 
-        if (opaque_send_info_) {
-            uv_udp_send_t *send = reinterpret_cast<uv_udp_send_t*>(opaque_send_info_);
+        if (opaque_send_info_ && !send_pending_) {
+            uv_udp_send_t *send = reinterpret_cast<uv_udp_send_t *>(opaque_send_info_);
             delete send;
 
             opaque_send_info_ = nullptr;
         }
 
-        if (opaque_write_info_) {
-            uv_write_t *write = reinterpret_cast<uv_write_t*>(opaque_write_info_);
+        if (opaque_write_info_ && !send_pending_) {
+            uv_write_t *write = reinterpret_cast<uv_write_t *>(opaque_write_info_);
             delete write;
 
             opaque_write_info_ = nullptr;
@@ -190,24 +285,24 @@ namespace eka2l1::epoc::internet {
 
         if (protocol_id == INET_TCP_PROTOCOL_ID) {
             opaque_handle_ = new uv_tcp_t;
-            reinterpret_cast<uv_tcp_t*>(opaque_handle_)->data = this;
+            reinterpret_cast<uv_tcp_t *>(opaque_handle_)->data = this;
 
             params.opaque_handle_ = opaque_handle_;
 
             looper_->one_shot([&params, looper = std::ref(looper_)]() {
-                params.result_ = uv_tcp_init_ex(looper.get()->raw_loop(), reinterpret_cast<uv_tcp_t*>(params.opaque_handle_), params.family_);
+                params.result_ = uv_tcp_init_ex(looper.get()->raw_loop(), reinterpret_cast<uv_tcp_t *>(params.opaque_handle_), params.family_);
                 params.done_evt_->set();
             });
 
             create_frequent_tcp_tasks();
         } else {
             opaque_handle_ = new uv_udp_t;
-            reinterpret_cast<uv_udp_t*>(opaque_handle_)->data = this;
+            reinterpret_cast<uv_udp_t *>(opaque_handle_)->data = this;
 
             params.opaque_handle_ = opaque_handle_;
 
             looper_->one_shot([&params, looper = std::ref(looper_)]() {
-                params.result_ = uv_udp_init_ex(looper.get()->raw_loop(), reinterpret_cast<uv_udp_t*>(params.opaque_handle_), params.family_);
+                params.result_ = uv_udp_init_ex(looper.get()->raw_loop(), reinterpret_cast<uv_udp_t *>(params.opaque_handle_), params.family_);
                 params.done_evt_->set();
             });
 
@@ -267,7 +362,7 @@ namespace eka2l1::epoc::internet {
         connect_task_ = libuv::create_task([this]() {
             udp_connect_impl_async();
         });
-        
+
         send_task_ = libuv::create_task([this]() {
             udp_send_impl_async();
         });
@@ -275,7 +370,7 @@ namespace eka2l1::epoc::internet {
         recv_task_ = libuv::create_task([this]() {
             udp_recv_impl_async();
         });
-        
+
         cancel_recv_task_ = libuv::create_task([this]() {
             udp_cancel_recv_impl_async();
         });
@@ -359,25 +454,40 @@ namespace eka2l1::epoc::internet {
 
     void inet_socket::tcp_connect_impl_async() {
         uv_connect_t *connect = reinterpret_cast<uv_connect_t *>(opaque_connect_);
+        connect_pending_ = true;
+
         int err = uv_tcp_connect(
             connect,
-            reinterpret_cast<uv_tcp_t*>(opaque_handle_),
-            reinterpret_cast<const sockaddr*>(&connect_addr_),
+            reinterpret_cast<uv_tcp_t *>(opaque_handle_),
+            reinterpret_cast<const sockaddr *>(&connect_addr_),
             [](uv_connect_t *connect, const int err) {
-            inet_socket *socket = reinterpret_cast<inet_socket*>(connect->data);
-            socket->complete_connect_done_info(err);
-        });
+                inet_socket *socket = reinterpret_cast<inet_socket *>(connect->data);
+                if (socket) {
+                    socket->complete_connect_done_info(err);
+                    if (socket->opaque_connect_ == connect) {
+                        socket->opaque_connect_ = nullptr;
+                    }
+                    socket->connect_pending_ = false;
+                }
+
+                delete connect;
+            });
 
         if (err < 0) {
             LOG_ERROR(SERVICE_INTERNET, "Connect socket failed with libuv code {}", err);
-            reinterpret_cast<inet_socket*>(connect->data)->complete_connect_done_info(err);
+            reinterpret_cast<inet_socket *>(connect->data)->complete_connect_done_info(err);
+            if (opaque_connect_ == connect) {
+                opaque_connect_ = nullptr;
+            }
+            connect_pending_ = false;
+            delete connect;
         }
     }
 
     void inet_socket::udp_connect_impl_async() {
         const int err = uv_udp_connect(
-            reinterpret_cast<uv_udp_t*>(opaque_handle_),
-            reinterpret_cast<const sockaddr*>(&connect_addr_));
+            reinterpret_cast<uv_udp_t *>(opaque_handle_),
+            reinterpret_cast<const sockaddr *>(&connect_addr_));
 
         complete_connect_done_info(err);
     }
@@ -401,7 +511,7 @@ namespace eka2l1::epoc::internet {
         if (protocol_ == INET_TCP_PROTOCOL_ID) {
             if (!opaque_connect_) {
                 opaque_connect_ = new uv_connect_t;
-                reinterpret_cast<uv_connect_t*>(opaque_connect_)->data = this;
+                reinterpret_cast<uv_connect_t *>(opaque_connect_)->data = this;
             }
         }
 
@@ -424,16 +534,16 @@ namespace eka2l1::epoc::internet {
 
 #if EKA2L1_PLATFORM(WIN32)
             setsockopt(reinterpret_cast<SOCKET>(fd), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&value), 4);
-            
+
 #else
             setsockopt(reinterpret_cast<int>(fd), SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&value), 4);
 #endif
         }
 
         if (protocol_ == INET_UDP_PROTOCOL_ID) {
-            uv_udp_bind(reinterpret_cast<uv_udp_t*>(opaque_handle_), ip_addr_ptr, 0);
+            uv_udp_bind(reinterpret_cast<uv_udp_t *>(opaque_handle_), ip_addr_ptr, 0);
         } else {
-            uv_tcp_bind(reinterpret_cast<uv_tcp_t*>(opaque_handle_), ip_addr_ptr, 0);
+            uv_tcp_bind(reinterpret_cast<uv_tcp_t *>(opaque_handle_), ip_addr_ptr, 0);
         }
 
         kernel_system *kern = bind_done_info_.requester->get_kernel_object_owner();
@@ -465,9 +575,9 @@ namespace eka2l1::epoc::internet {
         GUEST_TO_BSD_ADDR(bind_addr_, ip_addr_ptr);
 
         if (protocol_ == INET_UDP_PROTOCOL_ID) {
-            uv_udp_bind(reinterpret_cast<uv_udp_t*>(opaque_handle_), ip_addr_ptr, 0);
+            uv_udp_bind(reinterpret_cast<uv_udp_t *>(opaque_handle_), ip_addr_ptr, 0);
         } else {
-            uv_tcp_bind(reinterpret_cast<uv_tcp_t*>(opaque_handle_), ip_addr_ptr, 0);
+            uv_tcp_bind(reinterpret_cast<uv_tcp_t *>(opaque_handle_), ip_addr_ptr, 0);
         }
 
         bind_callback_(epoc::error_none);
@@ -496,12 +606,12 @@ namespace eka2l1::epoc::internet {
         if (!accept_socket_ptr_->opaque_handle_) {
             accept_socket_ptr_->opaque_handle_ = new uv_tcp_t;
             accept_socket_ptr_->protocol_ = INET_TCP_PROTOCOL_ID;
-            uv_tcp_init(uv_default_loop(), reinterpret_cast<uv_tcp_t*>(accept_socket_ptr_->opaque_handle_));
+            uv_tcp_init(uv_default_loop(), reinterpret_cast<uv_tcp_t *>(accept_socket_ptr_->opaque_handle_));
 
             reinterpret_cast<uv_tcp_t *>(accept_socket_ptr_->opaque_handle_)->data = accept_socket_ptr_;
         }
 
-        uv_accept(reinterpret_cast<uv_stream_t*>(opaque_handle_), reinterpret_cast<uv_stream_t*>(accept_socket_ptr_->opaque_handle_));
+        uv_accept(reinterpret_cast<uv_stream_t *>(opaque_handle_), reinterpret_cast<uv_stream_t *>(accept_socket_ptr_->opaque_handle_));
 
         accept_socket_ptr_->accept_server_ = nullptr;
         accept_socket_ptr_->create_frequent_tcp_tasks();
@@ -526,16 +636,16 @@ namespace eka2l1::epoc::internet {
     }
 
     void inet_socket::listen_impl_async() {
-        const int err = uv_listen(reinterpret_cast<uv_stream_t*>(opaque_handle_),
+        const int err = uv_listen(reinterpret_cast<uv_stream_t *>(opaque_handle_),
             backlog_count_,
             [](uv_stream_t *server, int status) {
-            inet_socket *sock = reinterpret_cast<inet_socket*>(server->data);
-            if (status < 0) {
-                LOG_ERROR(SERVICE_INTERNET, "Socket new connection has error status {}", status);
-                return;
-            }
-            sock->handle_new_connection();
-        });
+                inet_socket *sock = reinterpret_cast<inet_socket *>(server->data);
+                if (status < 0) {
+                    LOG_ERROR(SERVICE_INTERNET, "Socket new connection has error status {}", status);
+                    return;
+                }
+                sock->handle_new_connection();
+            });
 
         set_listen_event(err);
     }
@@ -583,12 +693,12 @@ namespace eka2l1::epoc::internet {
         if (!accept_socket_ptr_->opaque_handle_) {
             accept_socket_ptr_->opaque_handle_ = new uv_tcp_t;
             accept_socket_ptr_->protocol_ = INET_TCP_PROTOCOL_ID;
-            uv_tcp_init(uv_default_loop(), reinterpret_cast<uv_tcp_t*>(accept_socket_ptr_->opaque_handle_));
+            uv_tcp_init(uv_default_loop(), reinterpret_cast<uv_tcp_t *>(accept_socket_ptr_->opaque_handle_));
 
             reinterpret_cast<uv_tcp_t *>(accept_socket_ptr_->opaque_handle_)->data = accept_socket_ptr_;
         }
 
-        if (uv_accept(reinterpret_cast<uv_stream_t*>(opaque_handle_), reinterpret_cast<uv_stream_t*>(accept_socket_ptr_->opaque_handle_)) == UV_EAGAIN) {
+        if (uv_accept(reinterpret_cast<uv_stream_t *>(opaque_handle_), reinterpret_cast<uv_stream_t *>(accept_socket_ptr_->opaque_handle_)) == UV_EAGAIN) {
             // No stream is yet available, let the later connection notification handle it then!
             return;
         }
@@ -620,7 +730,7 @@ namespace eka2l1::epoc::internet {
 
         *pending_sock = std::make_unique<inet_socket>(papa_);
 
-        accept_socket_ptr_ = reinterpret_cast<inet_socket*>(pending_sock->get());
+        accept_socket_ptr_ = reinterpret_cast<inet_socket *>(pending_sock->get());
         accept_done_info_ = complete_info;
 
         looper_->post_task(accept_task_);
@@ -635,7 +745,7 @@ namespace eka2l1::epoc::internet {
         accept_done_info_.complete(epoc::error_cancel);
         accept_socket_ptr_->accept_server_ = nullptr;
         accept_socket_ptr_ = nullptr;
-    }   
+    }
 
     std::int32_t inet_socket::local_name(epoc::socket::saddress &result, std::uint32_t &result_len) {
         if (!opaque_handle_) {
@@ -648,16 +758,16 @@ namespace eka2l1::epoc::internet {
         name_len = sizeof(sockaddr_in6);
 
         if (protocol_ == INET_UDP_PROTOCOL_ID) {
-            error = uv_udp_getsockname(reinterpret_cast<uv_udp_t*>(opaque_handle_), reinterpret_cast<sockaddr*>(&sock_max), &name_len);
+            error = uv_udp_getsockname(reinterpret_cast<uv_udp_t *>(opaque_handle_), reinterpret_cast<sockaddr *>(&sock_max), &name_len);
         } else {
-            error = uv_tcp_getsockname(reinterpret_cast<uv_tcp_t*>(opaque_handle_), reinterpret_cast<sockaddr*>(&sock_max), &name_len);
+            error = uv_tcp_getsockname(reinterpret_cast<uv_tcp_t *>(opaque_handle_), reinterpret_cast<sockaddr *>(&sock_max), &name_len);
         }
 
         if (error != 0) {
             return epoc::error_not_ready;
         }
 
-        host_sockaddr_to_guest_saddress(reinterpret_cast<sockaddr*>(&sock_max), result, &result_len);
+        host_sockaddr_to_guest_saddress(reinterpret_cast<sockaddr *>(&sock_max), result, &result_len);
         return epoc::error_none;
     }
 
@@ -672,16 +782,16 @@ namespace eka2l1::epoc::internet {
         name_len = sizeof(sockaddr_in6);
 
         if (protocol_ == INET_UDP_PROTOCOL_ID) {
-            error = uv_udp_getpeername(reinterpret_cast<uv_udp_t*>(opaque_handle_), reinterpret_cast<sockaddr*>(&sock_max), &name_len);
+            error = uv_udp_getpeername(reinterpret_cast<uv_udp_t *>(opaque_handle_), reinterpret_cast<sockaddr *>(&sock_max), &name_len);
         } else {
-            error = uv_tcp_getpeername(reinterpret_cast<uv_tcp_t*>(opaque_handle_), reinterpret_cast<sockaddr*>(&sock_max), &name_len);
+            error = uv_tcp_getpeername(reinterpret_cast<uv_tcp_t *>(opaque_handle_), reinterpret_cast<sockaddr *>(&sock_max), &name_len);
         }
 
         if (error != 0) {
             return epoc::error_not_ready;
         }
 
-        host_sockaddr_to_guest_saddress(reinterpret_cast<sockaddr*>(&sock_max), result, &result_len);
+        host_sockaddr_to_guest_saddress(reinterpret_cast<sockaddr *>(&sock_max), result, &result_len);
         return epoc::error_none;
     }
 
@@ -705,15 +815,14 @@ namespace eka2l1::epoc::internet {
         bytes_written_ = nullptr;
         kern->unlock();
     }
-    
+
     bool retrieve_local_ip_info(epoc::socket::saddress &broadcast, epoc::socket::saddress *my_selfip) {
         inet_interface_info info_temp;
         inet_socket_interface_iterator iterator;
 
         if (iterator.start()) {
             while (iterator.next(info_temp) == sizeof(inet_interface_info)) {
-                if ((info_temp.addr_.family_ == epoc::internet::INET_ADDRESS_FAMILY) &&
-                    (info_temp.addr_.user_data_[0] != 127) && (*info_temp.addr_.addr_long() != 0)) {
+                if ((info_temp.addr_.family_ == epoc::internet::INET_ADDRESS_FAMILY) && (info_temp.addr_.user_data_[0] != 127) && (*info_temp.addr_.addr_long() != 0)) {
                     broadcast = info_temp.broadcast_addr_;
                     broadcast.port_ = 0;
 
@@ -733,31 +842,59 @@ namespace eka2l1::epoc::internet {
     void inet_socket::udp_send_impl_async() {
         uv_udp_t *udp = reinterpret_cast<uv_udp_t *>(opaque_handle_);
         uv_udp_send_t *send_info = reinterpret_cast<uv_udp_send_t *>(opaque_send_info_);
+        send_pending_ = true;
 
         uv_udp_set_broadcast(udp, 1);
-        const int res = uv_udp_send(send_info, udp, &send_buf_, 1, reinterpret_cast<const sockaddr*>(&send_dest_), [](uv_udp_send_t *send_info, int status) {
-            inet_socket *socket = reinterpret_cast<inet_socket*>(send_info->data);
-            socket->complete_send_done_info(status);
+        const int res = uv_udp_send(send_info, udp, &send_buf_, 1, reinterpret_cast<const sockaddr *>(&send_dest_), [](uv_udp_send_t *send_info, int status) {
+            inet_socket *socket = reinterpret_cast<inet_socket *>(send_info->data);
+            if (socket) {
+                socket->complete_send_done_info(status);
+                if (socket->opaque_send_info_ == send_info) {
+                    socket->opaque_send_info_ = nullptr;
+                }
+                socket->send_pending_ = false;
+            }
+
+            delete send_info;
         });
 
         if (res < 0) {
             LOG_ERROR(SERVICE_INTERNET, "Sending UDP packet failed with libuv's code {}", res);
             complete_send_done_info(res);
+            if (opaque_send_info_ == send_info) {
+                opaque_send_info_ = nullptr;
+            }
+            send_pending_ = false;
+            delete send_info;
         }
     }
 
     void inet_socket::tcp_send_impl_async() {
         uv_stream_t *stream = reinterpret_cast<uv_stream_t *>(opaque_handle_);
         uv_write_t *write = reinterpret_cast<uv_write_t *>(opaque_write_info_);
+        send_pending_ = true;
 
         int err = uv_write(write, stream, &send_buf_, 1, [](uv_write_t *req, int status) {
             inet_socket *socket = reinterpret_cast<inet_socket *>(req->data);
-            socket->complete_send_done_info(status);
+            if (socket) {
+                socket->complete_send_done_info(status);
+                if (socket->opaque_write_info_ == req) {
+                    socket->opaque_write_info_ = nullptr;
+                }
+                socket->send_pending_ = false;
+            }
+
+            delete req;
         });
 
         if (err < 0) {
             LOG_ERROR(SERVICE_BLUETOOTH, "Sending TCP packet failed with libuv's error {}", err);
             complete_send_done_info(err);
+            if (opaque_write_info_ == write) {
+                opaque_write_info_ = nullptr;
+            }
+            send_pending_ = false;
+            delete write;
         }
     }
 
@@ -776,7 +913,7 @@ namespace eka2l1::epoc::internet {
             // In here we pick the most likely one that is running.
             // On Windows it just sends it to the top one active
             if (addr_guest_temp.family_ == epoc::internet::INET_ADDRESS_FAMILY) {
-                sinet_address &addr_inet = static_cast<sinet_address&>(addr_guest_temp);
+                sinet_address &addr_inet = static_cast<sinet_address &>(addr_guest_temp);
                 if (*addr_inet.addr_long() == 0xFFFFFFFF) {
                     std::uint32_t prev_port = addr_guest_temp.port_;
                     if (!broadcast_translate_cached_) {
@@ -788,7 +925,7 @@ namespace eka2l1::epoc::internet {
 
                             return;
                         } else {
-                            cached_broadcast_translate_ = static_cast<sinet_address&>(addr_guest_temp);
+                            cached_broadcast_translate_ = static_cast<sinet_address &>(addr_guest_temp);
                         }
                     } else {
                         addr_guest_temp = cached_broadcast_translate_;
@@ -801,7 +938,7 @@ namespace eka2l1::epoc::internet {
 
         GUEST_TO_BSD_ADDR(addr_guest_temp, ip_addr_ptr);
 
-        if (addr_ptr == nullptr)  {
+        if (addr_ptr == nullptr) {
             ip_addr_ptr = nullptr;
         }
 
@@ -813,7 +950,7 @@ namespace eka2l1::epoc::internet {
             *bytes_written_ = data_size;
         }
 
-        send_buf_ = uv_buf_init(const_cast<char*>(reinterpret_cast<const char*>(data)), static_cast<std::uint32_t>(data_size));
+        send_buf_ = uv_buf_init(const_cast<char *>(reinterpret_cast<const char *>(data)), static_cast<std::uint32_t>(data_size));
         send_done_info_ = complete_info;
 
         if (ip_addr_ptr) {
@@ -827,7 +964,7 @@ namespace eka2l1::epoc::internet {
         if (protocol_ == INET_UDP_PROTOCOL_ID) {
             if (!opaque_send_info_) {
                 opaque_send_info_ = new uv_udp_send_t;
-                reinterpret_cast<uv_udp_send_t*>(opaque_send_info_)->data = this;
+                reinterpret_cast<uv_udp_send_t *>(opaque_send_info_)->data = this;
             }
         } else {
             // Address is not important here.
@@ -841,24 +978,24 @@ namespace eka2l1::epoc::internet {
     }
 
     void inet_socket::prepare_buffer_for_recv(const std::size_t suggested_size, void *buf_ptr) {
-        uv_buf_t *buf = reinterpret_cast<uv_buf_t*>(buf_ptr);
+        uv_buf_t *buf = reinterpret_cast<uv_buf_t *>(buf_ptr);
         temp_buffer_.resize(suggested_size);
-        
+
         buf->base = temp_buffer_.data();
         buf->len = static_cast<std::uint32_t>(suggested_size);
     }
 
     void inet_socket::handle_udp_delivery(const std::int64_t bytes_read_arg, const void *buf_ptr, const void *addr) {
-        const uv_buf_t *buf = reinterpret_cast<const uv_buf_t*>(buf_ptr);
-        const sockaddr *recv_addr = reinterpret_cast<const sockaddr*>(addr);
+        const uv_buf_t *buf = reinterpret_cast<const uv_buf_t *>(buf_ptr);
+        const sockaddr *recv_addr = reinterpret_cast<const sockaddr *>(addr);
 
         if (recv_addr_) {
             // sorry...
-            host_sockaddr_to_guest_saddress(const_cast<sockaddr*>(recv_addr), *recv_addr_);
+            host_sockaddr_to_guest_saddress(const_cast<sockaddr *>(recv_addr), *recv_addr_);
         }
 
         // No need, you should stop for now
-        uv_udp_recv_stop(reinterpret_cast<uv_udp_t*>(opaque_handle_));
+        uv_udp_recv_stop(reinterpret_cast<uv_udp_t *>(opaque_handle_));
 
         kernel_system *kern = nullptr;
 
@@ -902,7 +1039,7 @@ namespace eka2l1::epoc::internet {
     }
 
     void inet_socket::handle_tcp_delivery(const std::int64_t bytes_read_arg, const void *buf_ptr) {
-        const uv_buf_t *buf = reinterpret_cast<const uv_buf_t*>(buf_ptr);
+        const uv_buf_t *buf = reinterpret_cast<const uv_buf_t *>(buf_ptr);
         kernel_system *kern = nullptr;
 
         if (!recv_done_info_.empty()) {
@@ -956,7 +1093,7 @@ namespace eka2l1::epoc::internet {
         }
 
         // No need, you should stop for now
-        uv_read_stop(reinterpret_cast<uv_stream_t*>(opaque_handle_));
+        uv_read_stop(reinterpret_cast<uv_stream_t *>(opaque_handle_));
         kern->lock();
 
         if (receive_done_cb_) {
@@ -973,24 +1110,16 @@ namespace eka2l1::epoc::internet {
     }
 
     void inet_socket::udp_recv_impl_async() {
-        uv_udp_t *udp = reinterpret_cast<uv_udp_t*>(opaque_handle_);
-        
+        uv_udp_t *udp = reinterpret_cast<uv_udp_t *>(opaque_handle_);
+
         uv_udp_set_broadcast(udp, 1);
-        uv_udp_recv_start(udp, [](uv_handle_t *handle, std::size_t suggested_size, uv_buf_t *buf) {
-            reinterpret_cast<inet_socket*>(handle->data)->prepare_buffer_for_recv(suggested_size, buf);
-        }, [](uv_udp_t *handle, ssize_t bytes_read, const uv_buf_t *buf, const sockaddr *addr_recv, std::uint32_t flags) {
-            reinterpret_cast<inet_socket*>(handle->data)->handle_udp_delivery(static_cast<std::int64_t>(bytes_read), buf, addr_recv);
-        });
+        uv_udp_recv_start(udp, [](uv_handle_t *handle, std::size_t suggested_size, uv_buf_t *buf) { reinterpret_cast<inet_socket *>(handle->data)->prepare_buffer_for_recv(suggested_size, buf); }, [](uv_udp_t *handle, ssize_t bytes_read, const uv_buf_t *buf, const sockaddr *addr_recv, std::uint32_t flags) { reinterpret_cast<inet_socket *>(handle->data)->handle_udp_delivery(static_cast<std::int64_t>(bytes_read), buf, addr_recv); });
     }
 
     void inet_socket::tcp_recv_impl_async() {
-        uv_stream_t *tcp_stream = reinterpret_cast<uv_stream_t*>(opaque_handle_);
+        uv_stream_t *tcp_stream = reinterpret_cast<uv_stream_t *>(opaque_handle_);
 
-        int start_err = uv_read_start(tcp_stream, [](uv_handle_t *handle, std::size_t suggested_size, uv_buf_t *buf) {
-            reinterpret_cast<inet_socket*>(handle->data)->prepare_buffer_for_recv(suggested_size, buf);
-        }, [](uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
-            reinterpret_cast<inet_socket*>(stream->data)->handle_tcp_delivery(static_cast<std::int64_t>(nread), buf);
-        });
+        int start_err = uv_read_start(tcp_stream, [](uv_handle_t *handle, std::size_t suggested_size, uv_buf_t *buf) { reinterpret_cast<inet_socket *>(handle->data)->prepare_buffer_for_recv(suggested_size, buf); }, [](uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) { reinterpret_cast<inet_socket *>(stream->data)->handle_tcp_delivery(static_cast<std::int64_t>(nread), buf); });
 
         if (start_err != 0) {
             LOG_TRACE(SERVICE_BLUETOOTH, "Error trying to receive TCP data. Libuv's error code is {}", start_err);
@@ -1049,7 +1178,7 @@ namespace eka2l1::epoc::internet {
                 }
             }
         }
-        
+
         looper_->post_task(recv_task_);
     }
 
@@ -1058,7 +1187,7 @@ namespace eka2l1::epoc::internet {
             return;
         }
 
-        uv_read_stop(reinterpret_cast<uv_stream_t*>(opaque_handle_));
+        uv_read_stop(reinterpret_cast<uv_stream_t *>(opaque_handle_));
 
         // Don't call
         receive_done_cb_ = nullptr;
@@ -1076,7 +1205,7 @@ namespace eka2l1::epoc::internet {
         }
 
         uv_udp_recv_stop(reinterpret_cast<uv_udp_t *>(opaque_handle_));
-        
+
         kernel_system *kern = recv_done_info_.requester->get_kernel_object_owner();
 
         kern->lock();
@@ -1123,7 +1252,7 @@ namespace eka2l1::epoc::internet {
         uv_shutdown_t *shut = new uv_shutdown_t;
 
         int res = uv_shutdown(shut, stream, [](uv_shutdown_t *shut, int status) {
-            reinterpret_cast<inet_socket*>(shut->handle->data)->complete_shutdown_info(status);
+            reinterpret_cast<inet_socket *>(shut->handle->data)->complete_shutdown_info(status);
             delete shut;
         });
 
@@ -1134,9 +1263,9 @@ namespace eka2l1::epoc::internet {
     }
 
     void inet_socket::udp_shutdown_impl_async() {
-        uv_udp_t *udp_h = reinterpret_cast<uv_udp_t*>(opaque_handle_);
+        uv_udp_t *udp_h = reinterpret_cast<uv_udp_t *>(opaque_handle_);
         uv_udp_recv_stop(udp_h);
-        
+
         complete_shutdown_info(0);
     }
 
@@ -1188,7 +1317,7 @@ namespace eka2l1::epoc::internet {
                 void *opaque_handle_copy = opaque_handle_;
 
                 looper_->one_shot([opaque_handle_copy, value]() {
-                    uv_tcp_nodelay(reinterpret_cast<uv_tcp_t*>(opaque_handle_copy), value);
+                    uv_tcp_nodelay(reinterpret_cast<uv_tcp_t *>(opaque_handle_copy), value);
                 });
 
                 return true;
@@ -1224,7 +1353,7 @@ namespace eka2l1::epoc::internet {
             return MAKE_SOCKET_GETOPT_ERROR(epoc::error_argument);
         }
 
-        return interface_iterator_.next(*reinterpret_cast<inet_interface_info*>(buffer));
+        return interface_iterator_.next(*reinterpret_cast<inet_interface_info *>(buffer));
     }
 
     std::size_t inet_socket_interface_iterator::next(inet_interface_info &info) {
@@ -1244,17 +1373,16 @@ namespace eka2l1::epoc::internet {
         }
 
 #if EKA2L1_PLATFORM(WIN32)
-        IP_ADAPTER_ADDRESSES *adapter_info_current = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(opaque_interface_info_current_);
+        IP_ADAPTER_ADDRESSES *adapter_info_current = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(opaque_interface_info_current_);
         CHAR interface_name[IF_NAMESIZE];
-        
+
         // Some games just grab interfaces that is just there...
         do {
-            if (adapter_info_current == nullptr) {    
+            if (adapter_info_current == nullptr) {
                 return MAKE_SOCKET_GETOPT_ERROR(epoc::error_eof);
             }
             bool skip_this_interface = false;
-            if (((adapter_info_current->IfIndex != 0) && if_indextoname(adapter_info_current->IfIndex, interface_name)) ||
-                ((adapter_info_current->IfIndex != 0) && if_indextoname(adapter_info_current->Ipv6IfIndex, interface_name))) {
+            if (((adapter_info_current->IfIndex != 0) && if_indextoname(adapter_info_current->IfIndex, interface_name)) || ((adapter_info_current->IfIndex != 0) && if_indextoname(adapter_info_current->Ipv6IfIndex, interface_name))) {
                 if (strncmp(interface_name, "iftype", 6) == 0) {
                     skip_this_interface = true;
                 }
@@ -1264,24 +1392,23 @@ namespace eka2l1::epoc::internet {
             if (!skip_this_interface && (adapter_info_current->OperStatus == IfOperStatusDown)) {
                 skip_this_interface = true;
             }
-            std::u16string description = std::u16string(reinterpret_cast<const char16_t*>(adapter_info_current->Description));
-            if (!skip_this_interface && ((description.find(u"Virtual") != std::string::npos) ||
-                (description.find(u"Virtual") != std::string::npos))) {
+            std::u16string description = std::u16string(reinterpret_cast<const char16_t *>(adapter_info_current->Description));
+            if (!skip_this_interface && ((description.find(u"Virtual") != std::string::npos) || (description.find(u"Virtual") != std::string::npos))) {
                 skip_this_interface = true;
             }
             if (!skip_this_interface) {
                 break;
             }
-            opaque_interface_info_current_ =  adapter_info_current->Next;
-            adapter_info_current = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(opaque_interface_info_current_);
+            opaque_interface_info_current_ = adapter_info_current->Next;
+            adapter_info_current = reinterpret_cast<IP_ADAPTER_ADDRESSES *>(opaque_interface_info_current_);
         } while (true);
 
-        info.name_.assign(nullptr, std::u16string(reinterpret_cast<const char16_t*>(adapter_info_current->FriendlyName)));
+        info.name_.assign(nullptr, std::u16string(reinterpret_cast<const char16_t *>(adapter_info_current->FriendlyName)));
         info.status_ = (adapter_info_current->OperStatus == IfOperStatusDown) ? inet_interface_status_down : inet_interface_status_up;
         info.mtu_ = adapter_info_current->Mtu;
-        info.speed_metric_ = static_cast<std::int32_t>(adapter_info_current->ReceiveLinkSpeed / 1024);   // In kbps
+        info.speed_metric_ = static_cast<std::int32_t>(adapter_info_current->ReceiveLinkSpeed / 1024); // In kbps
         info.features_ = 0;
-        std::memcpy(info.hardware_addr_.user_data_, adapter_info_current->PhysicalAddress, adapter_info_current->PhysicalAddressLength);     // Should not be able to overflow, Windows max is 8
+        std::memcpy(info.hardware_addr_.user_data_, adapter_info_current->PhysicalAddress, adapter_info_current->PhysicalAddressLength); // Should not be able to overflow, Windows max is 8
         info.hardware_addr_len_ = 8 + adapter_info_current->PhysicalAddressLength;
 
         auto fill_interface_addr_info = [](inet_interface_info &info, PIP_ADAPTER_UNICAST_ADDRESS_LH addr_from_raw) {
@@ -1293,7 +1420,7 @@ namespace eka2l1::epoc::internet {
 
                 *info.netmask_addr_.addr_long() = static_cast<std::uint32_t>(mask_value);
                 *info.broadcast_addr_.addr_long() = *info.addr_.addr_long() | (~*info.netmask_addr_.addr_long());
-            
+
                 info.netmask_addr_.family_ = INET_ADDRESS_FAMILY;
                 info.broadcast_addr_.family_ = INET_ADDRESS_FAMILY;
 
@@ -1312,7 +1439,7 @@ namespace eka2l1::epoc::internet {
         if (adapter_info_current->FirstDnsServerAddress) {
             host_sockaddr_to_guest_saddress(adapter_info_current->FirstDnsServerAddress->Address.lpSockaddr, info.primary_name_server_, &info.primary_name_server_len_, true);
         }
-        
+
         if (adapter_info_current->FirstGatewayAddress) {
             host_sockaddr_to_guest_saddress(adapter_info_current->FirstGatewayAddress->Address.lpSockaddr, info.default_gateway_, &info.default_gateway_len_, true);
         }
@@ -1320,7 +1447,7 @@ namespace eka2l1::epoc::internet {
         if (adapter_info_current->FirstUnicastAddress->Next != nullptr) {
             inet_interface_info info_temp = info;
             IP_ADAPTER_UNICAST_ADDRESS_LH *unicast_addr = adapter_info_current->FirstUnicastAddress->Next;
-        
+
             while (unicast_addr) {
                 fill_interface_addr_info(info_temp, unicast_addr);
                 pending_interface_infos_.push(info_temp);
@@ -1330,10 +1457,75 @@ namespace eka2l1::epoc::internet {
         }
 
         opaque_interface_info_current_ = adapter_info_current->Next;
+#elif EKA2L1_PLATFORM(VITA)
+        if (!opaque_interface_info_current_) {
+            return MAKE_SOCKET_GETOPT_ERROR(epoc::error_eof);
+        }
+
+        opaque_interface_info_current_ = nullptr;
+
+        std::memset(&info, 0, sizeof(inet_interface_info));
+        info.name_.assign(nullptr, std::u16string(u"wlan0"));
+        info.status_ = inet_interface_status_up;
+        info.features_ = 0;
+        info.speed_metric_ = 0;
+
+        SceNetCtlInfo net_info;
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_SSID, &net_info) >= 0 && net_info.ssid[0] != '\0') {
+            info.name_.assign(nullptr, common::utf8_to_ucs2(net_info.ssid));
+        }
+
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_MTU, &net_info) >= 0) {
+            info.mtu_ = static_cast<std::int32_t>(net_info.mtu);
+        }
+
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_ETHER_ADDR, &net_info) >= 0) {
+            std::memcpy(info.hardware_addr_.user_data_, net_info.ether_addr.data, sizeof(net_info.ether_addr.data));
+            info.hardware_addr_len_ = 8 + sizeof(net_info.ether_addr.data);
+            info.hardware_addr_max_len_ = sizeof(socket::saddress);
+        }
+
+        bool has_addr = false;
+        bool has_netmask = false;
+
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_IP_ADDRESS, &net_info) >= 0) {
+            has_addr = vita_fill_ipv4_address(net_info.ip_address, info.addr_, info.addr_len_, info.addr_max_len_);
+        }
+
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_NETMASK, &net_info) >= 0) {
+            has_netmask = vita_fill_ipv4_address(net_info.netmask, info.netmask_addr_, info.netmask_addr_len_, info.netmask_addr_max_len_);
+        }
+
+        if (has_addr && has_netmask) {
+            info.broadcast_addr_ = info.addr_;
+            *info.broadcast_addr_.addr_long() = *info.addr_.addr_long() | (~*info.netmask_addr_.addr_long());
+            epoc::set_descriptor_length_variable(info.broadcast_addr_len_, sinet_address::DATA_SIZE);
+            info.broadcast_addr_max_len_ = sinet_address::DATA_SIZE;
+        }
+
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_DEFAULT_ROUTE, &net_info) >= 0) {
+            vita_fill_ipv4_address(net_info.default_route, info.default_gateway_, info.default_gateway_len_, info.default_gateway_max_len_);
+        }
+
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_PRIMARY_DNS, &net_info) >= 0) {
+            vita_fill_ipv4_address(net_info.primary_dns, info.primary_name_server_, info.primary_name_server_len_, info.primary_name_server_max_len_);
+        }
+
+        std::memset(&net_info, 0, sizeof(SceNetCtlInfo));
+        if (sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_SECONDARY_DNS, &net_info) >= 0) {
+            vita_fill_ipv4_address(net_info.secondary_dns, info.secondary_name_server_, info.secondary_name_server_len_, info.secondary_name_server_max_len_);
+        }
 #else
-        ifaddrs *current_addr_info_posix = reinterpret_cast<ifaddrs*>(opaque_interface_info_current_);
-        while (current_addr_info_posix && ((strncmp(current_addr_info_posix->ifa_name, "vmnet", 5) == 0) ||
-                ((current_addr_info_posix->ifa_flags & IFF_RUNNING) != IFF_RUNNING))) {
+        ifaddrs *current_addr_info_posix = reinterpret_cast<ifaddrs *>(opaque_interface_info_current_);
+        while (current_addr_info_posix && ((strncmp(current_addr_info_posix->ifa_name, "vmnet", 5) == 0) || ((current_addr_info_posix->ifa_flags & IFF_RUNNING) != IFF_RUNNING))) {
             current_addr_info_posix = current_addr_info_posix->ifa_next;
             opaque_interface_info_current_ = current_addr_info_posix;
             continue;
@@ -1364,8 +1556,9 @@ namespace eka2l1::epoc::internet {
         if (opaque_interface_info_) {
             free(opaque_interface_info_);
         }
+#elif EKA2L1_PLATFORM(VITA)
 #else
-        freeifaddrs(reinterpret_cast<struct ifaddrs*>(opaque_interface_info_));
+        freeifaddrs(reinterpret_cast<struct ifaddrs *>(opaque_interface_info_));
 #endif
     }
 
@@ -1374,8 +1567,9 @@ namespace eka2l1::epoc::internet {
             // Restart existing info
 #if EKA2L1_PLATFORM(WIN32)
             free(opaque_interface_info_);
+#elif EKA2L1_PLATFORM(VITA)
 #else
-            freeifaddrs(reinterpret_cast<struct ifaddrs*>(opaque_interface_info_));
+            freeifaddrs(reinterpret_cast<struct ifaddrs *>(opaque_interface_info_));
 #endif
             opaque_interface_info_ = nullptr;
         }
@@ -1403,8 +1597,16 @@ namespace eka2l1::epoc::internet {
                 return false;
             }
         } while (true);
+#elif EKA2L1_PLATFORM(VITA)
+        int state = SCE_NETCTL_STATE_DISCONNECTED;
+        if ((sceNetCtlInetGetState(&state) < 0) || (state != SCE_NETCTL_STATE_CONNECTED)) {
+            return false;
+        }
+
+        opaque_interface_info_ = reinterpret_cast<void *>(1);
+        opaque_interface_info_current_ = opaque_interface_info_;
 #else
-        const int result = getifaddrs(reinterpret_cast<struct ifaddrs**>(&opaque_interface_info_));
+        const int result = getifaddrs(reinterpret_cast<struct ifaddrs **>(&opaque_interface_info_));
         if (result < 0) {
             LOG_ERROR(SERVICE_ESOCK, "Encounter error while trying to retrieve interface addresses. Error={}", errno);
             return false;

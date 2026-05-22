@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -185,7 +185,7 @@ namespace eka2l1 {
         const std::uint8_t *source_start = source;
         const std::uint8_t *source_end = source_start + source_size;
 
-        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t*>(dest);
+        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t *>(dest);
         std::uint8_t *dest_end = dest_start + dest_size;
 
         dest_size = 0;
@@ -199,7 +199,7 @@ namespace eka2l1 {
                     memset(dest_start, *source_start, repeat + 1);
                     dest_start += repeat + 1;
                 }
-                
+
                 dest_size += repeat + 1;
                 source_start++;
             } else {
@@ -217,10 +217,10 @@ namespace eka2l1 {
 
     template <>
     void decompress_rle_fast_route<12>(const std::uint8_t *source, const std::size_t source_size, std::uint8_t *dest, std::size_t &dest_size) {
-        const std::uint16_t *source_start = reinterpret_cast<const std::uint16_t*>(source);
+        const std::uint16_t *source_start = reinterpret_cast<const std::uint16_t *>(source);
         const std::uint16_t *source_end = source_start + (source_size + 1) / 2;
 
-        std::uint16_t *dest_start = reinterpret_cast<std::uint16_t*>(dest);
+        std::uint16_t *dest_start = reinterpret_cast<std::uint16_t *>(dest);
         std::uint16_t *dest_end = dest_start + ((dest_size + 1) / 2);
 
         std::size_t original_size = dest_size;
@@ -231,7 +231,7 @@ namespace eka2l1 {
 
             std::uint32_t repeat_count = common::min<std::uint32_t>(static_cast<std::uint32_t>((val >> 12) & 0xF),
                 static_cast<const std::uint32_t>(dest_end - dest_start));
-            
+
             val &= 0x0FFF;
 
             if (dest) {
@@ -249,7 +249,7 @@ namespace eka2l1 {
         const std::uint8_t *source_start = source;
         const std::uint8_t *source_end = source_start + source_size;
 
-        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t*>(dest);
+        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t *>(dest);
         std::uint8_t *dest_end = dest_start + dest_size;
 
         dest_size = 0;
@@ -260,9 +260,9 @@ namespace eka2l1 {
                 repeat = common::min<std::int32_t>(repeat, static_cast<std::int32_t>((dest_end - dest_start) / 2));
 
                 if (dest_start) {
-                    const std::uint16_t value_fill = *reinterpret_cast<const std::uint16_t*>(source_start);
+                    const std::uint16_t value_fill = *reinterpret_cast<const std::uint16_t *>(source_start);
                     for (std::int32_t i = 0; i <= repeat; i++) {
-                        *reinterpret_cast<std::uint16_t*>(dest_start) = value_fill;
+                        *reinterpret_cast<std::uint16_t *>(dest_start) = value_fill;
                         dest_start += 2;
                     }
                 }
@@ -287,7 +287,7 @@ namespace eka2l1 {
         const std::uint8_t *source_start = source;
         const std::uint8_t *source_end = source_start + source_size;
 
-        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t*>(dest);
+        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t *>(dest);
         std::uint8_t *dest_end = dest_start + dest_size;
 
         dest_size = 0;
@@ -310,7 +310,7 @@ namespace eka2l1 {
                 } else {
                     source_start += 3;
                 }
-                
+
                 dest_size += (repeat + 1) * 3;
             } else {
                 std::int32_t copy_count = common::min<std::int32_t>(-repeat * 3, static_cast<std::int32_t>(dest_end - dest_start));
@@ -330,7 +330,7 @@ namespace eka2l1 {
         const std::uint8_t *source_start = source;
         const std::uint8_t *source_end = source_start + source_size;
 
-        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t*>(dest);
+        std::uint8_t *dest_start = reinterpret_cast<std::uint8_t *>(dest);
         std::uint8_t *dest_end = dest_start + dest_size;
 
         dest_size = 0;
@@ -341,9 +341,9 @@ namespace eka2l1 {
                 repeat = common::min<std::int32_t>(repeat, static_cast<std::int32_t>((dest_end - dest_start) / 4));
 
                 if (dest_start) {
-                    const std::uint32_t value_fill = *reinterpret_cast<const std::uint32_t*>(source_start);
+                    const std::uint32_t value_fill = *reinterpret_cast<const std::uint32_t *>(source_start);
                     for (std::int32_t i = 0; i <= repeat; i++) {
-                        *reinterpret_cast<std::uint32_t*>(dest_start) = value_fill;
+                        *reinterpret_cast<std::uint32_t *>(dest_start) = value_fill;
                         dest_start += 4;
                     }
                 }

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -87,13 +87,13 @@ namespace eka2l1::j2me {
         }
 
         static const char *CREATE_APP_LIST_TABLE = "CREATE TABLE IF NOT EXISTS apps("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "name TEXT NOT NULL,"
-            "author TEXT NOT NULL,"
-            "iconPath TEXT,"
-            "title TEXT,"
-            "originalTitle TEXT,"
-            "version TEXT NOT NULL)";
+                                                   "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                                                   "name TEXT NOT NULL,"
+                                                   "author TEXT NOT NULL,"
+                                                   "iconPath TEXT,"
+                                                   "title TEXT,"
+                                                   "originalTitle TEXT,"
+                                                   "version TEXT NOT NULL)";
 
         if (sqlite3_exec(database_, CREATE_APP_LIST_TABLE, nullptr, nullptr, nullptr) != SQLITE_OK) {
             LOG_ERROR(J2ME, "Failed to create app list table in database!");
@@ -101,7 +101,7 @@ namespace eka2l1::j2me {
         }
 
         static const char *CREATE_VERSION_TABLE = "CREATE TABLE IF NOT EXISTS version("
-            "version INTEGER PRIMARY_KEY)";
+                                                  "version INTEGER PRIMARY_KEY)";
 
         if (sqlite3_exec(database_, CREATE_VERSION_TABLE, nullptr, nullptr, nullptr) != SQLITE_OK) {
             LOG_WARN(J2ME, "Failed to create version table in the database");
@@ -111,7 +111,7 @@ namespace eka2l1::j2me {
     bool app_list::execute_insert(const app_entry &entry) {
         if (!insert_entry_stmt_) {
             static const char *INSERT_APP_ENTRY_STMT = "INSERT INTO apps (name, author, iconPath, title, originalTitle, version)"
-                "VALUES (:name, :author, :iconPath, :title, :originalTitle, :version)";
+                                                       "VALUES (:name, :author, :iconPath, :title, :originalTitle, :version)";
 
             if (sqlite3_prepare(database_, INSERT_APP_ENTRY_STMT, -1, &insert_entry_stmt_, nullptr) != SQLITE_OK) {
                 LOG_ERROR(J2ME, "Failed to prepare insert app statement");
@@ -160,12 +160,12 @@ namespace eka2l1::j2me {
     std::uint32_t app_list::update_entry(const app_entry &entry) {
         if (!update_entry_stmt_) {
             static const char *UPDATE_ENTRY_STMT = "UPDATE apps SET "
-                "name=:name,"
-                "author=:author,"
-                "iconPath=iconPath,"
-                "title=:title,"
-                "originalTitle=:originalTitle,"
-                "version=:version WHERE id=:id";
+                                                   "name=:name,"
+                                                   "author=:author,"
+                                                   "iconPath=iconPath,"
+                                                   "title=:title,"
+                                                   "originalTitle=:originalTitle,"
+                                                   "version=:version WHERE id=:id";
 
             if (sqlite3_prepare(database_, UPDATE_ENTRY_STMT, -1, &update_entry_stmt_, nullptr) != SQLITE_OK) {
                 LOG_ERROR(J2ME, "Failed to prepare update entry statement! Error: {}", sqlite3_errmsg(database_));
@@ -277,12 +277,12 @@ namespace eka2l1::j2me {
 
     static void parse_app_entry_from_stmt_res(sqlite3_stmt *stmt, app_entry &entry) {
         entry.id_ = sqlite3_column_int(stmt, 0);
-        entry.name_ = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        entry.author_ = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        entry.icon_path_ =  reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-        entry.title_ = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-        entry.original_title_ = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-        entry.version_ =  reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        entry.name_ = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+        entry.author_ = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+        entry.icon_path_ = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+        entry.title_ = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
+        entry.original_title_ = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+        entry.version_ = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 6));
     }
 
     std::vector<app_entry> app_list::get_entries() {
@@ -339,7 +339,7 @@ namespace eka2l1::j2me {
 
     void app_list::flush() {
         reset();
-        
+
         common::create_directories(eka2l1::add_path(conf_.storage, APPLIST_DB_DIR));
         const std::string path_to_db = eka2l1::add_path(conf_.storage, APPLIST_DB_NAME);
         const int result = sqlite3_open(path_to_db.c_str(), &database_);

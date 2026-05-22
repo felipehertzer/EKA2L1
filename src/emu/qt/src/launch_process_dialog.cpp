@@ -1,8 +1,8 @@
 #include "ui_launch_process_dialog.h"
 #include <qt/launch_process_dialog.h>
 
-#include <kernel/kernel.h>
 #include <QMessageBox>
+#include <kernel/kernel.h>
 
 launch_process_dialog::launch_process_dialog(QWidget *parent, eka2l1::kernel_system *kern)
     : QDialog(parent)

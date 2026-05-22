@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <mem/model/flexible/pagearray.h>
-#include <common/log.h>
 #include <common/algorithm.h>
+#include <common/log.h>
+#include <mem/model/flexible/pagearray.h>
 
-namespace eka2l1::mem::flexible {    
+namespace eka2l1::mem::flexible {
     static constexpr std::uint64_t FULL_QWORD_MASK = 0xFFFFFFFFFFFFFFFF;
 
     pages_segment::pages_segment() {
@@ -40,7 +40,7 @@ namespace eka2l1::mem::flexible {
 
         const std::uint32_t index_in_first_qword = index & PAGE_INDEX_MASK_IN_QWORD;
         const std::uint32_t count_first_qword = common::min<std::uint32_t>(count, 16 - index_in_first_qword);
-        
+
         if (index_in_first_qword != 0) {
             std::uint64_t mask_set = ((~(FULL_QWORD_MASK >> (count_first_qword << 2))) >> (index_in_first_qword << 2));
             prots_[qword_index] &= ~mask_set;
@@ -50,7 +50,7 @@ namespace eka2l1::mem::flexible {
                     prots_[qword_index] |= (perm_u64 << ((i + index_in_first_qword) << 2));
                 }
             }
-            
+
             qword_index++;
             current_index += count_first_qword;
         }
@@ -97,8 +97,8 @@ namespace eka2l1::mem::flexible {
         , total_pages_(total_pages)
         , total_segments_(0) {
         total_segments_ = (total_pages + pages_segment::TOTAL_PAGE_PER_SEGMENT - 1) / pages_segment::TOTAL_PAGE_PER_SEGMENT;
-        segments_ = new pages_segment*[total_segments_];
-        std::memset(segments_, 0, sizeof(pages_segment*) * total_segments_);
+        segments_ = new pages_segment *[total_segments_];
+        std::memset(segments_, 0, sizeof(pages_segment *) * total_segments_);
     }
 
     page_array::~page_array() {

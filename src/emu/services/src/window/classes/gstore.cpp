@@ -1,42 +1,42 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <services/window/bitmap_cache.h>
 #include <services/window/classes/gstore.h>
 #include <services/window/util.h>
-#include <services/window/bitmap_cache.h>
 
-#include <services/fbs/font.h>
-#include <services/fbs/fbs.h>
 #include <services/fbs/bitmap.h>
+#include <services/fbs/fbs.h>
+#include <services/fbs/font.h>
 
-#include <common/time.h>
 #include <common/algorithm.h>
+#include <common/time.h>
 
 namespace eka2l1::epoc {
     // NOTE: Must store objects then free ref with local font atlas.
     gdi_store_command_segment::~gdi_store_command_segment() {
         for (std::size_t i = 0; i < font_objects_.size(); i++) {
-            reinterpret_cast<fbsfont*>(font_objects_[i])->deref();
+            reinterpret_cast<fbsfont *>(font_objects_[i])->deref();
         }
-        
+
         for (std::size_t i = 0; i < bitmap_objects_.size(); i++) {
-            reinterpret_cast<fbsbitmap*>(bitmap_objects_[i])->deref();
+            reinterpret_cast<fbsbitmap *>(bitmap_objects_[i])->deref();
         }
     }
 
@@ -48,7 +48,7 @@ namespace eka2l1::epoc {
 
                 if (ite == font_objects_.end()) {
                     font_objects_.push_back(data.fbs_font_ptr_);
-                    reinterpret_cast<fbsfont*>(data.fbs_font_ptr_)->ref();
+                    reinterpret_cast<fbsfont *>(data.fbs_font_ptr_)->ref();
                 }
             }
         }
@@ -60,16 +60,16 @@ namespace eka2l1::epoc {
 
                 if (ite == bitmap_objects_.end()) {
                     bitmap_objects_.push_back(data.main_fbs_bitmap_);
-                    reinterpret_cast<fbsbitmap*>(data.main_fbs_bitmap_)->ref();
+                    reinterpret_cast<fbsbitmap *>(data.main_fbs_bitmap_)->ref();
                 }
             }
-            
+
             if (data.mask_fbs_bitmap_ && ((data.gdi_flags_ & GDI_STORE_COMMAND_MASK_RAW) == 0)) {
                 auto ite = std::find(bitmap_objects_.begin(), bitmap_objects_.end(), data.mask_fbs_bitmap_);
 
                 if (ite == bitmap_objects_.end()) {
                     bitmap_objects_.push_back(data.mask_fbs_bitmap_);
-                    reinterpret_cast<fbsbitmap*>(data.mask_fbs_bitmap_)->ref();
+                    reinterpret_cast<fbsbitmap *>(data.mask_fbs_bitmap_)->ref();
                 }
             }
         }
@@ -106,7 +106,7 @@ namespace eka2l1::epoc {
         }
 
         for (std::size_t i = 0; i < lastest_segment->region_.rects_.size(); i++) {
-            for (std::size_t j = 0; j < segments_.size(); ) {
+            for (std::size_t j = 0; j < segments_.size();) {
                 if (segments_[j]->type_ != gdi_store_command_segment_pending_redraw) {
                     segments_[j]->region_.eliminate(lastest_segment->region_.rects_[i]);
 
@@ -122,6 +122,11 @@ namespace eka2l1::epoc {
         }
 
         lastest_segment->type_ = gdi_store_command_segment_redraw;
+    }
+
+    void gdi_store_command_collection::clear() {
+        segments_.clear();
+        current_segment_ = nullptr;
     }
 
     bool gdi_store_command_collection::clean_old_nonredraw_segments() {
@@ -142,7 +147,7 @@ namespace eka2l1::epoc {
         std::int32_t left_to_keep = KEEP_NON_REDRAW_SEGMENTS;
 
         if (non_redraw_segment_count > LIMIT_NON_REDRAW_SEGMENTS) {
-            for (std::int32_t i = 0; i < static_cast<std::int32_t>(segments_.size()); ) {
+            for (std::int32_t i = 0; i < static_cast<std::int32_t>(segments_.size());) {
                 if ((segments_[i].get() != current_segment_) && (segments_[i]->type_ == gdi_store_command_segment_non_redraw)) {
                     if (left_to_keep-- > 0) {
                         i++;
@@ -163,7 +168,7 @@ namespace eka2l1::epoc {
             // Try to make it able to be cleaned (this routine is actually from OSS)
             if (current_time - current_segment_->creation_date_ > AGE_LIMIT_NONREDRAW_US) {
                 // Try to find older segments
-                for (std::size_t i = 0; i < segments_.size(); ) {
+                for (std::size_t i = 0; i < segments_.size();) {
                     if ((segments_[i].get() != current_segment_) && (segments_[i]->type_ == gdi_store_command_segment_non_redraw)) {
                         if ((current_time - segments_[i]->creation_date_) > AGE_LIMIT_NONREDRAW_US * 2) {
                             segments_.erase(segments_.begin() + i);
@@ -267,8 +272,7 @@ namespace eka2l1::epoc {
 
         // Trying to emulate brush size here. There's more complexity in adding a real variant.
         if (cmd.style_ == drivers::pen_style_solid) {
-            if (((scale_factor_ != 1.0f) || ((cmd.pen_size_.x != 1) || (cmd.pen_size_.y != 1))) && ((cmd.start_.x == cmd.end_.x)
-                || (cmd.start_.y == cmd.end_.y))) {
+            if (((scale_factor_ != 1.0f) || ((cmd.pen_size_.x != 1) || (cmd.pen_size_.y != 1))) && ((cmd.start_.x == cmd.end_.x) || (cmd.start_.y == cmd.end_.y))) {
                 eka2l1::rect draw_rect;
                 draw_rect.top = scaled_start - (cmd.pen_size_ * (scale_factor_ / 2.0f));
                 if (cmd.start_.x == cmd.end_.x) {
@@ -303,15 +307,15 @@ namespace eka2l1::epoc {
 
     void gdi_command_builder::build_command_draw_text(const gdi_store_command_draw_text_data &cmd) {
         builder_.set_brush_color_detail(cmd.color_);
-        fbsfont *text_font = reinterpret_cast<fbsfont*>(cmd.fbs_font_ptr_);
-        
+        fbsfont *text_font = reinterpret_cast<fbsfont *>(cmd.fbs_font_ptr_);
+
         std::int16_t scaled_font_size = text_font->of_info.metrics.max_height;
         std::uint32_t metric_identifier = text_font->of_info.metric_identifier;
         float scale_to_pass = 1.0f;
 
         if (text_font->of_info.adapter->vectorizable()) {
             scaled_font_size = static_cast<std::int16_t>(scaled_font_size * scale_factor_);
-            metric_identifier = scaled_font_size;       // Vectorizable font metric identifier is font size
+            metric_identifier = scaled_font_size; // Vectorizable font metric identifier is font size
 
             if ((text_font->atlas.atlas_handle_ != 0) && (scaled_font_size != text_font->atlas.get_char_size())) {
                 text_font->atlas.destroy(driver_);
@@ -345,28 +349,34 @@ namespace eka2l1::epoc {
     }
 
     void gdi_command_builder::build_command_draw_bitmap(const gdi_store_command_draw_bitmap_data &cmd) {
-        epoc::bitwise_bitmap *source_bitmap_bw = reinterpret_cast<epoc::bitwise_bitmap*>(cmd.main_fbs_bitmap_);
+        epoc::bitwise_bitmap *source_bitmap_bw = reinterpret_cast<epoc::bitwise_bitmap *>(cmd.main_fbs_bitmap_);
 
         if ((cmd.gdi_flags_ & GDI_STORE_COMMAND_MAIN_RAW) == 0) {
-            source_bitmap_bw = reinterpret_cast<fbsbitmap*>(cmd.main_fbs_bitmap_)->final_clean()->bitmap_;
+            // Render the bitmap handle supplied by the client. final_clean() can point at
+            // a compressed snapshot that is stale for mutable game/HUD bitmaps.
+            source_bitmap_bw = reinterpret_cast<fbsbitmap *>(cmd.main_fbs_bitmap_)->bitmap_;
         }
 
-        epoc::bitwise_bitmap *mask_bitmap_bw = reinterpret_cast<epoc::bitwise_bitmap*>(cmd.mask_fbs_bitmap_);
+        epoc::bitwise_bitmap *mask_bitmap_bw = reinterpret_cast<epoc::bitwise_bitmap *>(cmd.mask_fbs_bitmap_);
 
         if (mask_bitmap_bw) {
             if ((cmd.gdi_flags_ & GDI_STORE_COMMAND_MASK_RAW) == 0) {
-                mask_bitmap_bw = reinterpret_cast<fbsbitmap*>(cmd.mask_fbs_bitmap_)->final_clean()->bitmap_;
+                mask_bitmap_bw = reinterpret_cast<fbsbitmap *>(cmd.mask_fbs_bitmap_)->bitmap_;
             }
         }
 
         drivers::handle source_bitmap_drv = cmd.main_drv_;
-        if (!source_bitmap_drv) {
+        if ((cmd.gdi_flags_ & GDI_STORE_COMMAND_MAIN_RAW) == 0) {
+            source_bitmap_drv = bcache_.add_or_get(driver_, source_bitmap_bw, &builder_);
+        } else if (!source_bitmap_drv) {
             source_bitmap_drv = bcache_.add_or_get(driver_, source_bitmap_bw, &builder_);
         }
 
         drivers::handle mask_bitmap_drv = cmd.mask_drv_;
 
-        if (!mask_bitmap_drv && mask_bitmap_bw) {
+        if (mask_bitmap_bw && ((cmd.gdi_flags_ & GDI_STORE_COMMAND_MASK_RAW) == 0)) {
+            mask_bitmap_drv = bcache_.add_or_get(driver_, mask_bitmap_bw, &builder_);
+        } else if (!mask_bitmap_drv && mask_bitmap_bw) {
             mask_bitmap_drv = bcache_.add_or_get(driver_, mask_bitmap_bw, &builder_);
         }
 
@@ -390,13 +400,11 @@ namespace eka2l1::epoc {
                 scaled_dest_rect.size.y = adjusted_source_rect.size.y;
             }
         }
-        
+
         scale_rectangle(scaled_dest_rect, scale_factor_);
 
         // Handle this variant: BitBlt(const TPoint &aDestination, const CFbsBitmap *aBitmap, const TRect &aSource);
-        if ((cmd.gdi_flags_ & GDI_STORE_COMMAND_BLIT) &&
-            ((cmd.source_rect_.size.y > source_bitmap_bw->header_.size_pixels.y) ||
-            (cmd.source_rect_.size.x > source_bitmap_bw->header_.size_pixels.x))) {
+        if ((cmd.gdi_flags_ & GDI_STORE_COMMAND_BLIT) && ((cmd.source_rect_.size.y > source_bitmap_bw->header_.size_pixels.y) || (cmd.source_rect_.size.x > source_bitmap_bw->header_.size_pixels.x))) {
             if (!mask_bitmap_drv) {
                 builder_.set_brush_color_detail(eka2l1::vec4(255, 255, 255, 255));
                 builder_.draw_rectangle(scaled_dest_rect);
@@ -405,7 +413,7 @@ namespace eka2l1::epoc {
             if (cmd.source_rect_.size.y > source_bitmap_bw->header_.size_pixels.y) {
                 adjusted_source_rect.size.y = source_bitmap_bw->header_.size_pixels.y;
             }
-            
+
             if (cmd.source_rect_.size.x > source_bitmap_bw->header_.size_pixels.x) {
                 adjusted_source_rect.size.x = source_bitmap_bw->header_.size_pixels.x;
             }
@@ -415,8 +423,7 @@ namespace eka2l1::epoc {
 
         bool swizzle_alteration = false;
 
-        const bool alpha_blending = mask_bitmap_bw && ((mask_bitmap_bw->settings_.current_display_mode() == epoc::display_mode::gray256)
-            || (epoc::is_display_mode_alpha(mask_bitmap_bw->settings_.current_display_mode())));
+        const bool alpha_blending = mask_bitmap_bw && ((mask_bitmap_bw->settings_.current_display_mode() == epoc::display_mode::gray256) || (epoc::is_display_mode_alpha(mask_bitmap_bw->settings_.current_display_mode())));
 
         std::uint32_t flags = 0;
 
@@ -458,7 +465,7 @@ namespace eka2l1::epoc {
         if (mask_bitmap_bw) {
             builder_.set_feature(drivers::graphics_feature::blend, false);
         }
-        
+
         if (swizzle_alteration) {
             builder_.set_swizzle(mask_bitmap_drv, drivers::channel_swizzle::red, drivers::channel_swizzle::green,
                 drivers::channel_swizzle::blue, drivers::channel_swizzle::alpha);
@@ -476,7 +483,7 @@ namespace eka2l1::epoc {
         if ((clipped.rects_.size() == 1) && (clipped.rects_[0].size == eka2l1::vec2(1, 1))) {
             LOG_TRACE(KERNEL, "HI!");
         }
-        
+
         builder_.clip_bitmap_region(clipped, scale_factor_);
     }
 
@@ -503,7 +510,7 @@ namespace eka2l1::epoc {
             builder_.destroy_bitmap(cmd.destroy_handle_);
         }
 
-        builder_.update_bitmap(cmd.handle_, reinterpret_cast<const char*>(cmd.texture_data_), cmd.texture_size_,
+        builder_.update_bitmap(cmd.handle_, reinterpret_cast<const char *>(cmd.texture_data_), cmd.texture_size_,
             eka2l1::vec2(0, 0), cmd.dim_, cmd.pixel_per_line_, false);
 
         if (cmd.do_swizz_) {

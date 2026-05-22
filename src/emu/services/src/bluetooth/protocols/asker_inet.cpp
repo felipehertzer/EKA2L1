@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2022 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -39,7 +39,7 @@ namespace eka2l1::epoc::bt {
         , asker_id_(midman->new_asker_id()) {
         request_done_evt_.set();
     }
-    
+
     asker_inet::~asker_inet() {
     }
 
@@ -125,7 +125,7 @@ namespace eka2l1::epoc::bt {
         dest_addr_ = addr;
 
         buffer_.clear();
-        buffer_.insert(buffer_.begin(), reinterpret_cast<char*>(&asker_id_), reinterpret_cast<char*>(&asker_id_ + 1));
+        buffer_.insert(buffer_.begin(), reinterpret_cast<char *>(&asker_id_), reinterpret_cast<char *>(&asker_id_ + 1));
         buffer_.insert(buffer_.end(), request, request + request_size);
 
         if (!send_data_task_) {
@@ -142,7 +142,7 @@ namespace eka2l1::epoc::bt {
                     std::memset(&bind, 0, sizeof(sockaddr_in6));
                     bind.sin6_family = AF_INET6;
 
-                    asker_->bind(*reinterpret_cast<sockaddr*>(&bind));
+                    asker_->bind(*reinterpret_cast<sockaddr *>(&bind));
                 }
 
                 if (!asker_retry_timer_) {
@@ -221,8 +221,7 @@ namespace eka2l1::epoc::bt {
             }
 
             result = (buf[1] == '1');
-            return true;
-        }, true);
+            return true; }, true);
 
         return result;
     }
@@ -245,8 +244,7 @@ namespace eka2l1::epoc::bt {
             std::memcpy(&result, buf + 1, sizeof(device_address));
 
             addr_result = result;
-            return true;
-        }, true);
+            return true; }, true);
 
         return addr_result;
     }
@@ -272,8 +270,7 @@ namespace eka2l1::epoc::bt {
             std::memcpy(&result, buf + 1, sizeof(device_address));
 
             callback(&result);
-            return true;
-        }, false);
+            return true; }, false);
     }
 
     void asker_inet::get_device_name_async(const epoc::socket::saddress &dest_friend, name_get_done_callback callback) {
@@ -294,7 +291,6 @@ namespace eka2l1::epoc::bt {
             }
 
             callback(buf + 2, buf[1]);
-            return true;
-        }, false);
+            return true; }, false);
     }
 }

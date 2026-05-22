@@ -28,22 +28,22 @@ public:
     }
 
     /**
-         * \brief Run all the tests
-         * 
-         * \returns The number of successful test
-         */
+     * \brief Run all the tests
+     *
+     * \returns The number of successful test
+     */
     TInt Run();
 
     /**
-         * \brief Get the number of total tests.
-         * 
-         */
+     * \brief Get the number of total tests.
+     *
+     */
     TInt TotalTests();
 
     /**
-         * \brief Add new test to test manager.
-         * 
-         */
+     * \brief Add new test to test manager.
+     *
+     */
     void AddTestL(const TDesC &aName, const TDesC &aCategory, TTestFunc aFunc);
 
     static CTestManager *NewLC(const TAbsorberMode aAbsorbMode);

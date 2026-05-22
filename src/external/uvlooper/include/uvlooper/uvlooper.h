@@ -123,7 +123,7 @@ namespace libuv {
      */
     inline std::optional<sockaddr_in6> from_ip_string(const char *addr, unsigned int port) {
         sockaddr_in6 addr_total;
-        std::memset(&addr_total, sizeof(sockaddr_in6), 0);
+        std::memset(&addr_total, 0, sizeof(sockaddr_in6));
 
         if (uv_ip4_addr(addr, port, reinterpret_cast<sockaddr_in*>(&addr_total)) == 0) {
             return addr_total;

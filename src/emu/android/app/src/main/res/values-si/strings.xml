@@ -22,7 +22,7 @@
     <string name="screenshot">Screenshot</string>
     <string name="take_screenshot_success">Screenshot saved to %s!</string>
     <string name="take_screenshot_fail">Failed to take screenshot!</string>
-    <string name="opengl_required">යෙදුමට OpenGL ES 3.0+ අවශ්‍ය වේ.</string>
+    <string name="vulkan_required">The app requires Vulkan 1.0+.</string>
     <string name="warning">අවවාදයයි</string>
     <string name="scoped_storage_warning">ඔබගේ පරිශීලක දත්ත ගබඩා කර ඇති ස්ථානයක <b>මකා දමනු ලැබේ</b> ඔබ යෙදුම අස්ථාපනය කරන විට:\n</string>
     <string name="install_ng_game">Install N-Gage game</string>

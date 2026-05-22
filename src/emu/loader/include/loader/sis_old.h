@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2020 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -27,8 +27,8 @@
 #include <loader/sis_common.h>
 
 #include <cstdint>
-#include <optional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace eka2l1 {
@@ -135,7 +135,7 @@ namespace eka2l1 {
             std::uint32_t file_details;
             std::uint32_t mime_type_len;
             std::uint32_t mine_type_ptr;
-            
+
             struct individual_file_data_info {
                 std::uint32_t length;
                 std::uint32_t position;
@@ -170,7 +170,7 @@ namespace eka2l1 {
         struct sis_old_binary_expression : public sis_old_expression {
             std::unique_ptr<sis_old_expression> lhs;
             std::unique_ptr<sis_old_expression> rhs;
-            
+
             explicit sis_old_binary_expression(const std::uint32_t expr_type, std::unique_ptr<sis_old_expression> &alhs,
                 std::unique_ptr<sis_old_expression> &arhs)
                 : sis_old_expression(expr_type)

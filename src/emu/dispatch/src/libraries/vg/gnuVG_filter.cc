@@ -17,45 +17,44 @@
  *
  */
 
-#include <dispatch/libraries/vg/gnuVG_image.hh>
 #include <dispatch/libraries/vg/gnuVG_emuutils.hh>
+#include <dispatch/libraries/vg/gnuVG_image.hh>
 
 using namespace gnuVG;
 
 namespace eka2l1::dispatch {
-	BRIDGE_FUNC_LIBRARY(void, vg_gaussian_blur_emu, VGImage dst, VGImage src, VGfloat stdDeviationX, VGfloat stdDeviationY, VGTilingMode tilingMode) {
-		GraphicState state;
-		Context *context = gnuVG::get_active_context(sys, &state);
+    BRIDGE_FUNC_LIBRARY(void, vg_gaussian_blur_emu, VGImage dst, VGImage src, VGfloat stdDeviationX, VGfloat stdDeviationY, VGTilingMode tilingMode) {
+        GraphicState state;
+        Context *context = gnuVG::get_active_context(sys, &state);
 
-		if (!context) {
-			return;
-		}
+        if (!context) {
+            return;
+        }
 
-		auto d = context->get<Image>(dst);
-		auto s = context->get<Image>(src);
-		if(s) {
-			auto sfb = s->get_framebuffer();
+        auto d = context->get<Image>(dst);
+        auto s = context->get<Image>(src);
+        if (s) {
+            auto sfb = s->get_framebuffer();
 
-			// calculate matrix size
-			stdDeviationX = stdDeviationX * 8.0 + 1.0;
-			stdDeviationY = stdDeviationY * 8.0 + 1.0;
+            // calculate matrix size
+            stdDeviationX = stdDeviationX * 8.0 + 1.0;
+            stdDeviationY = stdDeviationY * 8.0 + 1.0;
 
-			// if d is found, render to d, otherwise
-			// render to current target - this is a gnuVG extension
-			if(d) {
-				auto dfb = d->get_framebuffer();
-				context->save_current_framebuffer();
-				context->render_to_framebuffer(state, dfb);
-			}
-			context->trivial_render_framebuffer(
-				state,
-				sfb,
-				(int)stdDeviationX,
-				(int)stdDeviationY
-				);
-			if(d)
-				context->restore_current_framebuffer(state);
-		}
-	}
+            // if d is found, render to d, otherwise
+            // render to current target - this is a gnuVG extension
+            if (d) {
+                auto dfb = d->get_framebuffer();
+                context->save_current_framebuffer();
+                context->render_to_framebuffer(state, dfb);
+            }
+            context->trivial_render_framebuffer(
+                state,
+                sfb,
+                (int)stdDeviationX,
+                (int)stdDeviationY);
+            if (d)
+                context->restore_current_framebuffer(state);
+        }
+    }
 
 }

@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
+ *
  * This file is part of EKA2L1 project.
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -31,7 +31,7 @@
 namespace eka2l1::common {
     /**
      * \briefe Set the SVG diag string. If a null pointer is passed, nothing is set.
-     * 
+     *
      * \param diag Pointer to diag string.
      * \param err  Target error string to set.
      */
@@ -43,7 +43,7 @@ namespace eka2l1::common {
 
     /**
      * \brief Get SVG viewpoint/canavas size.
-     * 
+     *
      * \param doc      Reference to PugiXML DOM tree.
      * \param svg_tag  Reference to SVG node. Will be a node with <svg> tag on success.
      * \param width    Reference to the width variable.
@@ -98,12 +98,12 @@ namespace eka2l1::common {
 
     /**
      * \brief Parse a string telling information about a color.
-     * 
+     *
      * Supported kind:
      * - rgb(r, g, b)
      * - rgba(r, g, b, a)
      * - Color names.
-     * 
+     *
      * \returns RGBA color.
      */
     static vecx<int, 4> svg_get_color(const common::pystr &color_str) {
@@ -146,11 +146,11 @@ namespace eka2l1::common {
 
     /**
      * \brief Draw a circle.
-     * 
+     *
      * \param command A XML node, contains circle drawing command.
      * \param painter The painter, which is used to draw SVG data.
      * \param diag    Pointer to diag string.
-     * 
+     *
      * \returns svg_err_ok on success.
      */
     static int svg_cmd_circle(pugi::xml_node &command, common::painter *painter, std::string *diag) {
@@ -180,11 +180,11 @@ namespace eka2l1::common {
 
     /**
      * \brief Process drawing command.
-     * 
+     *
      * \param command A XML node, contains drawing command.
      * \param painter The painter, which is used to draw SVG data.
      * \param diag    Pointer to diag string.
-     * 
+     *
      * \returns svg_err_ok on success.
      */
     static int svg_process_command(pugi::xml_node &command, common::painter *painter, std::string *diag) {
@@ -204,11 +204,11 @@ namespace eka2l1::common {
 
     /**
      * \brief Iterates through all children of <svg> tag, and process drawing commands.
-     * 
+     *
      * \param svg_tag A PugiXML node of <svg> tag.
      * \param painter The painter, which is used to draw SVG data.
      * \param diag    Pointer to diag string.
-     * 
+     *
      * \returns svg_err_ok on success.
      */
     static int svg_process_commands(pugi::xml_node &svg_tag, common::painter *painter, std::string *diag) {

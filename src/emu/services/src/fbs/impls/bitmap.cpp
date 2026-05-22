@@ -1,22 +1,22 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * Initial contributor: pent0
  * Contributors:
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -33,6 +33,7 @@
 #include <services/fs/fs.h>
 #include <services/window/common.h>
 
+#include <common/virtualmem.h>
 #include <kernel/kernel.h>
 #include <system/epoc.h>
 #include <utils/err.h>
@@ -40,8 +41,89 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
+#include <limits>
 
 namespace eka2l1 {
+    static bool fbs_trace_enabled() {
+        return std::getenv("EKA2L1_FBS_TRACE") != nullptr;
+    }
+
+    static int fbs_trace_env_int(const char *name, const int fallback) {
+        const char *value = std::getenv(name);
+        if (!value || !*value) {
+            return fallback;
+        }
+
+        return std::atoi(value);
+    }
+
+    static bool fbs_trace_bitmap_matches(epoc::bitwise_bitmap *bitmap) {
+        if (!fbs_trace_enabled() || !bitmap) {
+            return false;
+        }
+
+        if (std::getenv("EKA2L1_FBS_TRACE_ALL")) {
+            return true;
+        }
+
+        const int width = fbs_trace_env_int("EKA2L1_FBS_TRACE_WIDTH", 0);
+        const int height = fbs_trace_env_int("EKA2L1_FBS_TRACE_HEIGHT", 0);
+
+        if ((width > 0) && (bitmap->header_.size_pixels.x != width)) {
+            return false;
+        }
+
+        if ((height > 0) && (bitmap->header_.size_pixels.y != height)) {
+            return false;
+        }
+
+        return (width > 0) || (height > 0);
+    }
+
+    static void trace_fbs_bitmap_summary(const char *label, fbs_server *serv, fbsbitmap *owner, const int handle = -1,
+        const int server_handle = -1, const int address_offset = std::numeric_limits<int>::min()) {
+        if (!owner || !owner->bitmap_ || !fbs_trace_bitmap_matches(owner ? owner->bitmap_ : nullptr)) {
+            return;
+        }
+
+        epoc::bitwise_bitmap *bitmap = owner->bitmap_;
+        const std::size_t data_size = bitmap->header_.bitmap_size > bitmap->header_.header_len
+            ? static_cast<std::size_t>(bitmap->header_.bitmap_size - bitmap->header_.header_len)
+            : 0;
+        const std::uint8_t *data = bitmap->data_pointer(serv);
+        std::size_t non_zero = 0;
+        std::size_t non_ff = 0;
+        std::uint8_t min_value = std::numeric_limits<std::uint8_t>::max();
+        std::uint8_t max_value = std::numeric_limits<std::uint8_t>::min();
+
+        for (std::size_t i = 0; i < data_size; i++) {
+            const std::uint8_t value = data[i];
+            non_zero += (value != 0);
+            non_ff += (value != 0xFF);
+            min_value = std::min(min_value, value);
+            max_value = std::max(max_value, value);
+        }
+
+        if (data_size == 0) {
+            min_value = 0;
+            max_value = 0;
+        }
+
+        LOG_INFO(SERVICE_FBS,
+            "FBS bitmap {} owner={} bitmap={} data={} clean={} handle={} server_handle={} addr_off={} "
+            "size={}x{} bpp={} mode={} init_mode={} byte_width={} bitmap_size={} header_len={} data_size={} "
+            "data_offset={} offset_from_me={} large={} dirty={} non_zero={} non_ff={} min={} max={}",
+            label, static_cast<void *>(owner), static_cast<void *>(bitmap), static_cast<const void *>(data),
+            static_cast<void *>(owner->clean_bitmap), handle, server_handle,
+            address_offset == std::numeric_limits<int>::min() ? serv->host_ptr_to_guest_shared_offset(bitmap) : address_offset,
+            bitmap->header_.size_pixels.x, bitmap->header_.size_pixels.y, bitmap->header_.bit_per_pixels,
+            static_cast<int>(bitmap->settings_.current_display_mode()), static_cast<int>(bitmap->settings_.initial_display_mode()),
+            bitmap->byte_width_, bitmap->header_.bitmap_size, bitmap->header_.header_len, data_size, bitmap->data_offset_,
+            bitmap->offset_from_me_, bitmap->settings_.is_large(), bitmap->settings_.dirty_bitmap(), non_zero, non_ff,
+            min_value, max_value);
+    }
+
     static epoc::bitmap_color get_bitmap_color_type_from_display_mode(const epoc::display_mode bpp) {
         switch (bpp) {
         case epoc::display_mode::gray2:
@@ -277,6 +359,20 @@ namespace eka2l1 {
 
             // copy with compressed data not supported yet
             const int min_byte_width = std::min(byte_width_, dest_byte_width);
+            if ((min_pixel_height <= 0) || (min_byte_width <= 0)) {
+                return epoc::error_none;
+            }
+
+            const std::size_t source_copy_size = (compressed_in_ram_ && (compression_type() != bitmap_file_no_compression))
+                ? static_cast<std::size_t>(data_size())
+                : static_cast<std::size_t>(byte_width_) * static_cast<std::size_t>(min_pixel_height);
+            const std::size_t dest_copy_size = static_cast<std::size_t>(dest_byte_width) * static_cast<std::size_t>(min_pixel_height);
+
+            if (!serv->ensure_host_range_accessible(src_base, source_copy_size)
+                || !serv->ensure_host_range_accessible(dest_base, dest_copy_size)) {
+                LOG_WARN(SERVICE_FBS, "Skipping bitmap copy with inaccessible source or destination memory");
+                return epoc::error_general;
+            }
 
             if (compressed_in_ram_ && (compression_type() != bitmap_file_no_compression)) {
                 bitmap_copy_writer writer(dest, byte_width_, dest_byte_width, min_pixel_height);
@@ -539,6 +635,8 @@ namespace eka2l1 {
         const std::uint32_t handle_ret = obj_table_.add(bmp);
         const std::uint32_t server_handle = bmp->id;
         const std::uint32_t off = server<fbs_server>()->host_ptr_to_guest_shared_offset(bmp->bitmap_);
+        trace_fbs_bitmap_summary("duplicate", server<fbs_server>(), bmp, static_cast<int>(handle_ret),
+            static_cast<int>(server_handle), static_cast<int>(off));
 
         const bool legacy_return = (ctx->get_argument_data_size(1) >= sizeof(bmp_specs_legacy));
 
@@ -729,6 +827,7 @@ namespace eka2l1 {
         handle_info.handle = obj_table_.add(bmp);
         handle_info.server_handle = bmp->id;
         handle_info.address_offset = fbss->host_ptr_to_guest_shared_offset(bmp->bitmap_);
+        trace_fbs_bitmap_summary("load", fbss, bmp, handle_info.handle, handle_info.server_handle, handle_info.address_offset);
 
         ctx->write_data_to_descriptor_argument<bmp_handles>(0, handle_info);
         ctx->complete(epoc::error_none);
@@ -751,6 +850,18 @@ namespace eka2l1 {
         return common::min<std::uint32_t>(MAXIMUM_RESERVED_HEIGHT, height * PERCENTAGE_RESERVE_HEIGHT_EACH_SIDE / 100);
     }
 
+    static bool ensure_bitmap_allocation_writable(void *data, const std::size_t size) {
+        if (!data || size == 0) {
+            return true;
+        }
+
+        const std::uintptr_t page_size = static_cast<std::uintptr_t>(common::get_host_page_size());
+        const std::uintptr_t start = reinterpret_cast<std::uintptr_t>(data) & ~(page_size - 1);
+        const std::uintptr_t end = (reinterpret_cast<std::uintptr_t>(data) + size + page_size - 1) & ~(page_size - 1);
+
+        return common::commit(reinterpret_cast<void *>(start), end - start, prot_read_write);
+    }
+
     fbsbitmap *fbs_server::create_bitmap(fbs_bitmap_data_info &info, const bool alloc_data, const bool support_current_display_mode_flag, const bool support_dirty) {
         if (!shared_chunk || !large_chunk) {
             initialize_server();
@@ -768,12 +879,13 @@ namespace eka2l1 {
         const std::size_t byte_width = epoc::get_byte_width(info.size_.x, epoc::get_bpp_from_display_mode(info.dpm_));
 
         std::size_t original_bytes = (info.data_size_ == 0) ? calculate_aligned_bitmap_bytes(
-                                         info.size_, info.dpm_)
+                                                                  info.size_, info.dpm_)
                                                             : info.data_size_;
 
         std::size_t alloc_bytes = original_bytes + final_reserve_each_side * byte_width * 2;
 
         void *data = nullptr;
+        void *allocated_data = nullptr;
         std::uint8_t *base = nullptr;
         bool smol = false;
 
@@ -786,14 +898,29 @@ namespace eka2l1 {
             if (!is_large_bitmap(static_cast<std::uint32_t>(org_dest_size))) {
                 base = reinterpret_cast<std::uint8_t *>(bws_bmp);
                 data = shared_chunk_allocator->allocate(avail_dest_size);
+                allocated_data = data;
 
                 smol = true;
             } else {
                 base = base_large_chunk;
                 data = large_chunk_allocator->allocate(avail_dest_size);
+                allocated_data = data;
             }
 
             if (!data) {
+                shared_chunk_allocator->freep(bws_bmp);
+                return nullptr;
+            }
+
+            if (!ensure_bitmap_allocation_writable(allocated_data, avail_dest_size)) {
+                LOG_ERROR(SERVICE_FBS, "Unable to commit FBS bitmap allocation of {} bytes", avail_dest_size);
+
+                if (smol) {
+                    shared_chunk_allocator->freep(allocated_data);
+                } else {
+                    large_chunk_allocator->freep(allocated_data);
+                }
+
                 shared_chunk_allocator->freep(bws_bmp);
                 return nullptr;
             }
@@ -825,6 +952,7 @@ namespace eka2l1 {
         }
 
         fbsbitmap *bmp = make_new<fbsbitmap>(this, bws_bmp, false, support_dirty, final_reserve_each_side);
+        trace_fbs_bitmap_summary("server-create", this, bmp);
         return bmp;
     }
 
@@ -853,7 +981,7 @@ namespace eka2l1 {
             no_failure = true;
         }
 
-        common::erase_elements(shared_bitmaps, [bmp](const std::pair<const eka2l1::fbsbitmap_cache_info, fbsbitmap*> &info) -> bool {
+        common::erase_elements(shared_bitmaps, [bmp](const std::pair<const eka2l1::fbsbitmap_cache_info, fbsbitmap *> &info) -> bool {
             return info.second == bmp;
         });
 
@@ -964,6 +1092,8 @@ namespace eka2l1 {
         const std::uint32_t handle_ret = obj_table_.add(bmp);
         const std::uint32_t serv_handle = bmp->id;
         const std::uint32_t addr_off = fbss->host_ptr_to_guest_shared_offset(bmp->bitmap_);
+        trace_fbs_bitmap_summary("client-create", fbss, bmp, static_cast<int>(handle_ret), static_cast<int>(serv_handle),
+            static_cast<int>(addr_off));
 
         // From Anna the slot to write this moved to 1.
 
@@ -1085,6 +1215,8 @@ namespace eka2l1 {
             handle_info.handle = obj_table_.add(new_bmp);
             handle_info.server_handle = new_bmp->id;
             handle_info.address_offset = server<fbs_server>()->host_ptr_to_guest_shared_offset(new_bmp->bitmap_);
+            trace_fbs_bitmap_summary("resize-new-clean", fbss, new_bmp, handle_info.handle, handle_info.server_handle,
+                handle_info.address_offset);
 
             ctx->write_data_to_descriptor_argument(3, handle_info);
             obj_table_.remove(handle);
@@ -1113,6 +1245,7 @@ namespace eka2l1 {
         }
 
         new_bmp->bitmap_->offset_from_me_ = offset_from_me_now;
+        trace_fbs_bitmap_summary("resize", fbss, new_bmp);
         ctx->complete(epoc::error_none);
     }
 
@@ -1151,6 +1284,8 @@ namespace eka2l1 {
         handle_info.handle = obj_table_.add(bmp);
         handle_info.server_handle = bmp->id;
         handle_info.address_offset = server<fbs_server>()->host_ptr_to_guest_shared_offset(bmp->bitmap_);
+        trace_fbs_bitmap_summary("clean", server<fbs_server>(), bmp, handle_info.handle, handle_info.server_handle,
+            handle_info.address_offset);
 
         // Close the old handle. To prevent this object from being destroyed.
         // In case no clean bitmap at all!
@@ -1400,7 +1535,7 @@ namespace eka2l1 {
             case epoc::display_mode::color256:
                 for (std::size_t y = 0; y < header.size_pixels.y; y++) {
                     current_to_look->seek(y * byte_width, common::seek_where::beg);
-                    
+
                     epoc::palette_256 &palette = epoc::get_suitable_palette_256(serv->get_kernel_object_owner()->get_epoc_version(),
                         serv->get_system()->is_s80_device_active());
 
@@ -1495,7 +1630,7 @@ namespace eka2l1 {
                 break;
 
             case epoc::display_mode::color16ma: {
-                for (std::size_t y = 0; y < header.size_pixels.y; y++) {    
+                for (std::size_t y = 0; y < header.size_pixels.y; y++) {
                     current_to_look->seek(y * byte_width, common::seek_where::beg);
 
                     for (std::size_t x = 0; x < header.size_pixels.x; x++) {

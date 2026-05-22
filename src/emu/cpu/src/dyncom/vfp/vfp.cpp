@@ -118,7 +118,7 @@ void vfp_raise_exceptions(ARMul_State *state, std::uint32_t exceptions, std::uin
 
     if (exceptions == VFP_EXCEPTION_ERROR) {
         LOG_CRITICAL(eka2l1::CPU_DYNCOM, "unhandled bounce {:x}", inst);
-        //Crash();
+        // Crash();
     }
 
     /*

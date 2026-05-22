@@ -1,27 +1,27 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
-#include <services/window/classes/winbase.h>
 #include <services/window/classes/gstore.h>
+#include <services/window/classes/winbase.h>
 #include <services/window/common.h>
 
 #include <common/linked.h>
@@ -91,17 +91,16 @@ namespace eka2l1::epoc {
         std::vector<epoc::event> pointer_buffer_;
 
         std::uint64_t last_draw_;
-        std::uint64_t last_fps_sync_;
-        std::uint64_t fps_count_;
 
         bool in_visibility_delay_report_;
 
         // NOTE: If you ever want to access this and call a function that can directly affect this list elements, copy it first
-        std::vector<dsa*> directs_;
+        std::vector<dsa *> directs_;
 
+        drivers::graphics_command_builder pre_gdi_driver_builder_;
         drivers::graphics_command_builder driver_builder_;
         std::unique_ptr<epoc::gdi_store_command_segment> pending_segment_;
-        std::vector<canvas_observer*> observers_;
+        std::vector<canvas_observer *> observers_;
 
         explicit canvas_base(window_server_client_ptr client, screen *scr, window *parent, const epoc::window_type type_of_window, const epoc::display_mode dmode, const std::uint32_t client_handle);
         virtual ~canvas_base() override;
@@ -131,7 +130,7 @@ namespace eka2l1::epoc {
 
         /**
          * \brief Set window extent in screen space.
-         * 
+         *
          * \param top   The position of the window on the screen coords, in pixels.
          * \param size  The size of the window, in pixel.
          */
@@ -165,14 +164,14 @@ namespace eka2l1::epoc {
 
         /**
          * @brief Set window visibility.
-         * 
+         *
          * This will trigger a screen redraw if the visibility is changed.
          */
         void set_visible(const bool vis);
 
         /**
          * @brief Try update the window does when its content is modified.
-         * 
+         *
          * @returns Usually the time in microseconds until next screen update.
          */
         virtual std::uint64_t try_update(kernel::thread *drawer);
@@ -189,13 +188,13 @@ namespace eka2l1::epoc {
         void set_shape(service::ipc_context &context, ws_cmd &cmd);
         void enable_visiblity_change_events(service::ipc_context &ctx, eka2l1::ws_cmd &cmd);
         void fix_native_orientation(service::ipc_context &ctx, eka2l1::ws_cmd &cmd);
+        void claim_pointer_grab(service::ipc_context &ctx, eka2l1::ws_cmd &cmd);
         /**
          * \brief Handler for InquireOffset opcode.
-         * 
+         *
          * The offset calculates origin distance between this window and a targeted window given by the handle.
          */
         void inquire_offset(service::ipc_context &ctx, ws_cmd &cmd);
-
 
         epoc::window_group *get_group();
 
@@ -216,13 +215,13 @@ namespace eka2l1::epoc {
 
         void on_activate() override {}
         void handle_extent_changed(const eka2l1::vec2 &new_size, const eka2l1::vec2 &new_pos) override {}
-        
+
         bool draw(drivers::graphics_command_builder &builder) override;
     };
 
     // Canvas that data is backed using a bitmap
     // These are not upscaled, given the usage that is usually to upload some native drawn thing to CPU.
-    struct bitmap_backed_canvas: public canvas_base {
+    struct bitmap_backed_canvas : public canvas_base {
         std::uint64_t driver_win_id;
         std::uint64_t ping_pong_driver_win_id;
 
@@ -253,11 +252,11 @@ namespace eka2l1::epoc {
 
     struct redraw_msg_canvas : public canvas_base {
         common::region redraw_region;
-        common::region background_region;           // Region to paint background on screen
+        common::region background_region; // Region to paint background on screen
         eka2l1::rect redraw_rect_curr;
 
         gdi_store_command_collection redraw_segments_;
-        std::vector<fbsfont*> using_fonts_;
+        std::vector<fbsfont *> using_fonts_;
 
         explicit redraw_msg_canvas(window_server_client_ptr client, screen *scr, window *parent,
             const epoc::display_mode dmode, const std::uint32_t client_handle);

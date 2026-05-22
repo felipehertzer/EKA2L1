@@ -1,25 +1,27 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team
- * 
+ *
  * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <services/fs/fs.h>
 #include <services/fs/std.h>
+
+#include <memory>
 
 #include <kernel/kernel.h>
 #include <system/epoc.h>
@@ -30,11 +32,60 @@
 #include <common/log.h>
 #include <common/path.h>
 #include <kernel/kernel.h>
-#include <config/app_settings.h>
+#include <kernel/process.h>
 
 #include <utils/err.h>
 
 namespace eka2l1 {
+    class empty_directory final : public directory {
+    public:
+        explicit empty_directory(const std::uint32_t attrib)
+            : directory(attrib) {
+        }
+
+        std::optional<entry_info> get_next_entry() override {
+            return std::nullopt;
+        }
+
+        std::optional<entry_info> peek_next_entry() override {
+            return std::nullopt;
+        }
+    };
+
+    static bool path_leaf_has_wildcard(const std::u16string &path) {
+        const std::u16string leaf = eka2l1::filename(path, true);
+        return (leaf.find(u'*') != std::u16string::npos) || (leaf.find(u'?') != std::u16string::npos);
+    }
+
+    static io_component_ptr make_empty_directory(const std::uint32_t attrib) {
+        return std::make_unique<empty_directory>(attrib);
+    }
+
+    static std::u16string private_path_prefix_for_process_id(const char16_t drive, const std::uint32_t id) {
+        std::string id_hex = common::uppercase_string(common::to_string(id, std::hex));
+        if (id_hex.length() < 8) {
+            id_hex.insert(id_hex.begin(), 8 - id_hex.length(), '0');
+        }
+
+        return std::u16string(1, drive) + u":\\Private\\" + common::utf8_to_ucs2(id_hex) + u"\\";
+    }
+
+    static bool starts_with_case_insensitive(const std::u16string &path, const std::u16string &prefix) {
+        return (path.size() >= prefix.size()) && (common::compare_ignore_case(path.substr(0, prefix.size()), prefix) == 0);
+    }
+
+    static bool is_own_private_directory_path(const std::u16string &path, kernel::process *process) {
+        if (!process || path.size() < 3 || path[1] != u':' || path_leaf_has_wildcard(path) || !is_separator(path.back())) {
+            return false;
+        }
+
+        const std::uint32_t uid3 = std::get<2>(process->get_uid_type());
+        const std::uint32_t secure_id = process->get_sec_info().secure_id;
+
+        return starts_with_case_insensitive(path, private_path_prefix_for_process_id(path[0], uid3))
+            || starts_with_case_insensitive(path, private_path_prefix_for_process_id(path[0], secure_id));
+    }
+
     void fs_server_client::open_dir(service::ipc_context *ctx) {
         auto dir = ctx->get_argument_value<std::u16string>(0);
         std::optional<epoc::uid_type> utype = ctx->get_argument_data_from_descriptor<epoc::uid_type>(2);
@@ -44,24 +95,7 @@ namespace eka2l1 {
             return;
         }
 
-        std::u16string path_relative = ss_path;
-        kernel_system *kern = ctx->sys->get_kernel_system();
-
-        if (kern->is_eka1()) {
-            static constexpr const char16_t *T9LDB_PATH_FULL = u"Z:\\system\\t9ldb\\";
-
-            // Check for T9 hack
-            config::app_settings *settings = kern->get_app_settings();
-            config::app_setting *setting = settings->get_setting(ctx->msg->own_thr->owning_process()->get_uid());
-
-            if (setting && setting->t9_bypass_hack) {
-                if ((common::compare_ignore_case(dir.value(), u"*.dll") == 0) || ((common::compare_ignore_case(dir.value(), u"*.rsc") == 0))) {
-                    path_relative = T9LDB_PATH_FULL;
-                }
-            }
-        }
-
-        dir.value() = get_full_symbian_path(path_relative, dir.value());
+        dir.value() = get_full_symbian_path(ss_path, dir.value());
         LOG_TRACE(SERVICE_EFSRV, "Opening directory: {}", common::ucs2_to_utf8(*dir));
 
         if (!dir || !utype.has_value()) {
@@ -101,8 +135,20 @@ namespace eka2l1 {
         fs_server *serv = server<fs_server>();
         fs_node *node = serv->make_new<fs_node>();
 
-        node->vfs_node = ctx->sys->get_io_system()->open_dir(*dir, utype.value(), attrib);
+        io_system *io = ctx->sys->get_io_system();
+        node->vfs_node = io->open_dir(*dir, utype.value(), attrib);
         node->serv = serv;
+
+        if (!node->vfs_node && path_leaf_has_wildcard(*dir)) {
+            LOG_TRACE(SERVICE_EFSRV, "Treating missing wildcard directory scan as empty: {}", common::ucs2_to_utf8(*dir));
+            node->vfs_node = make_empty_directory(attrib);
+        }
+
+        if (!node->vfs_node && is_own_private_directory_path(*dir, ctx->msg->own_thr->owning_process())) {
+            LOG_TRACE(SERVICE_EFSRV, "Creating missing own private directory: {}", common::ucs2_to_utf8(*dir));
+            io->create_directories(*dir);
+            node->vfs_node = io->open_dir(*dir, utype.value(), attrib);
+        }
 
         if (!node->vfs_node) {
             ctx->complete(epoc::error_path_not_found);
@@ -115,7 +161,12 @@ namespace eka2l1 {
 
         LOG_TRACE(SERVICE_EFSRV, "UID requested: 0x{:X}, 0x{:X}, 0x{:X}", utype->uid1, utype->uid2, utype->uid3);
 
-        ctx->write_data_to_descriptor_argument<int>(3, dir_handle_i);
+        if (!ctx->write_handle_argument(3, dir_handle_i)) {
+            obj_table_.remove(dir_handle_i);
+            ctx->complete(epoc::error_argument);
+            return;
+        }
+
         ctx->complete(epoc::error_none);
     }
 

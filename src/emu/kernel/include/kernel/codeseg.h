@@ -1,19 +1,19 @@
 /*
  * Copyright (c) 2019 EKA2L1 Team.
- * 
- * This file is part of EKA2L1 project 
+ *
+ * This file is part of EKA2L1 project
  * (see bentokun.github.com/EKA2L1).
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -178,12 +178,12 @@ namespace eka2l1::kernel {
         /*! \brief Create a new codeseg
          *
          * code_load_addr and data_load_addr will be replace with load address.
-         * 
+         *
          * Ideally, apps can use this to create a code portion that will resides in RAM code address.
          * Don't pass relocation table, export table, and import table, no data size and only code base with random numbers.
-         * UID should be unique too, which you can choose any numbers that is far from 0x20000000 (UID0). After that, call 
+         * UID should be unique too, which you can choose any numbers that is far from 0x20000000 (UID0). After that, call
          * CodesegCreate and the code_addr should be return for you.
-        */
+         */
         explicit codeseg(kernel_system *kern, const std::string &name,
             codeseg_create_info &info);
 
@@ -195,10 +195,10 @@ namespace eka2l1::kernel {
 
         /**
          * @brief  Directly add an entry point to list of future entry point.
-         * 
+         *
          * This call forces an entry point to get in query list despite not being a dependency of this
          * codeseg. Used in EKA1 ROM Image.
-         * 
+         *
          * @param   addr      Entry point address.
          * @returns True on success.
          */
@@ -216,11 +216,11 @@ namespace eka2l1::kernel {
         void deref(kernel::thread *foe_thread);
 
         /*! \brief Add new dependency.
-        */
+         */
         bool add_dependency(const codeseg_dependency_info &codeseg);
 
         /*! \brief Lookup for export.
-        */
+         */
         address lookup(kernel::process *pr, const std::uint32_t ord);
         address lookup_no_relocate(const std::uint32_t ord);
 
@@ -289,7 +289,7 @@ namespace eka2l1::kernel {
             return export_table;
         }
 
-        std::vector<kernel::process*> attached_processes() const;
+        std::vector<kernel::process *> attached_processes() const;
         std::uint32_t get_hash();
 
         // Use for patching
